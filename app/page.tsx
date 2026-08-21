@@ -41,7 +41,7 @@ export default function Home() {
         </nav>
         <div className="sidebarBottom">
           <a className="navItem" href="#help"><span>?</span> Help & support</a>
-          <a className="navItem" href="/signout-with-chatgpt?return_to=%2Flogin"><span>↪</span> Sign out</a>
+          <a className="navItem" href="/login"><span>↪</span> Sign out</a>
           <div className="profile"><div className="avatar">SG</div><div><strong>Sanyam G.</strong><small>Client workspace</small></div><button aria-label="Profile menu">•••</button></div>
         </div>
       </aside>
@@ -68,13 +68,14 @@ export default function Home() {
           </div>
         </section>
       </section>
-      {showWizard && <div className="modalBackdrop" role="presentation" onMouseDown={() => setShowWizard(false)}>
-        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title" onMouseDown={(event) => event.stopPropagation()}>
+      {showWizard && <div className="modalBackdrop">
+        <button className="modalDismiss" onClick={() => setShowWizard(false)} aria-label="Close campaign setup" />
+        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
           <button className="close" onClick={() => setShowWizard(false)} aria-label="Close campaign setup">×</button>
           {!submitted ? <>
             <div className="stepper"><span className={step >= 1 ? "done" : ""}>1</span><i/><span className={step >= 2 ? "done" : ""}>2</span><i/><span className={step >= 3 ? "done" : ""}>3</span></div>
             {step === 1 && <div className="modalBody"><p className="eyebrow">STEP 1 OF 3 · CAMPAIGN BRIEF</p><h2 id="wizard-title">What are we building?</h2><p className="modalIntro">Give our team the context we need to shape your outreach.</p>
-              <label>Campaign name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. India SaaS founders — September" autoFocus/></label>
+              <label>Campaign name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. India SaaS founders — September"/></label>
               <label>Primary goal<select value={form.goal} onChange={(e) => update("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
               <label>Your offer or value proposition<textarea value={form.offer} onChange={(e) => update("offer", e.target.value)} placeholder="What makes this conversation valuable for the recipient?" rows={3}/></label>
             </div>}
