@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 const initialCampaigns = [
   { name: "India SaaS Founders", audience: "248 leads", status: "Live", progress: 68 },
@@ -33,7 +34,7 @@ export default function Home() {
   return (
     <main className="shell">
       <aside className="sidebar">
-        <div className="brand"><span className="brandMark">m</span><span>myntmore</span></div>
+        <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
         <nav aria-label="Main navigation">
           <a className="navItem active" href="#campaigns"><span>◫</span> Campaigns</a>
           <a className="navItem" href="#leads"><span>♙</span> Lead lists</a>
