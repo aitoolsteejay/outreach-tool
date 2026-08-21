@@ -112,3 +112,34 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 .sidebar .navItem.active span{color:var(--amber)}
 .sidebar .profile{border-color:var(--border)}
 .sidebar .profile small,.sidebar .profile button{color:var(--taupe)}
+
+/* Refined admin operations workspace */
+.adminShell{grid-template-columns:252px 1fr}
+.adminShell .sidebar{padding:30px 20px 22px}
+.adminShell .sidebar .brandAsset{width:148px;margin:0 0 30px;padding:0 8px}
+.adminShell .content{padding-inline:clamp(28px,3.4vw,54px);background:#F8F6F2}
+.adminShell .topbar{height:106px}
+.adminShell .topbar h1{font-size:30px}
+.adminShell .topbar .primary{padding:13px 17px}
+.adminWelcome{min-height:250px;display:grid;grid-template-columns:minmax(0,1fr) 270px;align-items:stretch;gap:42px;padding:38px 40px;background:#FEF9EC;border-radius:18px}
+.adminWelcome>div:first-child{display:flex;flex-direction:column;justify-content:center}
+.adminWelcome h2{font-size:40px;line-height:1;letter-spacing:-2px;margin-bottom:15px}
+.adminWelcome p:not(.eyebrow){margin-bottom:0;max-width:590px}
+.adminHeroAside{align-self:stretch;padding:22px 24px;background:#fff;border:1px solid #EFE4CA;border-radius:14px;display:flex;flex-direction:column;justify-content:center}
+.adminHeroAside>p{margin:0 0 11px;color:var(--taupe);font-size:9px;font-weight:850;letter-spacing:.13em}
+.adminHeroAside>div{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
+.adminHeroAside span{color:var(--body);font-size:11px}
+.adminHeroAside strong{font-size:18px;letter-spacing:-.5px}
+.adminShell .stats{margin:14px 0;gap:12px}
+.adminShell .stats>div{min-height:112px;padding:21px 23px;display:flex;flex-direction:column;align-items:flex-start}
+.adminShell .stats span{margin-bottom:10px}
+.adminShell .stats strong{font-size:31px}
+.adminShell .stats small{margin-top:auto;align-self:flex-end}
+.adminShell .campaignSection{border-radius:18px;min-height:310px}
+.adminShell .sectionHeading{padding:24px 27px 20px}
+.emptyCampaigns{min-height:228px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:38px 28px}
+.emptyIcon{width:42px;height:42px;margin-bottom:15px;display:grid;place-items:center;border-radius:50%;background:#FEF9EC;color:var(--amber);font-size:20px}
+.emptyCampaigns .primary{margin-top:1px;padding:11px 15px}
+@media(max-width:1050px){.adminWelcome{grid-template-columns:1fr}.adminHeroAside{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.adminHeroAside>p{grid-column:1/-1}.adminHeroAside>div{display:block}.adminHeroAside strong{display:block;margin-top:6px}.adminShell{grid-template-columns:220px 1fr}}
+@media(max-width:900px){.adminShell{grid-template-columns:76px 1fr}.adminShell .sidebar .brandAsset{width:56px;padding:4px;margin-inline:auto}.adminWelcome{padding:32px}.adminWelcome h2{font-size:36px}}
+@media(max-width:640px){.adminShell{display:block}.adminShell .sidebar{height:66px;padding:10px 18px}.adminShell .sidebar .brandAsset{width:105px;margin:0;padding:0}.adminShell .content{padding-inline:16px}.adminShell .topbar{height:92px}.adminShell .topbar .primary{font-size:0;padding:12px}.adminShell .topbar .primary:after{content:"+ Client";font-size:12px}.adminWelcome{grid-template-columns:1fr;padding:28px 24px}.adminHeroAside{grid-template-columns:1fr 1fr 1fr;padding:18px}.adminWelcome h2{font-size:32px}.adminShell .stats{grid-template-columns:1fr}.adminShell .stats>div{min-height:96px}.emptyCampaigns{min-height:240px}}
