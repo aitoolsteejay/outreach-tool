@@ -4,14 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
-const initialCampaigns = [
-  { name: "India SaaS Founders", audience: "248 leads", status: "Live", progress: 68 },
-  { name: "D2C Growth Leaders", audience: "184 leads", status: "In setup", progress: 32 },
-  { name: "Fintech Partnerships", audience: "96 leads", status: "Draft", progress: 8 },
-];
+type Campaign = { name: string; audience: string; status: string; progress: number; client?: string };
 
 export default function Home() {
-  const [campaigns, setCampaigns] = useState(initialCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -33,9 +30,13 @@ export default function Home() {
       if (!data.user) { window.location.replace("/login"); return; }
       setUserId(data.user.id);
       const { data: profileRow } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).single();
-      if (profileRow) setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
-      const { data: rows } = await supabase.schema("outreach").from("campaigns").select("name,lead_count,status,progress").order("created_at", { ascending: false });
-      if (rows?.length) setCampaigns(rows.map((row) => ({ name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress })));
+      if (!profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
+      setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
+      const { data: rows } = await supabase.schema("outreach").from("campaigns").select("name,lead_count,status,progress,client_id").order("created_at", { ascending: false });
+      const clients = profileRow.role === "admin" ? await supabase.schema("outreach").from("profiles").select("id,full_name,email").eq("role", "client") : { data: [] };
+      const clientNames = new Map((clients.data || []).map((client) => [client.id, client.full_name || client.email]));
+      setCampaigns((rows || []).map((row) => ({ name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id) })));
+      setWorkspaceLoading(false);
     });
   }, []);
   function openWizard() { setStep(1); setSubmitted(false); setShowWizard(true); }
@@ -69,16 +70,14 @@ export default function Home() {
     if (!response.ok) { setUserError(result.error || "Unable to create the user."); setUserLoading(false); return; }
     setUserCreated(result.existing ? `${result.email} already had a Myntmore login and now has access to Outreach. Their existing password is unchanged.` : `${result.email} can now sign in with the temporary password.`); setUserForm({ fullName: "", email: "", password: "" }); setUserLoading(false);
   }
+  const isAdmin = profile.role === "admin";
+  const activeCampaigns = campaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
+  const totalLeads = campaigns.reduce((sum, campaign) => sum + (Number.parseInt(campaign.audience) || 0), 0);
   return (
     <main className="shell">
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">
-          <a className="navItem active" href="#campaigns"><span>◫</span> Campaigns</a>
-          <a className="navItem" href="#leads"><span>♙</span> Lead lists</a>
-          <a className="navItem" href="#templates"><span>◇</span> Templates</a>
-          {profile.role === "admin" && <button className="navItem navButton" onClick={() => setShowUserSetup(true)}><span>＋</span> User accounts</button>}
-        </nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><a className="navItem active" href="#campaigns"><span>◫</span> Campaign operations</a><button className="navItem navButton" onClick={() => setShowUserSetup(true)}><span>＋</span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span>◫</span> Campaigns</a><a className="navItem" href="#leads"><span>♙</span> Lead lists</a><a className="navItem" href="#templates"><span>◇</span> Templates</a></>}</nav>
         <div className="sidebarBottom">
           <a className="navItem" href="#help"><span>?</span> Help & support</a>
           <button className="navItem navButton" onClick={signOut}><span>↪</span> Sign out</button>
@@ -87,23 +86,22 @@ export default function Home() {
       </aside>
 
       <section className="content" id="campaigns">
-        <header className="topbar"><div><p className="eyebrow">OUTREACH WORKSPACE</p><h1>Campaigns</h1></div><button className="primary" onClick={openWizard}>＋ New campaign</button></header>
-        <section className="welcome">
-          <div><p className="eyebrow dark">OUTREACH, MANAGED</p><h2>Turn lead lists into<br/>real conversations.</h2><p>Share the right people and your point of view. We’ll handle campaign setup, execution, and reporting.</p><button className="lightButton" onClick={openWizard}>Start a campaign <span>→</span></button></div>
-        </section>
+        <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? "Operations" : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
+        <section className={`welcome ${isAdmin ? "adminWelcome" : ""}`}><div><p className="eyebrow dark">{isAdmin ? "MYNTMORE TEAM" : "OUTREACH, MANAGED"}</p><h2>{isAdmin ? <>Client campaigns,<br/>in one clear queue.</> : <>Turn lead lists into<br/>real conversations.</>}</h2><p>{isAdmin ? "Review new submissions, coordinate campaign setup, and manage who can access the portal." : "Share the right people and your point of view. We’ll handle campaign setup, execution, and reporting."}</p>{!isAdmin && <button className="lightButton" onClick={openWizard}>Start a campaign <span>→</span></button>}</div></section>
         <section className="stats" aria-label="Campaign summary">
-          <div className="statYellow"><span>Active campaigns</span><strong>2</strong><small><b>↑ 1</b> this month</small></div>
-          <div className="statPurple"><span>Total leads</span><strong>528</strong><small>Across all campaigns</small></div>
-          <div className="statGreen"><span>Reply rate</span><strong>18.4%</strong><small><b>↑ 3.2%</b> vs last month</small></div>
+          <div className="statYellow"><span>Active campaigns</span><strong>{workspaceLoading ? "—" : activeCampaigns}</strong><small>{isAdmin ? "Across all clients" : "In your workspace"}</small></div>
+          <div className="statPurple"><span>Total leads</span><strong>{workspaceLoading ? "—" : totalLeads}</strong><small>Across submitted campaigns</small></div>
+          <div className="statGreen"><span>{isAdmin ? "Client accounts" : "Campaigns submitted"}</span><strong>{workspaceLoading ? "—" : isAdmin ? new Set(campaigns.map((campaign) => campaign.client).filter(Boolean)).size : campaigns.length}</strong><small>{isAdmin ? "With campaign activity" : "All time"}</small></div>
         </section>
         <section className="campaignSection">
-          <div className="sectionHeading"><div><h3>Your campaigns</h3><p>Track every campaign from brief to replies.</p></div><button className="filter">All campaigns⌄</button></div>
+          <div className="sectionHeading"><div><h3>{isAdmin ? "Campaign queue" : "Your campaigns"}</h3><p>{isAdmin ? "Real submissions from Outreach clients." : "Track every campaign from brief to replies."}</p></div><button className="filter">All campaigns⌄</button></div>
           <div className="campaignList">
             {campaigns.map((campaign) => <article className="campaign" key={campaign.name}>
-              <div className="campaignIcon">↗</div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.audience} · LinkedIn outreach</span></div>
+              <div className="campaignIcon">↗</div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience} · LinkedIn outreach</span></div>
               <div className="progress"><div><span>Campaign progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width: `${campaign.progress}%`}}/></div></div>
               <span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}>•••</button>
             </article>)}
+            {!workspaceLoading && campaigns.length === 0 && <div className="emptyCampaigns"><strong>{isAdmin ? "No client submissions yet." : "No campaigns yet."}</strong><p>{isAdmin ? "New campaigns will appear here as clients submit their briefs." : "Create your first campaign when your lead list and messaging direction are ready."}</p>{!isAdmin && <button className="primary" onClick={openWizard}>Create campaign</button>}</div>}
           </div>
         </section>
       </section>
