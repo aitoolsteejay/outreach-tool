@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 const initialCampaigns = [
   { name: "India SaaS Founders", audience: "248 leads", status: "Live", progress: 68 },
@@ -15,9 +16,20 @@ export default function Home() {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [leadFile, setLeadFile] = useState<File | null>(null);
+  const [userId, setUserId] = useState("");
   const [form, setForm] = useState({ name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "" });
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) { window.location.replace("/login"); return; }
+      setUserId(data.user.id);
+      const { data: rows } = await supabase.schema("outreach").from("campaigns").select("name,lead_count,status,progress").order("created_at", { ascending: false });
+      if (rows?.length) setCampaigns(rows.map((row) => ({ name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress })));
+    });
+  }, []);
   function openWizard() { setStep(1); setSubmitted(false); setShowWizard(true); }
   function downloadTemplate() {
     const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority lead\n";
@@ -27,10 +39,20 @@ export default function Home() {
     link.click();
     URL.revokeObjectURL(link.href);
   }
-  function submitCampaign() {
-    setCampaigns((current) => [{ name: form.name || "Untitled campaign", audience: fileName ? "CSV uploaded" : "Leads pending", status: "In review", progress: 15 }, ...current]);
+  async function submitCampaign() {
+    if (!userId) return;
+    const supabase = createClient();
+    const { data: campaign, error } = await supabase.schema("outreach").from("campaigns").insert({ client_id: userId, name: form.name || "Untitled campaign", goal: form.goal, offer: form.offer, tone: form.tone, messaging_strategy: form.message, status: "submitted", progress: 15, submitted_at: new Date().toISOString() }).select("id").single();
+    if (error || !campaign) return;
+    if (leadFile) {
+      const storagePath = `${userId}/${campaign.id}/${leadFile.name}`;
+      const { error: uploadError } = await supabase.storage.from("outreach-leads").upload(storagePath, leadFile);
+      if (!uploadError) await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaign.id, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
+    }
+    setCampaigns((current) => [{ name: form.name || "Untitled campaign", audience: fileName ? "CSV uploaded" : "Leads pending", status: "Submitted", progress: 15 }, ...current]);
     setSubmitted(true);
   }
+  async function signOut() { await createClient().auth.signOut(); window.location.assign("/login"); }
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -42,7 +64,7 @@ export default function Home() {
         </nav>
         <div className="sidebarBottom">
           <a className="navItem" href="#help"><span>?</span> Help & support</a>
-          <a className="navItem" href="/login"><span>↪</span> Sign out</a>
+          <button className="navItem navButton" onClick={signOut}><span>↪</span> Sign out</button>
           <div className="profile"><div className="avatar">SG</div><div><strong>Sanyam G.</strong><small>Client workspace</small></div><button aria-label="Profile menu">•••</button></div>
         </div>
       </aside>
@@ -82,7 +104,7 @@ export default function Home() {
             </div>}
             {step === 2 && <div className="modalBody"><p className="eyebrow">STEP 2 OF 3 · LEAD LIST</p><h2 id="wizard-title">Add the right people.</h2><p className="modalIntro">Use our template so your campaign can move into setup without delays.</p>
               <div className="templateCard"><div><strong>Myntmore lead template</strong><small>Includes the exact columns our team needs.</small></div><button onClick={downloadTemplate}>↓ Download CSV</button></div>
-              <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => setFileName(e.target.files?.[0]?.name || "")}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Ready for review" : "or click to choose a file · CSV up to 10 MB"}</small></label>
+              <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => { const file = e.target.files?.[0] || null; setLeadFile(file); setFileName(file?.name || ""); }}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Ready for review" : "or click to choose a file · CSV up to 10 MB"}</small></label>
             </div>}
             {step === 3 && <div className="modalBody"><p className="eyebrow">STEP 3 OF 3 · MESSAGING</p><h2 id="wizard-title">Set the conversation strategy.</h2><p className="modalIntro">We’ll use this direction to write and configure your Waalaxy sequence.</p>
               <label>Voice and tone<input value={form.tone} onChange={(e) => update("tone", e.target.value)}/></label>
