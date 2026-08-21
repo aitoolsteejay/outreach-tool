@@ -67,7 +67,7 @@ export default function Home() {
     const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionData.session?.access_token || ""}` }, body: JSON.stringify(userForm) });
     const result = await response.json();
     if (!response.ok) { setUserError(result.error || "Unable to create the user."); setUserLoading(false); return; }
-    setUserCreated(`${result.email} can now sign in.`); setUserForm({ fullName: "", email: "", password: "" }); setUserLoading(false);
+    setUserCreated(result.existing ? `${result.email} already had a Myntmore login and now has access to Outreach. Their existing password is unchanged.` : `${result.email} can now sign in with the temporary password.`); setUserForm({ fullName: "", email: "", password: "" }); setUserLoading(false);
   }
   return (
     <main className="shell">

@@ -19,14 +19,19 @@ export async function POST(request: Request) {
     if (!email || !password || password.length < 8) {
       return NextResponse.json({ error: "Use a valid email and a password with at least 8 characters." }, { status: 400 });
     }
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: fullName?.trim() || email.split("@")[0] },
-    });
-    if (error) throw error;
-    return NextResponse.json({ id: data.user.id, email: data.user.email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: usersPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listError) throw listError;
+    const existingUser = usersPage.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail);
+    let userId = existingUser?.id;
+    if (!userId) {
+      const { data, error } = await admin.auth.admin.createUser({ email: normalizedEmail, password, email_confirm: true, user_metadata: { full_name: fullName?.trim() || normalizedEmail.split("@")[0] } });
+      if (error) throw error;
+      userId = data.user.id;
+    }
+    const { error: profileError } = await admin.schema("outreach").from("profiles").upsert({ id: userId, email: normalizedEmail, full_name: fullName?.trim() || normalizedEmail.split("@")[0], role: "client" });
+    if (profileError) throw profileError;
+    return NextResponse.json({ id: userId, email: normalizedEmail, existing: Boolean(existingUser) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create the user account.";
     return NextResponse.json({ error: message }, { status: 500 });

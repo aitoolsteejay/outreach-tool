@@ -25,8 +25,11 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setError("");
-    const { error: signInError } = await createClient().auth.signInWithPassword({ email, password });
+    const supabase = createClient();
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) { setError(signInError.message); setLoading(false); return; }
+    const { data: membership } = await supabase.schema("outreach").from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+    if (!membership) { await supabase.auth.signOut(); setError("This account does not have access to the Myntmore Outreach portal."); setLoading(false); return; }
     window.location.assign("/");
   }
 
