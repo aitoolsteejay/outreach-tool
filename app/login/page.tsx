@@ -19,12 +19,12 @@ export default function LoginPage() {
     window.location.assign("/");
   }
 
-  return <main className="loginPage">
+  return <main className="loginPage"><div className="loginShell">
     <section className="loginBrand">
-      <div className="brand loginLogo brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-      <div><p className="eyebrow">CLIENT OUTREACH PORTAL</p><h1>Outreach that feels<br/><span className="handUnderline">considered,</span> not cold.</h1><p>Brief campaigns, share your lead lists, and follow every step from setup to replies.</p><span className="loginNote">built by people, for people ↗</span></div>
+      <div className="portalTag"><span>●</span> MYNTMORE / OUTREACH</div>
+      <div className="loginStory"><p className="eyebrow">A CALMER WAY TO GROW</p><h1>Outreach that feels <span>considered.</span></h1><p>Bring us your audience and point of view. We’ll turn them into conversations worth having.</p><div className="proofRow"><strong>12,000+</strong><span>meetings booked<br/>for ambitious teams</span></div></div>
       <small>STRATEGY · EXECUTION · REPORTING</small>
     </section>
-    <section className="loginPanel"><div className="loginCard"><p className="eyebrow">WELCOME TO MYNTMORE</p><h2>Sign in to your workspace</h2><p>Access your campaigns, lead lists, messaging briefs, and performance updates.</p><form className="loginForm" onSubmit={signIn}><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" required autoComplete="email"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" required autoComplete="current-password"/></label>{error && <p className="formError" role="alert">{error}</p>}<button className="loginButton" type="submit" disabled={loading}><span>✦</span>{loading ? "Signing in…" : "Sign in"}</button></form><div className="secureNote"><span>✓</span><p><strong>Private client workspace</strong><br/>Campaign data is protected by account-level access controls.</p></div></div></section>
-  </main>;
+    <section className="loginPanel"><div className="loginCard"><div className="loginLogo"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div><p className="eyebrow">CLIENT PORTAL</p><h2>Welcome back.</h2><p>Sign in to manage your campaigns, lead lists, and performance updates.</p><form className="loginForm" onSubmit={signIn}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" required autoComplete="email"/></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required autoComplete="current-password"/></label>{error && <p className="formError" role="alert">{error}</p>}<button className="loginButton" type="submit" disabled={loading}>{loading ? "Signing in…" : "Sign in to workspace"}<span>→</span></button></form><div className="secureNote"><span>✓</span><p><strong>Private by design</strong><br/>Your campaign data is only visible to your team and Myntmore.</p></div></div></section>
+  </div></main>;
 }
