@@ -61,3 +61,39 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 @media(max-width:960px){.loginPage{padding:20px;background:#F8F6F2}.loginShell{min-height:0;border:1px solid var(--border);border-radius:18px}.loginPanel{min-height:0;padding:42px 38px}.loginLogo{width:104px}}
 @media(max-width:640px){.welcome{padding:32px 25px}.welcome h2{font-size:33px;letter-spacing:-1.3px}.loginPage{padding:0;background:#fff}.loginShell{width:100%;border:0;border-radius:0}.loginPanel{min-height:100vh;padding:32px 24px;align-items:center}.loginCard h2{font-size:32px}.loginLogo{width:92px;margin-bottom:34px}}
 .loginPage{grid-template-columns:1fr}
+
+/* Client portal landing page */
+.landingPage{min-height:100vh;background:var(--cream);color:var(--ink);padding:0 clamp(28px,5vw,76px);display:flex;flex-direction:column}
+.landingNav,.landingMain,.landingFooter{width:min(1240px,100%);margin-inline:auto}
+.landingNav{height:104px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.landingNav img{display:block;width:102px;height:auto}
+.landingNav span{color:var(--taupe);font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
+.landingMain{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:clamp(52px,7vw,104px);align-items:center;padding:74px 0 68px}
+.landingHero{max-width:750px}
+.landingBadge{display:inline-flex;align-items:center;gap:8px;margin:0 0 27px;color:var(--body);font-size:11px;font-weight:850;letter-spacing:.14em}
+.landingBadge span{color:var(--gold);font-size:15px;line-height:0}
+.landingHero h1{margin:0;max-width:780px;font-size:clamp(54px,5.7vw,82px);line-height:.97;letter-spacing:-.065em;font-weight:950}
+.landingHero h1 em{color:var(--amber);font-style:normal}
+.landingCopy{max-width:650px;margin:28px 0 40px;color:var(--body);font-size:16px;line-height:1.7}
+.landingStats{display:grid;grid-template-columns:repeat(3,1fr);max-width:660px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.landingStats div{padding:22px 22px 22px 0}
+.landingStats div+div{padding-left:22px;border-left:1px solid var(--border)}
+.landingStats strong,.landingStats span{display:block}
+.landingStats strong{font-size:25px;line-height:1;font-weight:900;letter-spacing:-.04em}
+.landingStats span{margin-top:8px;color:var(--taupe);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.landingSteps{display:flex;align-items:center;gap:18px;margin-top:32px}
+.landingSteps div{display:flex;align-items:center;gap:10px}
+.landingSteps b{color:var(--amber);font-size:10px;letter-spacing:.08em}
+.landingSteps span{color:var(--body);font-size:11px;line-height:1.35;font-weight:650}
+.landingSteps i{color:#C9C0B4;font-size:14px;font-style:normal}
+.loginAside{width:100%;background:#fff;border:1px solid var(--border);border-radius:20px;padding:42px 40px}
+.loginAside .loginCard{width:100%;max-width:none;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.loginAside .loginCard>.eyebrow{margin-bottom:13px;color:var(--taupe)}
+.loginAside .loginCard h2{margin-bottom:12px;font-size:34px;letter-spacing:-.05em}
+.loginAside .loginCard>p:not(.eyebrow){margin-bottom:27px;color:var(--body);font-size:13px;line-height:1.55}
+.loginAside .loginForm input{height:49px;background:#fff}
+.loginAside .loginButton{min-height:50px;justify-content:space-between;padding-inline:18px}
+.loginAside .secureNote{margin-top:25px}
+.landingFooter{height:72px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);color:var(--taupe);font-size:10px;letter-spacing:.09em;text-transform:uppercase}
+@media(max-width:960px){.landingPage{padding-inline:28px}.landingMain{grid-template-columns:1fr;padding:60px 0;gap:52px}.landingHero{max-width:760px}.landingHero h1{font-size:clamp(52px,8vw,72px)}.loginAside{max-width:520px}.landingFooter{margin-top:10px}}
+@media(max-width:640px){.landingPage{padding-inline:20px}.landingNav{height:82px}.landingNav img{width:88px}.landingNav span{font-size:9px}.landingMain{padding:46px 0 42px;gap:42px}.landingBadge{margin-bottom:22px;font-size:9px}.landingHero h1{font-size:clamp(42px,12.5vw,58px);letter-spacing:-.06em}.landingCopy{margin:24px 0 32px;font-size:14px}.landingStats{grid-template-columns:1fr}.landingStats div{padding:16px 0}.landingStats div+div{padding-left:0;border-left:0;border-top:1px solid var(--border)}.landingStats div{display:flex;align-items:center;justify-content:space-between}.landingStats span{margin-top:0}.landingSteps{gap:10px;justify-content:space-between}.landingSteps div{display:block}.landingSteps span{display:block;margin-top:5px}.loginAside{padding:32px 24px;border-radius:16px}.loginAside .loginCard h2{font-size:31px}.landingFooter{height:80px;gap:20px}.landingFooter span:last-child{text-align:right}}
