@@ -101,3 +101,14 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 .accountModal{width:min(470px,100%)}.accountModal .modalBody{padding:40px}.accountModal .loginForm input{height:48px;margin-top:7px}.accountModal .loginButton{border:0;min-height:50px;margin-top:5px;justify-content:space-between;padding-inline:18px}.formSuccess{margin:0!important;padding:10px 12px;border-radius:9px;background:#effaf3;color:#267047!important;font-size:11px!important;font-weight:700}
 @media(max-width:640px){.accountModal .modalBody{padding:34px 24px}}
 .adminWelcome{min-height:235px;background:#FEF9EC}.adminWelcome h2{max-width:760px}.emptyCampaigns{padding:54px 28px;text-align:center;border-top:1px solid var(--border)}.emptyCampaigns strong{display:block;font-size:17px}.emptyCampaigns p{margin:9px auto 20px;max-width:480px;color:var(--taupe);font-size:12px;line-height:1.6}
+
+/* Light workspace navigation */
+.sidebar{background:#fff;color:var(--ink);border-right:1px solid var(--border)}
+.sidebar .brandAsset{width:165px;padding:0 10px;background:transparent;border-radius:0;box-shadow:none}
+.sidebar .navItem{color:var(--body)}
+.sidebar .navItem span{color:var(--taupe)}
+.sidebar .navItem:hover{background:#F8F6F2;color:var(--ink)}
+.sidebar .navItem.active{background:#FEF9EC;color:var(--ink);box-shadow:inset 3px 0 0 var(--gold)}
+.sidebar .navItem.active span{color:var(--amber)}
+.sidebar .profile{border-color:var(--border)}
+.sidebar .profile small,.sidebar .profile button{color:var(--taupe)}
