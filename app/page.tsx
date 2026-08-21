@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
@@ -18,6 +18,12 @@ export default function Home() {
   const [fileName, setFileName] = useState("");
   const [leadFile, setLeadFile] = useState<File | null>(null);
   const [userId, setUserId] = useState("");
+  const [profile, setProfile] = useState({ fullName: "", email: "", role: "client" });
+  const [showUserSetup, setShowUserSetup] = useState(false);
+  const [userForm, setUserForm] = useState({ fullName: "", email: "", password: "" });
+  const [userError, setUserError] = useState("");
+  const [userCreated, setUserCreated] = useState("");
+  const [userLoading, setUserLoading] = useState(false);
   const [form, setForm] = useState({ name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "" });
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
@@ -26,6 +32,8 @@ export default function Home() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.replace("/login"); return; }
       setUserId(data.user.id);
+      const { data: profileRow } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).single();
+      if (profileRow) setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
       const { data: rows } = await supabase.schema("outreach").from("campaigns").select("name,lead_count,status,progress").order("created_at", { ascending: false });
       if (rows?.length) setCampaigns(rows.map((row) => ({ name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress })));
     });
@@ -53,6 +61,14 @@ export default function Home() {
     setSubmitted(true);
   }
   async function signOut() { await createClient().auth.signOut(); window.location.assign("/login"); }
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setUserLoading(true); setUserError(""); setUserCreated("");
+    const { data: sessionData } = await createClient().auth.getSession();
+    const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionData.session?.access_token || ""}` }, body: JSON.stringify(userForm) });
+    const result = await response.json();
+    if (!response.ok) { setUserError(result.error || "Unable to create the user."); setUserLoading(false); return; }
+    setUserCreated(`${result.email} can now sign in.`); setUserForm({ fullName: "", email: "", password: "" }); setUserLoading(false);
+  }
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -61,11 +77,12 @@ export default function Home() {
           <a className="navItem active" href="#campaigns"><span>◫</span> Campaigns</a>
           <a className="navItem" href="#leads"><span>♙</span> Lead lists</a>
           <a className="navItem" href="#templates"><span>◇</span> Templates</a>
+          {profile.role === "admin" && <button className="navItem navButton" onClick={() => setShowUserSetup(true)}><span>＋</span> User accounts</button>}
         </nav>
         <div className="sidebarBottom">
           <a className="navItem" href="#help"><span>?</span> Help & support</a>
           <button className="navItem navButton" onClick={signOut}><span>↪</span> Sign out</button>
-          <div className="profile"><div className="avatar">SG</div><div><strong>Sanyam G.</strong><small>Client workspace</small></div><button aria-label="Profile menu">•••</button></div>
+          <div className="profile"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><small>{profile.role === "admin" ? "Admin workspace" : "Client workspace"}</small></div><button aria-label="Profile menu">•••</button></div>
         </div>
       </aside>
 
@@ -114,6 +131,7 @@ export default function Home() {
           </> : <div className="success"><div className="successIcon">✓</div><p className="eyebrow">CAMPAIGN RECEIVED</p><h2 id="wizard-title">It’s with the Myntmore team.</h2><p>We’ll review your leads and messaging, configure the sequence in Waalaxy, and update the status here. You’ll see progress within one business day.</p><button className="primary" onClick={() => setShowWizard(false)}>Back to campaigns</button></div>}
         </section>
       </div>}
+      {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a client login.</h2><p className="modalIntro">The account is confirmed immediately. Share these credentials securely with your client.</p><form className="loginForm" onSubmit={createUser}><label>Client name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Client or company name" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder="client@company.com" required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : "Create client account"}<span>→</span></button></form></div></section></div>}
     </main>
   );
 }

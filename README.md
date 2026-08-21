@@ -20,9 +20,7 @@ npm start
 
 ## Deploy to Vercel
 
-Import `aitoolsteejay/outreach-tool` in Vercel and keep the detected framework as Next.js. No environment variables are required for the current frontend preview.
-
-Before inviting clients, connect production authentication, database persistence, and private CSV storage. Supabase is the recommended all-in-one option for those capabilities.
+Import `aitoolsteejay/outreach-tool` in Vercel and keep the detected framework as Next.js. Configure the variables listed in `.env.example`; keep `SUPABASE_SERVICE_ROLE_KEY` server-only.
 
 ## Current scope
 
@@ -30,7 +28,7 @@ Before inviting clients, connect production authentication, database persistence
 - Campaign creation wizard
 - Downloadable lead CSV template
 - Messaging strategy intake
-- Login and sign-out interface
+- Login, one-time admin bootstrap, and sign-out interface
+- Admin-only client account creation
 - Campaign status presentation
-
-Campaigns and uploaded files are currently held only in browser memory and are not persisted.
+- Supabase persistence and private CSV storage
