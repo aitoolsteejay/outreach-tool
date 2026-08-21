@@ -41,6 +41,7 @@ export default function Home() {
         </nav>
         <div className="sidebarBottom">
           <a className="navItem" href="#help"><span>?</span> Help & support</a>
+          <a className="navItem" href="/signout-with-chatgpt?return_to=%2Flogin"><span>↪</span> Sign out</a>
           <div className="profile"><div className="avatar">SG</div><div><strong>Sanyam G.</strong><small>Client workspace</small></div><button aria-label="Profile menu">•••</button></div>
         </div>
       </aside>
