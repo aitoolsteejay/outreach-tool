@@ -72,8 +72,7 @@ export default function Home() {
       <section className="content" id="campaigns">
         <header className="topbar"><div><p className="eyebrow">OUTREACH WORKSPACE</p><h1>Campaigns</h1></div><button className="primary" onClick={openWizard}>＋ New campaign</button></header>
         <section className="welcome">
-          <div><p className="eyebrow dark">GOOD MORNING, SANYAM</p><h2>Turn your next lead list<br/>into <span className="handUnderline">real conversations.</span></h2><p>Share the right people and your point of view. We’ll handle the campaign setup, execution, and reporting.</p><button className="lightButton" onClick={openWizard}>Start a campaign <span>→</span></button><span className="handNote">strategy in, meetings out ↗</span></div>
-          <div className="orbit" aria-hidden="true"><div className="orbitRing one"/><div className="orbitRing two"/><div className="orbitDot dot1"/><div className="orbitDot dot2"/><div className="orbitCore">m</div></div>
+          <div><p className="eyebrow dark">OUTREACH, MANAGED</p><h2>Turn lead lists into<br/>real conversations.</h2><p>Share the right people and your point of view. We’ll handle campaign setup, execution, and reporting.</p><button className="lightButton" onClick={openWizard}>Start a campaign <span>→</span></button></div>
         </section>
         <section className="stats" aria-label="Campaign summary">
           <div className="statYellow"><span>Active campaigns</span><strong>2</strong><small><b>↑ 1</b> this month</small></div>
