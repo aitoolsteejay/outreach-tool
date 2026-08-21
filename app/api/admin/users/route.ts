@@ -15,10 +15,11 @@ export async function POST(request: Request) {
     const { data: profile } = await admin.schema("outreach").from("profiles").select("role").eq("id", user.id).single();
     if (profile?.role !== "admin") return NextResponse.json({ error: "Admin access required." }, { status: 403 });
 
-    const { email, password, fullName } = await request.json();
+    const { email, password, fullName, role = "client" } = await request.json();
     if (!email || !password || password.length < 8) {
       return NextResponse.json({ error: "Use a valid email and a password with at least 8 characters." }, { status: 400 });
     }
+    if (!['admin', 'client'].includes(role)) return NextResponse.json({ error: "Invalid account type." }, { status: 400 });
     const normalizedEmail = email.trim().toLowerCase();
     const { data: usersPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listError) throw listError;
@@ -29,9 +30,9 @@ export async function POST(request: Request) {
       if (error) throw error;
       userId = data.user.id;
     }
-    const { error: profileError } = await admin.schema("outreach").from("profiles").upsert({ id: userId, email: normalizedEmail, full_name: fullName?.trim() || normalizedEmail.split("@")[0], role: "client" });
+    const { error: profileError } = await admin.schema("outreach").from("profiles").upsert({ id: userId, email: normalizedEmail, full_name: fullName?.trim() || normalizedEmail.split("@")[0], role });
     if (profileError) throw profileError;
-    return NextResponse.json({ id: userId, email: normalizedEmail, existing: Boolean(existingUser) });
+    return NextResponse.json({ id: userId, email: normalizedEmail, role, existing: Boolean(existingUser) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create the user account.";
     return NextResponse.json({ error: message }, { status: 500 });
