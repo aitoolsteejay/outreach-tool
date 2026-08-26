@@ -163,3 +163,72 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 @media(max-width:760px){.clientSummary{padding-top:20px}.clientSummary h2{font-size:36px}.clientMetrics>div{min-height:96px;padding:16px}.clientGrid{margin-top:12px}.clientAction{display:block}.clientAction>p:not(.eyebrow){margin-top:9px}.clientAction .lightButton{width:100%;margin-top:18px}.clientCampaigns .campaign{grid-template-columns:auto 1fr auto}.clientCampaigns .progress{display:none}}
 .accountType{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0;padding:0;border:0}.accountType legend{margin-bottom:8px;color:#3D3D3D;font-size:11px;font-weight:800}.accountType button{padding:12px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:11px;color:var(--body)}.accountType button.selected{border-color:var(--gold);background:#FEF9EC;box-shadow:0 0 0 3px #f5b73118}.accountType b,.accountType span{display:block}.accountType b{color:var(--ink);font-size:11px}.accountType span{margin-top:4px;color:var(--taupe);font-size:9px;line-height:1.35}
 .sequenceBuilder{padding-bottom:28px}.sequenceBuilder label{position:relative}.fieldHint{float:right;color:var(--taupe);font-size:9px;font-weight:600}.placeholderRow{display:flex;align-items:center;gap:6px;margin-top:7px}.placeholderRow>span{margin-right:3px;color:var(--taupe);font-size:9px}.placeholderRow button{padding:6px 8px;border:1px solid var(--border);border-radius:99px;background:#fff;color:var(--body);font-size:9px;font-weight:700}.placeholderRow button:hover{border-color:var(--gold);background:#FEF9EC;color:var(--ink)}.followUpChoice{display:flex;align-items:center;gap:7px;margin:19px 0 4px;padding:0;border:0}.followUpChoice legend{float:left;margin-right:12px;color:#3D3D3D;font-size:11px;font-weight:750}.followUpChoice button{width:31px;height:31px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--body);font-size:10px;font-weight:800}.followUpChoice button.selected{border-color:var(--gold);background:var(--gold);color:#0a0a0a}.followUpField{margin-top:15px;padding:15px;border:1px solid var(--border);border-radius:13px;background:#FBFAF8}.followUpField label{margin-top:0}.followUpField textarea{background:#fff}.sequenceBuilder .reviewStrip{margin-top:22px}
+
+/* Client workspace — gauge dashboard in Myntmore colors */
+.clientHero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:22px 0 26px;border-bottom:1px solid var(--border)}
+.clientHero h2{margin:8px 0 10px;font-size:34px;line-height:1.05;letter-spacing:-1.6px;font-weight:900}
+.clientHero p:not(.eyebrow){margin:0;max-width:480px;color:var(--body);font-size:13px;line-height:1.6}
+.clientHeroFilters{display:flex;gap:9px;flex:none}
+.clientHeroFilters .filter,.filter{display:inline-flex;align-items:center;gap:6px}
+.ringCards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;align-items:stretch}
+.ringCard{position:relative;overflow:hidden;border-radius:22px;padding:26px 28px;display:flex;flex-direction:column;justify-content:space-between;gap:18px;box-shadow:0 18px 40px #4e39201a;min-height:172px}
+.ringCard:after{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:-100px;bottom:-120px;pointer-events:none}
+.ringCardGold{background:linear-gradient(135deg,#F7C557,#D97706);color:#0a0a0a}
+.ringCardGold:after{background:radial-gradient(circle,#ffffff5c,transparent 70%)}
+.ringCardInk{background:linear-gradient(135deg,#232323,#000);color:#fff}
+.ringCardInk:after{background:radial-gradient(circle,#F5B73138,transparent 70%)}
+.ringCardHead{position:relative;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:850;letter-spacing:.01em;flex:none}
+.ringCardHead span{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;flex:none}
+.ringCardGold .ringCardHead span{background:#0a0a0a;color:#F5B731}
+.ringCardInk .ringCardHead span{background:#F5B731;color:#0a0a0a}
+.ringCardBody{position:relative;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:nowrap}
+.ringCardCount{min-width:0}
+.ringCardCount strong{display:block;font-size:40px;line-height:1;letter-spacing:-1.7px;font-weight:950}
+.ringCardCount span{display:block;margin-top:9px;font-size:11px;opacity:.8;font-weight:650}
+.ringSide{display:flex;flex-direction:column;align-items:center;gap:10px;flex:none}
+.ringWrap{position:relative;width:96px;height:96px;display:grid;place-items:center;filter:drop-shadow(0 6px 14px #00000022)}
+.ringCenter{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ringCenter b{font-size:19px;font-weight:900;letter-spacing:-.4px}
+.ringCardInk .ringCenter b{color:#fff}
+.ringCaption{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:.8;white-space:nowrap}
+.actionTiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px}
+.actionTiles>div{position:relative;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px 16px 18px 19px;display:flex;flex-direction:column;gap:10px;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.actionTiles>div:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.actionTiles>div:hover{transform:translateY(-2px);box-shadow:0 10px 24px #4e39200f;border-color:#DCD4C8}
+.actionTiles span{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;color:#fff}
+.actionTiles strong{font-size:22px;letter-spacing:-.8px;font-weight:900;color:var(--ink)}
+.actionTiles small{color:var(--taupe);font-size:10px;font-weight:650}
+.tileInk:before{background:#0a0a0a}.tileInk span{background:#0a0a0a}
+.tileGreen:before{background:#1F8F5D}.tileGreen span{background:#1F8F5D}
+.tilePurple:before{background:#8B5CF6}.tilePurple span{background:#8B5CF6}
+.tileGold:before{background:#F5B731}.tileGold span{background:#F5B731;color:#0a0a0a}
+.tileAmber:before{background:#D97706}.tileAmber span{background:#D97706}
+.clientSidebar{display:flex;flex-direction:column;gap:16px}
+.sidebarProfileCard{background:#fff;border:1px solid var(--border);border-radius:17px;padding:24px}
+.sidebarProfileTop{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sidebarProfileCard .avatar{width:46px;height:46px;font-size:14px;margin:0;flex:none}
+.roleChip{padding:5px 10px;border-radius:99px;background:#FEF9EC;color:var(--amber);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.sidebarProfileCard strong{display:block;font-size:15px}
+.sidebarProfileCard span{display:block;margin-top:3px;color:var(--taupe);font-size:11px;word-break:break-all}
+.sidebarProfileStats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.sidebarProfileStats div{text-align:center}
+.sidebarProfileStats b{display:block;font-size:16px;letter-spacing:-.5px}
+.sidebarProfileStats small{display:block;margin-top:3px;color:var(--taupe);font-size:9px;text-transform:uppercase;letter-spacing:.06em}
+@media(max-width:1120px){.ringCards{grid-template-columns:1fr}.actionTiles{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.clientHero{flex-direction:column;align-items:flex-start;gap:14px}.ringCard{padding:22px}.actionTiles{grid-template-columns:repeat(2,1fr)}}
+
+/* Icon alignment for the new SVG icon set */
+.navItem span{display:inline-flex;align-items:center;justify-content:center}
+.profile button{display:inline-flex;align-items:center}
+.more{display:inline-flex;align-items:center;justify-content:center;padding:4px}
+.campaignIcon svg{display:block}
+
+/* Sidebar — fill the dead space between nav and footer with real data */
+.sidebarInsight{margin:22px 2px 0;padding:16px;background:#F8F6F2;border:1px solid var(--border);border-radius:14px}
+.sidebarInsight>p{margin:0 0 10px;color:var(--taupe);font-size:9px;font-weight:850;letter-spacing:.1em}
+.sidebarInsight>div{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+.sidebarInsight>div+div{border-top:1px solid var(--border)}
+.sidebarInsight span{color:var(--body);font-size:11px;font-weight:650}
+.sidebarInsight strong{font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.sidebarBottom{padding-top:16px;border-top:1px solid var(--border)}
+@media(max-width:900px){.sidebarInsight{display:none}}
