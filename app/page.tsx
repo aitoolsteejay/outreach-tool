@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string };
 
+const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
+
 async function countCsvRows(file: File): Promise<number> {
   const text = await file.text();
   const lines = text.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
@@ -67,6 +69,11 @@ export default function Home() {
   const [userLoading, setUserLoading] = useState(false);
   const [form, setForm] = useState({ name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] });
   const [waalaxyModal, setWaalaxyModal] = useState<{ id: string; name: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [campaignStatus, setCampaignStatus] = useState("Submitted");
+  const [campaignProgress, setCampaignProgress] = useState(0);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusError, setStatusError] = useState("");
   const [waalaxyLoading, setWaalaxyLoading] = useState(false);
   const [waalaxyNotConfigured, setWaalaxyNotConfigured] = useState(false);
   const [waalaxyError, setWaalaxyError] = useState("");
@@ -152,6 +159,9 @@ export default function Home() {
   }
   async function openWaalaxyModal(campaign: Campaign) {
     setWaalaxyModal({ id: campaign.id, name: campaign.name });
+    setCampaignStatus(campaign.status);
+    setCampaignProgress(campaign.progress);
+    setStatusError("");
     setWaalaxyError("");
     setWaalaxyNotConfigured(false);
     setWaalaxySyncInfo(null);
@@ -178,6 +188,15 @@ export default function Home() {
       setWaalaxyListsList(listsData.lists || []);
     }
     setWaalaxyLoading(false);
+  }
+  async function saveCampaignStatus() {
+    if (!waalaxyModal) return;
+    setStatusSaving(true);
+    setStatusError("");
+    const { error } = await createClient().schema("outreach").from("campaigns").update({ status: campaignStatus.toLowerCase(), progress: campaignProgress }).eq("id", waalaxyModal.id);
+    if (error) { setStatusError(error.message); setStatusSaving(false); return; }
+    setCampaigns((current) => current.map((campaign) => campaign.id === waalaxyModal.id ? { ...campaign, status: campaignStatus, progress: campaignProgress } : campaign));
+    setStatusSaving(false);
   }
   async function saveWaalaxyLink() {
     if (!waalaxyModal) return;
@@ -208,6 +227,7 @@ export default function Home() {
   const activeRate = campaigns.length ? Math.round((activeCampaigns / campaigns.length) * 100) : 0;
   const liveCount = campaigns.filter((campaign) => campaign.status === "Live").length;
   const inReviewCount = campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length;
+  const visibleCampaigns = statusFilter === "all" ? campaigns : campaigns.filter((campaign) => campaign.status === statusFilter);
   return (
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
@@ -237,7 +257,7 @@ export default function Home() {
         <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? "Operations" : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
         {isAdmin ? <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
-          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><button className="filter">All statuses <Icon name="chevronDown" size={13} /></button></div><div className="campaignList">{campaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Waalaxy sync for ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}</div></section>
+          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
           <section className="clientHero"><div className="clientHeroText"><p className="eyebrow">YOUR OUTREACH</p><h2>Hello {(profile.fullName || profile.email || "there").split(" ")[0]}.</h2><p>Brief the Myntmore team once, then follow every campaign from setup to conversations.</p></div><div className="clientHeroFilters"><button className="filter">All time <Icon name="chevronDown" size={13} /></button><button className="filter">All campaigns <Icon name="chevronDown" size={13} /></button></div></section>
@@ -253,7 +273,7 @@ export default function Home() {
             <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "—" : `${avgProgress}%`}</strong><small>Avg. progress</small></div>
           </div>
           <div className="clientGrid">
-            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><button className="filter">All statuses <Icon name="chevronDown" size={13} /></button></div><div className="campaignList">{campaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}</div></section>
+            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
               <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
               <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
@@ -292,12 +312,19 @@ export default function Home() {
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
       {waalaxyModal && <div className="modalBackdrop">
-        <button className="modalDismiss" onClick={() => setWaalaxyModal(null)} aria-label="Close Waalaxy sync" />
+        <button className="modalDismiss" onClick={() => setWaalaxyModal(null)} aria-label="Close manage campaign" />
         <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="waalaxy-title">
-          <button className="close" onClick={() => setWaalaxyModal(null)} aria-label="Close Waalaxy sync">×</button>
+          <button className="close" onClick={() => setWaalaxyModal(null)} aria-label="Close manage campaign">×</button>
           <div className="modalBody">
-            <p className="eyebrow">WAALAXY SYNC</p>
+            <p className="eyebrow">MANAGE CAMPAIGN</p>
             <h2 id="waalaxy-title">{waalaxyModal.name}</h2>
+            <p className="modalIntro">Update delivery status and progress, or sync leads to Waalaxy.</p>
+            <label>Status<select value={campaignStatus} onChange={(e) => setCampaignStatus(e.target.value)}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+            <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} /></label>
+            {statusError && <p className="formError" role="alert">{statusError}</p>}
+            <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
+            <div className="waalaxyDivider" />
+            <p className="eyebrow">WAALAXY SYNC</p>
             <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in — no manual CSV upload into Waalaxy.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : waalaxyNotConfigured ? (
               <p className="formError" role="alert">Waalaxy integration isn&apos;t configured yet — set WAALAXY_API_KEY on the server, then reopen this.</p>
