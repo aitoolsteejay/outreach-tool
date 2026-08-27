@@ -17,7 +17,7 @@ function Ring({ percent, track, indicator, size = 96 }: { percent: number; track
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" className="ring">
+    <svg width={size} height={size} viewBox="0 0 100 100">
       <circle cx="50" cy="50" r={radius} fill="none" stroke={track} strokeWidth="9" />
       <circle cx="50" cy="50" r={radius} fill="none" stroke={indicator} strokeWidth="9" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 50 50)" />
     </svg>
