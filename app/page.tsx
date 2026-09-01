@@ -318,13 +318,13 @@ export default function Home() {
           <div className="modalBody">
             <p className="eyebrow">MANAGE CAMPAIGN</p>
             <h2 id="waalaxy-title">{waalaxyModal.name}</h2>
-            <p className="modalIntro">Update delivery status and progress, or sync leads to Waalaxy.</p>
+            <h3 className="modalSectionTitle">Delivery status</h3>
             <label>Status<select value={campaignStatus} onChange={(e) => setCampaignStatus(e.target.value)}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
-            <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} /></label>
+            <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} style={{ "--range-progress": `${campaignProgress}%` } as React.CSSProperties} /></label>
             {statusError && <p className="formError" role="alert">{statusError}</p>}
             <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
             <div className="waalaxyDivider" />
-            <p className="eyebrow">WAALAXY SYNC</p>
+            <h3 className="modalSectionTitle">Waalaxy sync</h3>
             <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in — no manual CSV upload into Waalaxy.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : waalaxyNotConfigured ? (
               <p className="formError" role="alert">Waalaxy integration isn&apos;t configured yet — set WAALAXY_API_KEY on the server, then reopen this.</p>
