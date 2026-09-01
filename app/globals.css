@@ -261,3 +261,21 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .sidebar .navItem.active span{color:#4C6EF5}
 .clientHero,.clientSummary,.adminSummary{border-color:#E7E9F5}
 .campaignSection,.sidebarProfileCard,.actionTiles>div{border-color:#E7E9F5}
+
+/* User accounts view */
+.accountsSection{margin-top:22px}
+.accountRow{display:grid;grid-template-columns:auto minmax(160px,1fr) 78px 190px auto;align-items:center;gap:15px;padding:17px 25px;border-top:1px solid var(--border);transition:background .2s ease}
+.accountRow:hover{background:#EEF0FF}
+.accountAvatar{display:grid;place-items:center;width:35px;height:35px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;font-weight:800;flex:none}
+.accountInfo strong,.accountInfo span{display:block}
+.accountInfo strong{font-size:12px;margin-bottom:4px}
+.accountInfo span{font-size:10px;color:var(--taupe)}
+.accountRole{justify-self:start;padding:6px 9px;border-radius:99px;font-size:9px;font-weight:800}
+.accountRole.admin{color:#6D3FD1;background:#F1EBFE}
+.accountRole.client{color:#3B5BDB;background:#EEF0FF}
+.accountMeta{font-size:10px;color:var(--taupe)}
+@media(max-width:900px){.accountRow{grid-template-columns:auto 1fr auto}.accountRole,.accountMeta{display:none}}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.dangerButton{width:100%;border:1px solid #FCA5A5;background:#FEF2F2;color:#B42318;border-radius:11px;padding:12px;font-size:12px;font-weight:800;transition:background .2s ease}
+.dangerButton:hover{background:#FEE2E2}
+.dangerButton:disabled{opacity:.6;cursor:not-allowed}

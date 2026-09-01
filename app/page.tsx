@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
-type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string };
+type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string };
+type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
 
@@ -74,6 +75,12 @@ export default function Home() {
   const [campaignProgress, setCampaignProgress] = useState(0);
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState("");
+  const [adminView, setAdminView] = useState<"campaigns" | "users">("campaigns");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountModal, setAccountModal] = useState<Account | null>(null);
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [accountError, setAccountError] = useState("");
+  const [accountConfirmRemove, setAccountConfirmRemove] = useState(false);
   const [waalaxyLoading, setWaalaxyLoading] = useState(false);
   const [waalaxyNotConfigured, setWaalaxyNotConfigured] = useState(false);
   const [waalaxyError, setWaalaxyError] = useState("");
@@ -98,10 +105,12 @@ export default function Home() {
       if (!profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
       setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
       const { data: rows } = await supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id").order("created_at", { ascending: false });
-      const clients = profileRow.role === "admin" ? await supabase.schema("outreach").from("profiles").select("id,full_name,email").eq("role", "client") : { data: [] };
-      setClientCount((clients.data || []).length);
-      const clientNames = new Map((clients.data || []).map((client) => [client.id, client.full_name || client.email]));
-      setCampaigns((rows || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id) })));
+      const profilesResult = profileRow.role === "admin" ? await supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").order("created_at", { ascending: false }) : { data: [] };
+      const allProfiles = profilesResult.data || [];
+      setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
+      setClientCount(allProfiles.filter((account) => account.role === "client").length);
+      const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
+      setCampaigns((rows || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id })));
       setWorkspaceLoading(false);
     });
   }, []);
@@ -198,6 +207,36 @@ export default function Home() {
     setCampaigns((current) => current.map((campaign) => campaign.id === waalaxyModal.id ? { ...campaign, status: campaignStatus, progress: campaignProgress } : campaign));
     setStatusSaving(false);
   }
+  function openAccountModal(account: Account) {
+    setAccountModal(account);
+    setAccountError("");
+    setAccountConfirmRemove(false);
+  }
+  async function changeAccountRole(newRole: string) {
+    if (!accountModal || newRole === accountModal.role) return;
+    setAccountSaving(true);
+    setAccountError("");
+    const headers = await authHeader();
+    const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
+    const result = await response.json();
+    if (!response.ok) { setAccountError(result.error || "Unable to update this account."); setAccountSaving(false); return; }
+    setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, role: newRole } : account));
+    setAccountModal((current) => current ? { ...current, role: newRole } : current);
+    setAccountSaving(false);
+  }
+  async function removeAccountAccess() {
+    if (!accountModal) return;
+    if (!accountConfirmRemove) { setAccountConfirmRemove(true); return; }
+    setAccountSaving(true);
+    setAccountError("");
+    const headers = await authHeader();
+    const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "DELETE", headers });
+    const result = await response.json();
+    if (!response.ok) { setAccountError(result.error || "Unable to remove this account."); setAccountSaving(false); return; }
+    setAccounts((current) => current.filter((account) => account.id !== accountModal.id));
+    setAccountSaving(false);
+    setAccountModal(null);
+  }
   async function saveWaalaxyLink() {
     if (!waalaxyModal) return;
     setWaalaxySaving(true);
@@ -232,7 +271,7 @@ export default function Home() {
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">{isAdmin ? <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaign operations</a><button className="navItem navButton" onClick={() => setShowUserSetup(true)}><span><Icon name="plus" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><a className="navItem" href="#leads"><span><Icon name="users" /></span> Lead lists</a><a className="navItem" href="#templates"><span><Icon name="file" /></span> Templates</a></>}</nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><a className="navItem" href="#leads"><span><Icon name="users" /></span> Lead lists</a><a className="navItem" href="#templates"><span><Icon name="file" /></span> Templates</a></>}</nav>
         <div className="sidebarInsight">
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
@@ -254,8 +293,10 @@ export default function Home() {
       </aside>
 
       <section className="content" id="campaigns">
-        <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? "Operations" : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
-        {isAdmin ? <div className="adminDashboard">
+        <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? (adminView === "users" ? "User accounts" : "Operations") : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
+        {isAdmin ? adminView === "users" ? <div className="adminDashboard">
+          <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <article className="accountRow" key={account.id}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><button className="more" aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)}><Icon name="dots" /></button></article>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
+        </div> : <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
           <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
@@ -339,6 +380,27 @@ export default function Home() {
                 <button className="primary" onClick={pushLeadsToWaalaxy} disabled={waalaxyPushing || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxyPushing ? "Pushing leads…" : "Push leads to Waalaxy"}</button>
               </div>
             </>}
+          </div>
+        </section>
+      </div>}
+      {accountModal && <div className="modalBackdrop">
+        <button className="modalDismiss" onClick={() => setAccountModal(null)} aria-label="Close manage account" />
+        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="account-title">
+          <button className="close" onClick={() => setAccountModal(null)} aria-label="Close manage account">×</button>
+          <div className="modalBody">
+            <p className="eyebrow">MANAGE ACCOUNT</p>
+            <h2 id="account-title">{accountModal.fullName}</h2>
+            <p className="modalIntro">{accountModal.email} · Joined {new Date(accountModal.createdAt).toLocaleDateString()}</p>
+            <h3 className="modalSectionTitle">Account type</h3>
+            <fieldset className="accountType"><legend className="srOnly">Account type</legend>
+              <button type="button" className={accountModal.role === "client" ? "selected" : ""} disabled={accountSaving} onClick={() => changeAccountRole("client")}><b>Client</b><span>Submit and track campaigns</span></button>
+              <button type="button" className={accountModal.role === "admin" ? "selected" : ""} disabled={accountSaving} onClick={() => changeAccountRole("admin")}><b>Admin</b><span>Manage clients and operations</span></button>
+            </fieldset>
+            {accountError && <p className="formError" role="alert">{accountError}</p>}
+            <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Remove access</h3>
+            <p className="modalIntro">Revokes this person&apos;s access to Outreach only — their Myntmore login for other tools is unaffected.</p>
+            <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
           </div>
         </section>
       </div>}

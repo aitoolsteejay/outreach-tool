@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/require-admin";
-
-// Keep in sync with the `role` check constraint on outreach.profiles in
-// supabase/migrations/20260821000000_admin_accounts.sql -- if they ever
-// drift, the 23514 handling below keeps the response a clean 400 instead of
-// a raw constraint-violation 500.
-const VALID_ROLES = ["admin", "client"] as const;
+import { VALID_ROLES } from "@/lib/roles";
 
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
