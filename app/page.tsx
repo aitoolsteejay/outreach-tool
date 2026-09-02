@@ -9,6 +9,23 @@ type Account = { id: string; fullName: string; email: string; role: string; crea
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
 
+const CLIENT_FAQS = [
+  { q: "What happens after I submit a campaign?", a: "Your brief, lead list, and message sequence go straight to the Myntmore team. We review it, configure the sequence in Waalaxy, and move your campaign from “Submitted” to “In review” and then “In setup.” You'll see the status update on your dashboard, and outreach typically goes live within one business day." },
+  { q: "What columns does my lead list CSV need?", a: "first_name, last_name, job_title, company, linkedin_url, email, notes — exactly matching the template you can download in step 2 of the campaign wizard. Every row needs a linkedin_url; rows without one won't be imported." },
+  { q: "How many follow-up messages can I include?", a: "Up to three, plus your connection request note. Pick 1–3 follow-ups when you build your sequence in step 3." },
+  { q: "Can I personalize my messages?", a: "Yes — insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each lead's real details when the sequence sends." },
+  { q: "What do the campaign statuses mean?", a: "Submitted → In review → In setup → Live → Completed. “In review” means we're checking your brief and leads, “In setup” means we're configuring the sequence in Waalaxy, and “Live” means outreach is actively sending." },
+  { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet — reach out to your Myntmore contact and we'll make the change before it goes live." },
+  { q: "My CSV upload failed — what do I do?", a: "Your campaign brief was still received even if the file didn't upload. Start a new campaign and re-attach the CSV, or send it directly to your Myntmore contact." },
+  { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore — never shared with other clients." },
+];
+
+const ADMIN_FAQS = [
+  { q: "How do I move a campaign through statuses?", a: "Open the “⋯” menu on any campaign row in the work queue — the Manage campaign panel has a status dropdown and a progress slider." },
+  { q: "How do I sync a client's leads to Waalaxy?", a: "Same “⋯” menu, in the Waalaxy sync section. Create the campaign and message sequence in Waalaxy first, then link it here and push the client's uploaded leads in." },
+  { q: "How do I manage client accounts?", a: "Use “User accounts” in the sidebar to see every account, change roles, or revoke Outreach access." },
+];
+
 async function countCsvRows(file: File): Promise<number> {
   const text = await file.text();
   const lines = text.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
@@ -81,6 +98,7 @@ export default function Home() {
   const [accountSaving, setAccountSaving] = useState(false);
   const [accountError, setAccountError] = useState("");
   const [accountConfirmRemove, setAccountConfirmRemove] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [waalaxyLoading, setWaalaxyLoading] = useState(false);
   const [waalaxyNotConfigured, setWaalaxyNotConfigured] = useState(false);
   const [waalaxyError, setWaalaxyError] = useState("");
@@ -286,7 +304,7 @@ export default function Home() {
           <button className="sidebarInsightCta" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "Add client" : "New campaign"} <Icon name="arrowUpRight" size={13} /></button>
         </div>
         <div className="sidebarBottom">
-          <a className="navItem" href="#help"><span><Icon name="help" /></span> Help & support</a>
+          <button className="navItem navButton" onClick={() => setShowHelp(true)}><span><Icon name="help" /></span> Help & support</button>
           <button className="navItem navButton" onClick={signOut}><span><Icon name="logout" /></span> Sign out</button>
           <div className="profile"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><small>{profile.role === "admin" ? "Admin workspace" : "Client workspace"}</small></div><button aria-label="Profile menu"><Icon name="dots" /></button></div>
         </div>
@@ -401,6 +419,25 @@ export default function Home() {
             <h3 className="modalSectionTitle">Remove access</h3>
             <p className="modalIntro">Revokes this person&apos;s access to Outreach only — their Myntmore login for other tools is unaffected.</p>
             <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
+          </div>
+        </section>
+      </div>}
+      {showHelp && <div className="modalBackdrop">
+        <button className="modalDismiss" onClick={() => setShowHelp(false)} aria-label="Close help and support" />
+        <section className="modal accountModal helpModal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+          <button className="close" onClick={() => setShowHelp(false)} aria-label="Close help and support">×</button>
+          <div className="modalBody">
+            <p className="eyebrow">HELP & SUPPORT</p>
+            <h2 id="help-title">Frequently asked questions</h2>
+            <div className="faqList">
+              {(isAdmin ? ADMIN_FAQS : CLIENT_FAQS).map((faq) => (
+                <details className="faqItem" key={faq.q}>
+                  <summary>{faq.q}<Icon name="chevronDown" size={14} /></summary>
+                  <p>{faq.a}</p>
+                </details>
+              ))}
+            </div>
+            <div className="faqContact"><span>Still stuck?</span><a href="mailto:hello@myntmore.com">Email hello@myntmore.com <Icon name="arrowUpRight" size={13} /></a></div>
           </div>
         </section>
       </div>}

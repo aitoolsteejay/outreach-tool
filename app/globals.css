@@ -279,3 +279,17 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .dangerButton{width:100%;border:1px solid #FCA5A5;background:#FEF2F2;color:#B42318;border-radius:11px;padding:12px;font-size:12px;font-weight:800;transition:background .2s ease}
 .dangerButton:hover{background:#FEE2E2}
 .dangerButton:disabled{opacity:.6;cursor:not-allowed}
+
+/* Help & support FAQ */
+.helpModal .modalBody{padding-bottom:28px}
+.faqList{margin-top:18px;border-top:1px solid var(--border)}
+.faqItem{border-bottom:1px solid var(--border)}
+.faqItem summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 2px;cursor:pointer;font-size:12px;font-weight:750;color:var(--ink)}
+.faqItem summary::-webkit-details-marker{display:none}
+.faqItem summary svg{flex:none;color:var(--taupe);transition:transform .2s ease}
+.faqItem[open] summary svg{transform:rotate(180deg)}
+.faqItem p{margin:0 2px 18px;color:var(--body);font-size:12px;line-height:1.65}
+.faqContact{margin-top:20px;padding:16px 18px;background:#F6F7FB;border-radius:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.faqContact span{font-size:11px;color:var(--taupe);font-weight:650}
+.faqContact a{display:inline-flex;align-items:center;gap:6px;color:var(--gold);font-size:12px;font-weight:800;text-decoration:none}
+.faqContact a:hover{color:var(--amber)}
