@@ -18,6 +18,16 @@ const CLIENT_FAQS = [
   { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet — reach out to your Myntmore contact and we'll make the change before it goes live." },
   { q: "My CSV upload failed — what do I do?", a: "Your campaign brief was still received even if the file didn't upload. Start a new campaign and re-attach the CSV, or send it directly to your Myntmore contact." },
   { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore — never shared with other clients." },
+  { q: "How do I download the lead list template?", a: "In step 2 of the campaign wizard, click “Download CSV” on the template card. It includes the exact columns we need, with an example row." },
+  { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file — plenty for most lead lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
+  { q: "Is there a character limit on my connection note?", a: "300 characters, matching LinkedIn's own connection note limit. You'll see a live counter while you type in step 3." },
+  { q: "Can I submit more than one campaign?", a: "Yes — use “+ New campaign” any time. Each one is tracked separately under “Your campaigns” with its own status and progress." },
+  { q: "What does “Active rate” mean on my dashboard?", a: "The share of your campaigns that are still moving — anything not yet marked Completed, divided by your total campaign count." },
+  { q: "What does “Avg. progress” mean?", a: "The average progress percentage across all your campaigns, updated by the Myntmore team as each one moves through setup and delivery." },
+  { q: "What's the difference between the connection note and follow-ups?", a: "The connection note is the first message sent with your LinkedIn invite. Follow-ups are the messages sent afterward, once someone accepts — you can configure up to three." },
+  { q: "Can multiple people from my company have logins?", a: "Yes, but each person needs their own account — ask your Myntmore contact to set one up. Everyone only sees the campaigns submitted from their own login." },
+  { q: "Can I download the CSV I already uploaded?", a: "Not yet from the dashboard directly — reach out to your Myntmore contact if you need a copy of a lead list you've submitted." },
+  { q: "What happens to my lead list file after I upload it?", a: "It's stored privately and is only ever accessible to your account and the Myntmore team — it's never bundled with or visible to other clients." },
 ];
 
 const ADMIN_FAQS = [
