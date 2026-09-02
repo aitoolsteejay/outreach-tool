@@ -133,6 +133,19 @@ export default function Home() {
   const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
   const [alertPosting, setAlertPosting] = useState(false);
   const [alertError, setAlertError] = useState("");
+  type LinkedinStatus = { linkedin_email?: string; status: string; code_requested_at?: string | null; code_submitted_at?: string | null; failure_reason?: string | null; verification_code?: string | null; updated_at?: string } | null;
+  const [linkedinStatus, setLinkedinStatus] = useState<LinkedinStatus>(null);
+  const [linkedinLoading, setLinkedinLoading] = useState(true);
+  const [linkedinForm, setLinkedinForm] = useState({ email: "", password: "" });
+  const [linkedinCode, setLinkedinCode] = useState("");
+  const [linkedinSaving, setLinkedinSaving] = useState(false);
+  const [linkedinError, setLinkedinError] = useState("");
+  const [adminLinkedinStatus, setAdminLinkedinStatus] = useState<LinkedinStatus>(null);
+  const [adminLinkedinLoading, setAdminLinkedinLoading] = useState(false);
+  const [adminLinkedinActing, setAdminLinkedinActing] = useState(false);
+  const [adminLinkedinError, setAdminLinkedinError] = useState("");
+  const [adminLinkedinReveal, setAdminLinkedinReveal] = useState<{ password: string; revealedAt: string } | null>(null);
+  const [adminLinkedinFailReason, setAdminLinkedinFailReason] = useState("");
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
   function addPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
@@ -226,6 +239,84 @@ export default function Home() {
     const { data } = await createClient().auth.getSession();
     return { Authorization: `Bearer ${data.session?.access_token || ""}` };
   }
+  async function submitLinkedinCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLinkedinSaving(true);
+    setLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch("/api/client/linkedin-credentials", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(linkedinForm) });
+      const data = await readJson<LinkedinStatus & { error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error || "Unable to save your LinkedIn details.");
+      setLinkedinStatus(data);
+      setLinkedinForm({ email: "", password: "" });
+    } catch (error) { setLinkedinError(error instanceof Error ? error.message : "Unable to save your LinkedIn details."); }
+    finally { setLinkedinSaving(false); }
+  }
+  async function submitLinkedinCode(event: FormEvent<HTMLFormElement> | null, codeOverride?: string) {
+    event?.preventDefault();
+    const codeToSend = codeOverride ?? linkedinCode;
+    setLinkedinSaving(true);
+    setLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch("/api/client/linkedin-credentials/code", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ code: codeToSend }) });
+      const data = await readJson<LinkedinStatus & { error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error || "Unable to submit your code.");
+      setLinkedinStatus(data);
+      setLinkedinCode("");
+    } catch (error) { setLinkedinError(error instanceof Error ? error.message : "Unable to submit your code."); }
+    finally { setLinkedinSaving(false); }
+  }
+  async function loadAdminLinkedinStatus(clientId: string) {
+    setAdminLinkedinLoading(true);
+    setAdminLinkedinError("");
+    setAdminLinkedinReveal(null);
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { headers });
+      setAdminLinkedinStatus(await readJson<LinkedinStatus>(response));
+    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to load LinkedIn status."); }
+    finally { setAdminLinkedinLoading(false); }
+  }
+  async function performLinkedinAction(clientId: string, action: string, reason?: string) {
+    setAdminLinkedinActing(true);
+    setAdminLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action, reason }) });
+      const data = await readJson<LinkedinStatus & { error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error || "Unable to update this record.");
+      setAdminLinkedinStatus(data);
+      setAdminLinkedinFailReason("");
+      setAdminLinkedinReveal(null);
+    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to update this record."); }
+    finally { setAdminLinkedinActing(false); }
+  }
+  async function revealLinkedinPassword(clientId: string) {
+    setAdminLinkedinActing(true);
+    setAdminLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/linkedin-credentials/${clientId}/reveal`, { method: "POST", headers });
+      const data = await readJson<{ error?: string; password?: string; revealedAt?: string }>(response);
+      if (!response.ok || !data.password || !data.revealedAt) throw new Error(data?.error || "Unable to reveal this password.");
+      setAdminLinkedinReveal({ password: data.password, revealedAt: data.revealedAt });
+    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to reveal this password."); }
+    finally { setAdminLinkedinActing(false); }
+  }
+  useEffect(() => {
+    if (!userId || profile.role !== "client") return;
+    void (async () => {
+      const headers = await authHeader();
+      setLinkedinLoading(true);
+      try {
+        const response = await fetch("/api/client/linkedin-credentials", { headers });
+        setLinkedinStatus(await readJson<LinkedinStatus>(response));
+      } catch { /* non-fatal -- the form below just shows as not-yet-submitted */ }
+      finally { setLinkedinLoading(false); }
+    })();
+  }, [userId, profile.role]);
   async function openWaalaxyModal(campaign: Campaign) {
     setWaalaxyModal({ id: campaign.id, name: campaign.name });
     setCampaignStatus(campaign.status);
@@ -299,6 +390,11 @@ export default function Home() {
     setAccountConfirmRemove(false);
     setAlertForm({ severity: "error", leadReference: "", message: "" });
     setAlertError("");
+    setAdminLinkedinStatus(null);
+    setAdminLinkedinError("");
+    setAdminLinkedinReveal(null);
+    setAdminLinkedinFailReason("");
+    if (account.role === "client") void loadAdminLinkedinStatus(account.id);
   }
   async function changeAccountRole(newRole: string) {
     if (!accountModal || newRole === accountModal.role) return;
@@ -419,6 +515,34 @@ export default function Home() {
             <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
               <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
+              <div className="sidebarProfileCard linkedinCard">
+                <div className="sidebarInsightHead"><span><Icon name="logout" size={15} /></span><div><strong>LinkedIn access</strong><small>For your Waalaxy outreach</small></div></div>
+                {linkedinLoading ? <p className="modalIntro">Loading…</p> : <>
+                  {(!linkedinStatus || linkedinStatus.status === "failed") && <>
+                    {linkedinStatus?.status === "failed" && <p className="formError" role="alert">{linkedinStatus.failure_reason || "Login failed — please check your details and try again."}</p>}
+                    <form className="loginForm" onSubmit={submitLinkedinCredentials}>
+                      <label>LinkedIn email<input type="email" value={linkedinForm.email} onChange={(e) => setLinkedinForm({ ...linkedinForm, email: e.target.value })} required /></label>
+                      <label>LinkedIn password<input type="password" value={linkedinForm.password} onChange={(e) => setLinkedinForm({ ...linkedinForm, password: e.target.value })} minLength={4} required /></label>
+                      {linkedinError && <p className="formError" role="alert">{linkedinError}</p>}
+                      <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Saving…" : "Submit details"}</button>
+                    </form>
+                  </>}
+                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted — our team will use this to set up your outreach. We&apos;ll ask here if LinkedIn needs a verification step.</p>}
+                  {linkedinStatus?.status === "awaiting_code" && <form className="loginForm" onSubmit={(e) => submitLinkedinCode(e)}>
+                    <p className="formError" role="alert">LinkedIn sent a verification code — enter it below so we can finish signing in.</p>
+                    <label>Verification code<input value={linkedinCode} onChange={(e) => setLinkedinCode(e.target.value)} required /></label>
+                    {linkedinError && <p className="formError" role="alert">{linkedinError}</p>}
+                    <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Submitting…" : "Submit code"}</button>
+                  </form>}
+                  {linkedinStatus?.status === "awaiting_approval" && <>
+                    <p className="formError" role="alert">Check your phone and tap Yes / Approve in the LinkedIn app, then confirm below.</p>
+                    {linkedinError && <p className="formError" role="alert">{linkedinError}</p>}
+                    <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }} onClick={() => submitLinkedinCode(null, "approved")}>{linkedinSaving ? "Confirming…" : "I've approved it"}</button>
+                  </>}
+                  {linkedinStatus?.status === "code_submitted" && <p className="modalIntro">Thanks — we&apos;re finishing your login now.</p>}
+                  {linkedinStatus?.status === "logged_in" && <p className="formSuccess" role="status">Connected as {linkedinStatus.linkedin_email}.</p>}
+                </>}
+              </div>
               <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
             </aside>
           </div>
@@ -511,6 +635,27 @@ export default function Home() {
             </fieldset>
             {accountError && <p className="formError" role="alert">{accountError}</p>}
             {accountModal.role === "client" && <>
+              <div className="waalaxyDivider" />
+              <h3 className="modalSectionTitle">LinkedIn access</h3>
+              {adminLinkedinLoading ? <p className="modalIntro">Loading…</p> : !adminLinkedinStatus ? (
+                <p className="modalIntro">This client hasn&apos;t submitted LinkedIn credentials yet.</p>
+              ) : <>
+                <p className="modalIntro">{adminLinkedinStatus.linkedin_email} — <strong>{adminLinkedinStatus.status.replaceAll("_", " ")}</strong></p>
+                {adminLinkedinStatus.status === "code_submitted" && adminLinkedinStatus.verification_code && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>{adminLinkedinStatus.verification_code}</span></div></div>}
+                {adminLinkedinStatus.failure_reason && <p className="formError" role="alert">Last failure: {adminLinkedinStatus.failure_reason}</p>}
+                {adminLinkedinReveal && <div className="alertItem info"><Icon name="eye" size={15} /><div><strong>Password</strong><span>{adminLinkedinReveal.password}</span></div></div>}
+                {adminLinkedinError && <p className="formError" role="alert">{adminLinkedinError}</p>}
+                <div className="waalaxyActions">
+                  <button className="secondary" disabled={adminLinkedinActing} onClick={() => revealLinkedinPassword(accountModal.id)}>Reveal password</button>
+                  <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "request_code")}>Request code</button>
+                </div>
+                <div className="waalaxyActions" style={{ marginTop: 8 }}>
+                  <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "request_approval")}>Request phone approval</button>
+                  <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_logged_in")}>Mark logged in</button>
+                </div>
+                <label>Failure reason <span className="fieldHint">Optional</span><input value={adminLinkedinFailReason} onChange={(e) => setAdminLinkedinFailReason(e.target.value)} placeholder="e.g. Incorrect password" /></label>
+                <button className="dangerButton" style={{ marginTop: 8 }} disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_failed", adminLinkedinFailReason)}>Mark failed</button>
+              </>}
               <div className="waalaxyDivider" />
               <h3 className="modalSectionTitle">Alerts</h3>
               <p className="modalIntro">Post an account-wide issue — for something affecting all of this client&apos;s outreach, not one campaign (e.g. a LinkedIn login problem).</p>
