@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
+type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
 
@@ -54,7 +55,7 @@ function Ring({ percent, track, indicator, size = 96 }: { percent: number; track
   );
 }
 
-type IconName = "grid" | "users" | "file" | "help" | "logout" | "arrowUpRight" | "chevronDown" | "trendUp" | "eye" | "percent" | "dots" | "send" | "plus";
+type IconName = "grid" | "users" | "file" | "help" | "logout" | "arrowUpRight" | "chevronDown" | "trendUp" | "eye" | "percent" | "dots" | "send" | "plus" | "alertTriangle" | "checkCircle";
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -72,6 +73,8 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     case "dots": return <svg {...p}><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></svg>;
     case "send": return <svg {...p}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>;
     case "plus": return <svg {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+    case "alertTriangle": return <svg {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+    case "checkCircle": return <svg {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
     default: return null;
   }
 }
@@ -118,6 +121,10 @@ export default function Home() {
   const [waalaxySyncInfo, setWaalaxySyncInfo] = useState<{ status: string; error?: string | null; imported?: number; syncedAt?: string | null } | null>(null);
   const [waalaxySaving, setWaalaxySaving] = useState(false);
   const [waalaxyPushing, setWaalaxyPushing] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
+  const [alertPosting, setAlertPosting] = useState(false);
+  const [alertError, setAlertError] = useState("");
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
   function addPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
@@ -139,6 +146,8 @@ export default function Home() {
       setClientCount(allProfiles.filter((account) => account.role === "client").length);
       const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
       setCampaigns((rows || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id })));
+      const { data: alertRows } = await supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
+      setAlerts((alertRows || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
       setWorkspaceLoading(false);
     });
   }, []);
@@ -199,6 +208,8 @@ export default function Home() {
     setCampaignStatus(campaign.status);
     setCampaignProgress(campaign.progress);
     setStatusError("");
+    setAlertForm({ severity: "error", leadReference: "", message: "" });
+    setAlertError("");
     setWaalaxyError("");
     setWaalaxyNotConfigured(false);
     setWaalaxySyncInfo(null);
@@ -235,10 +246,34 @@ export default function Home() {
     setCampaigns((current) => current.map((campaign) => campaign.id === waalaxyModal.id ? { ...campaign, status: campaignStatus, progress: campaignProgress } : campaign));
     setStatusSaving(false);
   }
+  async function postAlert(clientId: string, campaignId: string | null) {
+    if (!alertForm.message.trim()) { setAlertError("Write a message for the client."); return; }
+    setAlertPosting(true);
+    setAlertError("");
+    const { data, error } = await createClient().schema("outreach").from("campaign_alerts").insert({
+      client_id: clientId,
+      campaign_id: campaignId,
+      lead_reference: alertForm.leadReference.trim() || null,
+      severity: alertForm.severity,
+      message: alertForm.message.trim(),
+      created_by: userId,
+    }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").single();
+    if (error || !data) { setAlertError(error?.message || "Unable to post this alert."); setAlertPosting(false); return; }
+    setAlerts((current) => [{ id: data.id, clientId: data.client_id, campaignId: data.campaign_id, leadReference: data.lead_reference, severity: data.severity, message: data.message, resolved: data.resolved, createdAt: data.created_at }, ...current]);
+    setAlertForm({ severity: "error", leadReference: "", message: "" });
+    setAlertPosting(false);
+  }
+  async function resolveAlert(id: string) {
+    const { error } = await createClient().schema("outreach").from("campaign_alerts").update({ resolved: true, resolved_at: new Date().toISOString() }).eq("id", id);
+    if (error) return;
+    setAlerts((current) => current.map((alert) => alert.id === id ? { ...alert, resolved: true } : alert));
+  }
   function openAccountModal(account: Account) {
     setAccountModal(account);
     setAccountError("");
     setAccountConfirmRemove(false);
+    setAlertForm({ severity: "error", leadReference: "", message: "" });
+    setAlertError("");
   }
   async function changeAccountRole(newRole: string) {
     if (!accountModal || newRole === accountModal.role) return;
@@ -295,6 +330,9 @@ export default function Home() {
   const liveCount = campaigns.filter((campaign) => campaign.status === "Live").length;
   const inReviewCount = campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length;
   const visibleCampaigns = statusFilter === "all" ? campaigns : campaigns.filter((campaign) => campaign.status === statusFilter);
+  const campaignAlerts = waalaxyModal ? alerts.filter((alert) => alert.campaignId === waalaxyModal.id) : [];
+  const accountAlerts = accountModal ? alerts.filter((alert) => alert.campaignId === null && alert.clientId === accountModal.id) : [];
+  const activeAlerts = alerts.filter((alert) => !alert.resolved);
   return (
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
@@ -326,9 +364,10 @@ export default function Home() {
           <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <article className="accountRow" key={account.id}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><button className="more" aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)}><Icon name="dots" /></button></article>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
-          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
+          {activeAlerts.length > 0 && <div className="alertBanner">{activeAlerts.map((alert) => <div className={`alertBannerItem ${alert.severity}`} key={alert.id}><Icon name="alertTriangle" size={16} /><div><strong>{alert.message}</strong><span>{alert.campaignId ? `${campaigns.find((campaign) => campaign.id === alert.campaignId)?.name || "Campaign"}${alert.leadReference ? ` · ${alert.leadReference}` : ""}` : "Account-wide"}</span></div></div>)}</div>}
           <section className="clientHero"><div className="clientHeroText"><p className="eyebrow">YOUR OUTREACH</p><h2>Hello {(profile.fullName || profile.email || "there").split(" ")[0]}.</h2><p>Brief the Myntmore team once, then follow every campaign from setup to conversations.</p></div><div className="clientHeroFilters"><button className="filter">All time <Icon name="chevronDown" size={13} /></button><button className="filter">All campaigns <Icon name="chevronDown" size={13} /></button></div></section>
           <div className="ringCards">
             <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : campaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={activeRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{activeRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
@@ -342,7 +381,7 @@ export default function Home() {
             <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "—" : `${avgProgress}%`}</strong><small>Avg. progress</small></div>
           </div>
           <div className="clientGrid">
-            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
               <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
               <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
@@ -393,6 +432,15 @@ export default function Home() {
             {statusError && <p className="formError" role="alert">{statusError}</p>}
             <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
             <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Alerts</h3>
+            <p className="modalIntro">Post an issue for the client to see on their dashboard — leave the lead field blank for a campaign-wide alert, or name a specific lead (e.g. their LinkedIn URL) to flag just that row.</p>
+            <label>Lead <span className="fieldHint">Optional</span><input value={alertForm.leadReference} onChange={(e) => setAlertForm({ ...alertForm, leadReference: e.target.value })} placeholder="e.g. linkedin.com/in/jane-doe" /></label>
+            <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn URL incorrect — please check and resubmit." rows={2} /></label>
+            <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
+            {alertError && <p className="formError" role="alert">{alertError}</p>}
+            <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === waalaxyModal.id)?.clientId || "", waalaxyModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
+            {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
+            <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Waalaxy sync</h3>
             <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in — no manual CSV upload into Waalaxy.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : waalaxyNotConfigured ? (
@@ -425,6 +473,16 @@ export default function Home() {
               <button type="button" className={accountModal.role === "admin" ? "selected" : ""} disabled={accountSaving} onClick={() => changeAccountRole("admin")}><b>Admin</b><span>Manage clients and operations</span></button>
             </fieldset>
             {accountError && <p className="formError" role="alert">{accountError}</p>}
+            {accountModal.role === "client" && <>
+              <div className="waalaxyDivider" />
+              <h3 className="modalSectionTitle">Alerts</h3>
+              <p className="modalIntro">Post an account-wide issue — for something affecting all of this client&apos;s outreach, not one campaign (e.g. a LinkedIn login problem).</p>
+              <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn login failed — please log in again." rows={2} /></label>
+              <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
+              {alertError && <p className="formError" role="alert">{alertError}</p>}
+              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(accountModal.id, null)}>{alertPosting ? "Posting…" : "Post alert"}</button>
+              {accountAlerts.length > 0 && <div className="alertList">{accountAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>Account-wide</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
+            </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Remove access</h3>
             <p className="modalIntro">Revokes this person&apos;s access to Outreach only — their Myntmore login for other tools is unaffected.</p>

@@ -293,3 +293,32 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .faqContact span{font-size:11px;color:var(--taupe);font-weight:650}
 .faqContact a{display:inline-flex;align-items:center;gap:6px;color:var(--gold);font-size:12px;font-weight:800;text-decoration:none}
 .faqContact a:hover{color:var(--amber)}
+
+/* Alerts */
+.alertBanner{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.alertBannerItem{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:13px;border:1px solid}
+.alertBannerItem svg{flex:none;margin-top:1px}
+.alertBannerItem strong{display:block;font-size:12px;font-weight:750}
+.alertBannerItem span{display:block;margin-top:3px;font-size:11px;opacity:.8}
+.alertBannerItem.error{background:#FEF2F2;border-color:#FCA5A5;color:#B42318}
+.alertBannerItem.warning{background:#FFFBEB;border-color:#FDE68A;color:#92400E}
+.alertBannerItem.info{background:#EFF6FF;border-color:#BFDBFE;color:#1D4ED8}
+.severityChoice{display:flex;gap:8px;margin:19px 0 4px;padding:0;border:0}
+.severityChoice legend{display:none}
+.severityChoice button{flex:1;text-transform:capitalize;padding:9px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--body);font-size:11px;font-weight:700}
+.severityChoice button.selected.info{border-color:#93C5FD;background:#EFF6FF;color:#1D4ED8}
+.severityChoice button.selected.warning{border-color:#FDE68A;background:#FFFBEB;color:#92400E}
+.severityChoice button.selected.error{border-color:#FCA5A5;background:#FEF2F2;color:#B42318}
+.alertList{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.alertItem{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:#fff}
+.alertItem svg{flex:none;margin-top:1px}
+.alertItem>div{flex:1;min-width:0}
+.alertItem strong{display:block;font-size:11px;font-weight:750}
+.alertItem span{display:block;margin-top:2px;font-size:11px;color:var(--body)}
+.alertItem button{flex:none;border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:700;color:var(--body)}
+.alertItem.error svg{color:#B42318}
+.alertItem.warning svg{color:#B45309}
+.alertItem.info svg{color:#1D4ED8}
+.alertItem.resolved{opacity:.55}
+.alertItem.resolved svg{color:#23855c}
+.campaignInfo strong svg{margin-left:6px;vertical-align:-2px;color:#B42318}
