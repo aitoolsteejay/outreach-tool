@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,23 +30,26 @@ export default function LoginPage() {
     const supabase = createClient();
     const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) { setError(signInError.message); setLoading(false); return; }
-    const { data: membership } = await supabase.schema("outreach").from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+    const { data: membership } = await supabase.schema("outreach").from("profiles").select("role").eq("id", data.user.id).is("access_revoked_at", null).maybeSingle();
     if (!membership) { await supabase.auth.signOut(); setError("This account does not have access to the Myntmore Outreach portal."); setLoading(false); return; }
-    window.location.assign("/");
+    router.push("/");
   }
 
   async function createAdmin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAdminLoading(true);
     setAdminError("");
-    const response = await fetch("/api/bootstrap/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adminForm) });
-    const result = await response.json();
-    if (!response.ok) { setAdminError(result.error || "Unable to create the admin account."); setAdminLoading(false); return; }
-    setCanCreateAdmin(false);
-    setShowAdminSetup(false);
-    setEmail(adminForm.email);
-    setPassword(adminForm.password);
-    setAdminLoading(false);
+    try {
+      const response = await fetch("/api/bootstrap/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adminForm) });
+      if (!(response.headers.get("content-type") || "").includes("application/json")) throw new Error("The server returned an unexpected response. Please try again.");
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Unable to create the admin account.");
+      setCanCreateAdmin(false);
+      setShowAdminSetup(false);
+      setEmail(adminForm.email);
+      setPassword(adminForm.password);
+    } catch (error) { setAdminError(error instanceof Error ? error.message : "Unable to create the admin account."); }
+    finally { setAdminLoading(false); }
   }
 
   return <main className="landingPage">

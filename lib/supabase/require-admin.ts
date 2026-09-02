@@ -16,8 +16,10 @@ export async function requireAdmin(request: Request): Promise<RequireAdminResult
   const { data: { user }, error: authError } = await authClient.auth.getUser(token);
   if (authError || !user) return { ok: false, response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
 
-  const admin = createAdminClient();
-  const { data: profile } = await admin.schema("outreach").from("profiles").select("role").eq("id", user.id).single();
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); }
+  catch { return { ok: false, response: NextResponse.json({ error: "Server configuration is incomplete." }, { status: 503 }) }; }
+  const { data: profile } = await admin.schema("outreach").from("profiles").select("role").eq("id", user.id).is("access_revoked_at", null).single();
   if (profile?.role !== "admin") return { ok: false, response: NextResponse.json({ error: "Admin access required." }, { status: 403 }) };
 
   return { ok: true, admin, userId: user.id };

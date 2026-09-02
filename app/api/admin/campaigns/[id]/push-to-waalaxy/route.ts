@@ -41,14 +41,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const results = await pushProspectsToWaalaxy({ prospectListId: campaign.waalaxy_list_id, campaignId: campaign.waalaxy_campaign_id, prospects });
     const importedCount = results.filter((r) => r.importCode === "success").length;
 
+    const fullySynced = importedCount === prospects.length;
+    const syncMessage = fullySynced ? null : `${prospects.length - importedCount} of ${prospects.length} leads were rejected by Waalaxy.`;
     await admin.schema("outreach").from("campaigns").update({
-      waalaxy_sync_status: "synced",
-      waalaxy_sync_error: null,
+      waalaxy_sync_status: fullySynced ? "synced" : "partial",
+      waalaxy_sync_error: syncMessage,
       waalaxy_prospects_imported: importedCount,
       waalaxy_synced_at: new Date().toISOString(),
     }).eq("id", id);
 
-    return NextResponse.json({ total: prospects.length, imported: importedCount, results });
+    return NextResponse.json({ total: prospects.length, imported: importedCount, status: fullySynced ? "synced" : "partial", error: syncMessage, results });
   } catch (error) {
     const message = error instanceof WaalaxyNotConfiguredError || error instanceof WaalaxyApiError || error instanceof Error ? error.message : "Unable to push leads to Waalaxy.";
     await admin.schema("outreach").from("campaigns").update({ waalaxy_sync_status: "failed", waalaxy_sync_error: message }).eq("id", id);

@@ -2,7 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { MAX_LEAD_FILE_BYTES, validateAndParseLeadsCsv } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -17,7 +19,7 @@ const CLIENT_FAQS = [
   { q: "Can I personalize my messages?", a: "Yes — insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each lead's real details when the sequence sends." },
   { q: "What do the campaign statuses mean?", a: "Submitted → In review → In setup → Live → Completed. “In review” means we're checking your brief and leads, “In setup” means we're configuring the sequence in Waalaxy, and “Live” means outreach is actively sending." },
   { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet — reach out to your Myntmore contact and we'll make the change before it goes live." },
-  { q: "My CSV upload failed — what do I do?", a: "Your campaign brief was still received even if the file didn't upload. Start a new campaign and re-attach the CSV, or send it directly to your Myntmore contact." },
+  { q: "My CSV upload failed — what do I do?", a: "Nothing is submitted until both your brief and CSV are saved successfully. Correct the message shown in the campaign wizard and submit again, or contact your Myntmore representative if the issue continues." },
   { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore — never shared with other clients." },
   { q: "How do I download the lead list template?", a: "In step 2 of the campaign wizard, click “Download CSV” on the template card. It includes the exact columns we need, with an example row." },
   { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file — plenty for most lead lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
@@ -37,10 +39,15 @@ const ADMIN_FAQS = [
   { q: "How do I manage client accounts?", a: "Use “User accounts” in the sidebar to see every account, change roles, or revoke Outreach access." },
 ];
 
-async function countCsvRows(file: File): Promise<number> {
-  const text = await file.text();
-  const lines = text.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
-  return Math.max(0, lines.length - 1);
+async function readLeadFile(file: File) {
+  if (file.size > MAX_LEAD_FILE_BYTES) throw new Error("Your CSV is larger than 10 MB. Please split the list and try again.");
+  return validateAndParseLeadsCsv(await file.text());
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) throw new Error("The server returned an unexpected response. Please try again.");
+  return response.json() as Promise<T>;
 }
 
 function Ring({ percent, track, indicator, size = 96 }: { percent: number; track: string; indicator: string; size?: number }) {
@@ -80,15 +87,16 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
+  const [workspaceError, setWorkspaceError] = useState("");
   const [clientCount, setClientCount] = useState(0);
   const [showWizard, setShowWizard] = useState(false);
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [uploadFailed, setUploadFailed] = useState(false);
   const [fileName, setFileName] = useState("");
   const [leadFile, setLeadFile] = useState<File | null>(null);
   const [userId, setUserId] = useState("");
@@ -131,27 +139,39 @@ export default function Home() {
     setForm((current) => field === "connectionNote" ? { ...current, connectionNote: `${current.connectionNote}${current.connectionNote ? " " : ""}${token}` } : { ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? `${message}${message ? " " : ""}${token}` : message) });
   }
   function updateFollowUp(index: number, value: string) { setForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) })); }
+  async function chooseLeadFile(file: File | null) {
+    setSubmitError("");
+    if (!file) { setLeadFile(null); setFileName(""); return; }
+    try { await readLeadFile(file); setLeadFile(file); setFileName(file.name); }
+    catch (error) { setLeadFile(null); setFileName(""); setSubmitError(error instanceof Error ? error.message : "Choose a valid CSV file."); }
+  }
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { window.location.replace("/login"); return; }
-      setUserId(data.user.id);
-      const { data: profileRow } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).single();
-      if (!profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
-      setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
-      const { data: rows } = await supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id").order("created_at", { ascending: false });
-      const profilesResult = profileRow.role === "admin" ? await supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").order("created_at", { ascending: false }) : { data: [] };
-      const allProfiles = profilesResult.data || [];
-      setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
-      setClientCount(allProfiles.filter((account) => account.role === "client").length);
-      const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
-      setCampaigns((rows || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id })));
-      const { data: alertRows } = await supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
-      setAlerts((alertRows || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
-      setWorkspaceLoading(false);
-    });
+    void (async () => {
+      try {
+        const { data, error: authError } = await supabase.auth.getUser();
+        if (authError || !data.user) { window.location.replace("/login"); return; }
+        setUserId(data.user.id);
+        const { data: profileRow, error: profileError } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).is("access_revoked_at", null).single();
+        if (profileError || !profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
+        setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
+        const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id").order("created_at", { ascending: false });
+        const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").is("access_revoked_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
+        const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
+        const [campaignsResult, profilesResult, alertsResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise]);
+        const loadError = campaignsResult.error || profilesResult.error || alertsResult.error;
+        if (loadError) throw loadError;
+        const allProfiles = profilesResult.data || [];
+        setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
+        setClientCount(allProfiles.filter((account) => account.role === "client").length);
+        const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
+        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id })));
+        setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
+      } catch (error) { setWorkspaceError(error instanceof Error ? error.message : "Unable to load the workspace."); }
+      finally { setWorkspaceLoading(false); }
+    })();
   }, []);
-  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setUploadFailed(false); setShowWizard(true); }
+  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setShowWizard(true); }
   function downloadTemplate() {
     const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority lead\n";
     const link = document.createElement("a");
@@ -164,40 +184,43 @@ export default function Home() {
     if (!userId) return;
     setSubmitting(true);
     setSubmitError("");
-    setUploadFailed(false);
     const supabase = createClient();
-    const leadCount = leadFile ? await countCsvRows(leadFile) : 0;
-    const { data: campaign, error } = await supabase.schema("outreach").from("campaigns").insert({ client_id: userId, name: form.name || "Untitled campaign", goal: form.goal, offer: form.offer, tone: form.tone, messaging_strategy: form.message, connection_note: form.connectionNote, follow_up_count: form.followUpCount, follow_up_messages: form.followUps.slice(0, form.followUpCount), lead_count: leadCount, status: "submitted", progress: 15, submitted_at: new Date().toISOString() }).select("id").single();
-    if (error || !campaign) {
-      setSubmitError(error?.message || "Unable to submit your campaign. Please try again.");
-      setSubmitting(false);
-      return;
-    }
-    let fileUploaded = true;
-    if (leadFile) {
-      const storagePath = `${userId}/${campaign.id}/${leadFile.name}`;
-      const { error: uploadError } = await supabase.storage.from("outreach-leads").upload(storagePath, leadFile);
-      if (uploadError) {
-        fileUploaded = false;
-      } else {
-        const { error: fileRowError } = await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaign.id, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
-        if (fileRowError) fileUploaded = false;
+    let storagePath = "";
+    let campaignId = "";
+    try {
+      const leads = leadFile ? await readLeadFile(leadFile) : [];
+      if (leadFile) {
+        storagePath = `${userId}/pending/${crypto.randomUUID()}-${leadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error } = await supabase.storage.from("outreach-leads").upload(storagePath, leadFile);
+        if (error) throw error;
       }
-    }
-    setUploadFailed(leadFile !== null && !fileUploaded);
-    setCampaigns((current) => [{ id: campaign.id, name: form.name || "Untitled campaign", audience: `${leadCount} leads`, status: "Submitted", progress: 15 }, ...current]);
-    setSubmitting(false);
-    setSubmitted(true);
+      const { data: campaign, error } = await supabase.schema("outreach").from("campaigns").insert({ client_id: userId, name: form.name || "Untitled campaign", goal: form.goal, offer: form.offer, tone: form.tone, messaging_strategy: form.message, connection_note: form.connectionNote, follow_up_count: form.followUpCount, follow_up_messages: form.followUps.slice(0, form.followUpCount), lead_count: leads.length, status: "submitted", progress: 15, submitted_at: new Date().toISOString() }).select("id").single();
+      if (error || !campaign) throw error || new Error("Unable to create the campaign.");
+      campaignId = campaign.id;
+      if (leadFile) {
+        const { error } = await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaignId, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
+        if (error) throw error;
+      }
+      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15 }, ...current]);
+      setSubmitted(true);
+    } catch (error) {
+      if (campaignId) await supabase.schema("outreach").from("campaigns").delete().eq("id", campaignId);
+      if (storagePath) await supabase.storage.from("outreach-leads").remove([storagePath]);
+      setSubmitError(error instanceof Error ? error.message : "Unable to submit your campaign. Please try again.");
+    } finally { setSubmitting(false); }
   }
-  async function signOut() { await createClient().auth.signOut(); window.location.assign("/login"); }
+  async function signOut() { await createClient().auth.signOut(); router.push("/login"); }
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setUserLoading(true); setUserError(""); setUserCreated("");
-    const { data: sessionData } = await createClient().auth.getSession();
-    const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionData.session?.access_token || ""}` }, body: JSON.stringify(userForm) });
-    const result = await response.json();
-    if (!response.ok) { setUserError(result.error || "Unable to create the user."); setUserLoading(false); return; }
-    const accountLabel = result.role === "admin" ? "admin" : "client";
-    setUserCreated(result.existing ? `${result.email} already had a Myntmore login and now has ${accountLabel} access to Outreach. Their existing password is unchanged.` : `${result.email} now has ${accountLabel} access and can sign in with the temporary password.`); setUserForm({ fullName: "", email: "", password: "", role: "client" }); setUserLoading(false);
+    try {
+      const { data: sessionData } = await createClient().auth.getSession();
+      const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionData.session?.access_token || ""}` }, body: JSON.stringify(userForm) });
+      const result = await readJson<{ error?: string; role: string; existing: boolean; email: string }>(response);
+      if (!response.ok) throw new Error(result.error || "Unable to create the user.");
+      const accountLabel = result.role === "admin" ? "admin" : "client";
+      setUserCreated(result.existing ? `${result.email} already had a Myntmore login and now has ${accountLabel} access to Outreach. Their existing password is unchanged.` : `${result.email} now has ${accountLabel} access and can sign in with the temporary password.`); setUserForm({ fullName: "", email: "", password: "", role: "client" });
+    } catch (error) { setUserError(error instanceof Error ? error.message : "Unable to create the user."); }
+    finally { setUserLoading(false); }
   }
   async function authHeader() {
     const { data } = await createClient().auth.getSession();
@@ -214,28 +237,30 @@ export default function Home() {
     setWaalaxyNotConfigured(false);
     setWaalaxySyncInfo(null);
     setWaalaxyLoading(true);
-    const headers = await authHeader();
-    const [linkRes, campaignsRes, listsRes] = await Promise.all([
+    try {
+      const headers = await authHeader();
+      const [linkRes, campaignsRes, listsRes] = await Promise.all([
       fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
       fetch("/api/admin/waalaxy/campaigns", { headers }),
       fetch("/api/admin/waalaxy/lists", { headers }),
     ]);
-    const [linkData, campaignsData, listsData] = await Promise.all([linkRes.json(), campaignsRes.json(), listsRes.json()]);
+      const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
     if (linkRes.ok) {
-      setWaalaxyLink({ waalaxyCampaignId: linkData.waalaxy_campaign_id || "", waalaxyListId: linkData.waalaxy_list_id || "" });
-      setWaalaxySyncInfo({ status: linkData.waalaxy_sync_status, error: linkData.waalaxy_sync_error, imported: linkData.waalaxy_prospects_imported, syncedAt: linkData.waalaxy_synced_at });
+      setWaalaxyLink({ waalaxyCampaignId: String(linkData.waalaxy_campaign_id || ""), waalaxyListId: String(linkData.waalaxy_list_id || "") });
+      setWaalaxySyncInfo({ status: String(linkData.waalaxy_sync_status || "not_linked"), error: linkData.waalaxy_sync_error as string | null, imported: linkData.waalaxy_prospects_imported as number, syncedAt: linkData.waalaxy_synced_at as string | null });
     }
     if (campaignsRes.status === 501 || listsRes.status === 501) {
       setWaalaxyNotConfigured(true);
     } else if (!campaignsRes.ok) {
-      setWaalaxyError(campaignsData.error || "Unable to load Waalaxy campaigns.");
+      setWaalaxyError(String(campaignsData.error || "Unable to load Waalaxy campaigns."));
     } else if (!listsRes.ok) {
-      setWaalaxyError(listsData.error || "Unable to load Waalaxy prospect lists.");
+      setWaalaxyError(String(listsData.error || "Unable to load Waalaxy prospect lists."));
     } else {
-      setWaalaxyCampaignsList(campaignsData.campaigns || []);
-      setWaalaxyListsList(listsData.lists || []);
+      setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
+      setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
     }
-    setWaalaxyLoading(false);
+    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy."); }
+    finally { setWaalaxyLoading(false); }
   }
   async function saveCampaignStatus() {
     if (!waalaxyModal) return;
@@ -279,49 +304,58 @@ export default function Home() {
     if (!accountModal || newRole === accountModal.role) return;
     setAccountSaving(true);
     setAccountError("");
-    const headers = await authHeader();
-    const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
-    const result = await response.json();
-    if (!response.ok) { setAccountError(result.error || "Unable to update this account."); setAccountSaving(false); return; }
-    setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, role: newRole } : account));
-    setAccountModal((current) => current ? { ...current, role: newRole } : current);
-    setAccountSaving(false);
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
+      const result = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "Unable to update this account.");
+      setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, role: newRole } : account));
+      setAccountModal((current) => current ? { ...current, role: newRole } : current);
+    } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to update this account."); }
+    finally { setAccountSaving(false); }
   }
   async function removeAccountAccess() {
     if (!accountModal) return;
     if (!accountConfirmRemove) { setAccountConfirmRemove(true); return; }
     setAccountSaving(true);
     setAccountError("");
-    const headers = await authHeader();
-    const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "DELETE", headers });
-    const result = await response.json();
-    if (!response.ok) { setAccountError(result.error || "Unable to remove this account."); setAccountSaving(false); return; }
-    setAccounts((current) => current.filter((account) => account.id !== accountModal.id));
-    setAccountSaving(false);
-    setAccountModal(null);
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "DELETE", headers });
+      const result = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "Unable to remove this account.");
+      setAccounts((current) => current.filter((account) => account.id !== accountModal.id));
+      setAccountModal(null);
+    } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to remove this account."); }
+    finally { setAccountSaving(false); }
   }
   async function saveWaalaxyLink() {
     if (!waalaxyModal) return;
     setWaalaxySaving(true);
     setWaalaxyError("");
-    const headers = await authHeader();
-    const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/waalaxy`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(waalaxyLink) });
-    const result = await response.json();
-    if (!response.ok) { setWaalaxyError(result.error || "Unable to link this campaign."); setWaalaxySaving(false); return; }
-    setWaalaxySyncInfo({ status: result.waalaxy_sync_status, error: result.waalaxy_sync_error, imported: result.waalaxy_prospects_imported, syncedAt: result.waalaxy_synced_at });
-    setWaalaxySaving(false);
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/waalaxy`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(waalaxyLink) });
+      const result = await readJson<{ error?: string; waalaxy_sync_status: string; waalaxy_sync_error?: string | null; waalaxy_prospects_imported?: number; waalaxy_synced_at?: string | null }>(response);
+      if (!response.ok) throw new Error(result.error || "Unable to link this campaign.");
+      setWaalaxySyncInfo({ status: result.waalaxy_sync_status, error: result.waalaxy_sync_error, imported: result.waalaxy_prospects_imported, syncedAt: result.waalaxy_synced_at });
+    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to link this campaign."); }
+    finally { setWaalaxySaving(false); }
   }
   async function pushLeadsToWaalaxy() {
     if (!waalaxyModal) return;
     setWaalaxyPushing(true);
     setWaalaxyError("");
-    const headers = await authHeader();
-    const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/push-to-waalaxy`, { method: "POST", headers });
-    const result = await response.json();
-    if (!response.ok) { setWaalaxyError(result.error || "Unable to push leads to Waalaxy."); setWaalaxyPushing(false); return; }
-    setWaalaxySyncInfo({ status: "synced", imported: result.imported, syncedAt: new Date().toISOString() });
-    setWaalaxyPushing(false);
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/push-to-waalaxy`, { method: "POST", headers });
+      const result = await readJson<{ error?: string; imported?: number; status?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "Unable to push leads to Waalaxy.");
+      setWaalaxySyncInfo({ status: result.status || "synced", error: result.error, imported: result.imported, syncedAt: new Date().toISOString() });
+    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to push leads to Waalaxy."); }
+    finally { setWaalaxyPushing(false); }
   }
+  if (workspaceLoading) return <main className="workspaceGate" aria-busy="true"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /><p>Loading your workspace…</p></main>;
   const isAdmin = profile.role === "admin";
   const activeCampaigns = campaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
   const totalLeads = campaigns.reduce((sum, campaign) => sum + (Number.parseInt(campaign.audience) || 0), 0);
@@ -337,7 +371,7 @@ export default function Home() {
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><a className="navItem" href="#leads"><span><Icon name="users" /></span> Lead lists</a><a className="navItem" href="#templates"><span><Icon name="file" /></span> Templates</a></>}</nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload leads</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button></>}</nav>
         <div className="sidebarInsight">
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
@@ -360,6 +394,7 @@ export default function Home() {
 
       <section className="content" id="campaigns">
         <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? (adminView === "users" ? "User accounts" : "Operations") : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
+        {workspaceError && <p className="formError workspaceError" role="alert">We couldn&apos;t load your workspace: {workspaceError} <button type="button" onClick={() => window.location.reload()}>Retry</button></p>}
         {isAdmin ? adminView === "users" ? <div className="adminDashboard">
           <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <article className="accountRow" key={account.id}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><button className="more" aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)}><Icon name="dots" /></button></article>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
@@ -402,7 +437,8 @@ export default function Home() {
             </div>}
             {step === 2 && <div className="modalBody"><p className="eyebrow">STEP 2 OF 3 · LEAD LIST</p><h2 id="wizard-title">Add the right people.</h2><p className="modalIntro">Use our template so your campaign can move into setup without delays.</p>
               <div className="templateCard"><div><strong>Myntmore lead template</strong><small>Includes the exact columns our team needs.</small></div><button onClick={downloadTemplate}>↓ Download CSV</button></div>
-              <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => { const file = e.target.files?.[0] || null; setLeadFile(file); setFileName(file?.name || ""); }}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Ready for review" : "or click to choose a file · CSV up to 10 MB"}</small></label>
+              <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => void chooseLeadFile(e.target.files?.[0] || null)}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small></label>
+              {submitError && <p className="formError" role="alert">{submitError}</p>}
             </div>}
             {step === 3 && <div className="modalBody sequenceBuilder"><p className="eyebrow">STEP 3 OF 3 · SEQUENCE</p><h2 id="wizard-title">Build the conversation.</h2><p className="modalIntro">Add the exact connection note and follow-ups you want us to configure in Waalaxy.</p>
               <label>Voice and tone<input value={form.tone} onChange={(e) => update("tone", e.target.value)}/></label>
@@ -414,8 +450,8 @@ export default function Home() {
               <div className="reviewStrip"><span>Campaign</span><strong>{form.name || "Untitled campaign"}</strong><span>Sequence</span><strong>Connection note + {form.followUpCount} follow-up{form.followUpCount > 1 ? "s" : ""}</strong></div>
               {step === 3 && submitError && <p className="formError" role="alert">{submitError}</p>}
             </div>}
-            <footer className="modalFooter"><button className="secondary" onClick={() => step === 1 ? setShowWizard(false) : setStep(step - 1)} disabled={submitting}>{step === 1 ? "Cancel" : "Back"}</button><button className="primary" disabled={submitting || (step === 1 && !form.name.trim()) || (step === 3 && (!form.connectionNote.trim() || form.followUps.slice(0,form.followUpCount).some((message) => !message.trim())))} onClick={() => step < 3 ? setStep(step + 1) : submitCampaign()}>{step < 3 ? "Continue →" : submitting ? "Submitting…" : "Submit campaign →"}</button></footer>
-          </> : <div className="success"><div className="successIcon">✓</div><p className="eyebrow">CAMPAIGN RECEIVED</p><h2 id="wizard-title">It’s with the Myntmore team.</h2><p>We’ll review your leads and messaging, configure the sequence in Waalaxy, and update the status here. You’ll see progress within one business day.</p>{uploadFailed && <p className="formError" role="alert">Your brief was submitted, but your lead list CSV didn’t upload. Please re-attach it from a new campaign, or send it to your Myntmore contact directly.</p>}<button className="primary" onClick={() => setShowWizard(false)}>Back to campaigns</button></div>}
+            <footer className="modalFooter"><button className="secondary" onClick={() => step === 1 ? setShowWizard(false) : setStep(step - 1)} disabled={submitting}>{step === 1 ? "Cancel" : "Back"}</button><button className="primary" disabled={submitting || (step === 1 && !form.name.trim()) || (step === 2 && !leadFile) || (step === 3 && (!form.connectionNote.trim() || form.followUps.slice(0,form.followUpCount).some((message) => !message.trim())))} onClick={() => step < 3 ? setStep(step + 1) : submitCampaign()}>{step < 3 ? "Continue →" : submitting ? "Submitting…" : "Submit campaign →"}</button></footer>
+          </> : <div className="success"><div className="successIcon">✓</div><p className="eyebrow">CAMPAIGN RECEIVED</p><h2 id="wizard-title">It’s with the Myntmore team.</h2><p>We’ll review your leads and messaging, configure the sequence in Waalaxy, and update the status here. You’ll see progress within one business day.</p><button className="primary" onClick={() => setShowWizard(false)}>Back to campaigns</button></div>}
         </section>
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
@@ -450,6 +486,7 @@ export default function Home() {
               <label>Waalaxy prospect list<select value={waalaxyLink.waalaxyListId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyListId: e.target.value })}><option value="">Select a list…</option>{waalaxyListsList.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
               {waalaxyError && <p className="formError" role="alert">{waalaxyError}</p>}
               {waalaxySyncInfo?.status === "synced" && <p className="formSuccess" role="status">Synced {waalaxySyncInfo.imported ?? 0} lead{waalaxySyncInfo.imported === 1 ? "" : "s"} to Waalaxy{waalaxySyncInfo.syncedAt ? ` on ${new Date(waalaxySyncInfo.syncedAt).toLocaleString()}` : ""}.</p>}
+              {waalaxySyncInfo?.status === "partial" && <p className="formError" role="alert">Partially synced: {waalaxySyncInfo.imported ?? 0} leads imported. {waalaxySyncInfo.error}</p>}
               {waalaxySyncInfo?.status === "failed" && waalaxySyncInfo.error && <p className="formError" role="alert">Last sync attempt failed: {waalaxySyncInfo.error}</p>}
               <div className="waalaxyActions">
                 <button className="secondary" onClick={saveWaalaxyLink} disabled={waalaxySaving || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxySaving ? "Saving…" : "Save link"}</button>

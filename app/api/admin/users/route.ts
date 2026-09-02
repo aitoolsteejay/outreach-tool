@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       userId = data.user.id;
       createdNewAuthUser = true;
     }
-    const { error: profileError } = await admin.schema("outreach").from("profiles").upsert({ id: userId, email: normalizedEmail, full_name: fullName?.trim() || normalizedEmail.split("@")[0], role });
+    const { error: profileError } = await admin.schema("outreach").from("profiles").upsert({ id: userId, email: normalizedEmail, full_name: fullName?.trim() || normalizedEmail.split("@")[0], role, access_revoked_at: null });
     if (profileError) {
       if (createdNewAuthUser) await admin.auth.admin.deleteUser(userId).catch(() => {});
       throw profileError;
