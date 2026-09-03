@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { MAX_LEAD_FILE_BYTES, validateAndParseLeadsCsv } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, guessColumnMapping, leadRowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -103,6 +103,8 @@ export default function Home() {
   const [submitError, setSubmitError] = useState("");
   const [fileName, setFileName] = useState("");
   const [leadFile, setLeadFile] = useState<File | null>(null);
+  const [columnMapping, setColumnMapping] = useState<{ headers: string[]; rows: string[][]; mapping: ColumnMapping; sourceFileName: string } | null>(null);
+  const [mappingError, setMappingError] = useState("");
   const [userId, setUserId] = useState("");
   const [profile, setProfile] = useState({ fullName: "", email: "", role: "client" });
   const [showUserSetup, setShowUserSetup] = useState(false);
@@ -172,9 +174,32 @@ export default function Home() {
   function updateFollowUp(index: number, value: string) { setForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) })); }
   async function chooseLeadFile(file: File | null) {
     setSubmitError("");
+    setColumnMapping(null);
+    setMappingError("");
     if (!file) { setLeadFile(null); setFileName(""); return; }
     try { await readLeadFile(file); setLeadFile(file); setFileName(file.name); }
-    catch (error) { setLeadFile(null); setFileName(""); setSubmitError(error instanceof Error ? error.message : "Choose a valid CSV file."); }
+    catch (error) {
+      setLeadFile(null); setFileName("");
+      // Headers didn't match our template exactly -- offer to map the
+      // client's own columns instead of flatly rejecting the file.
+      if (error instanceof MissingHeadersError) { setColumnMapping({ headers: error.headers, rows: error.rows, mapping: guessColumnMapping(error.headers), sourceFileName: file.name }); return; }
+      setSubmitError(error instanceof Error ? error.message : "Choose a valid CSV file.");
+    }
+  }
+  function updateColumnMapping(field: LeadField, source: string) {
+    setColumnMapping((current) => current ? { ...current, mapping: { ...current.mapping, [field]: source || undefined } } : current);
+  }
+  function cancelColumnMapping() { setColumnMapping(null); setMappingError(""); }
+  function applyColumnMapping() {
+    if (!columnMapping) return;
+    setMappingError("");
+    try {
+      const leadRows = buildLeadRowsFromMapping(columnMapping.headers, columnMapping.rows, columnMapping.mapping);
+      const mappedFile = new File([leadRowsToCsv(leadRows)], columnMapping.sourceFileName, { type: "text/csv" });
+      setLeadFile(mappedFile);
+      setFileName(columnMapping.sourceFileName);
+      setColumnMapping(null);
+    } catch (error) { setMappingError(error instanceof Error ? error.message : "Unable to map these columns."); }
   }
   useEffect(() => {
     const supabase = createClient();
@@ -202,7 +227,7 @@ export default function Home() {
       finally { setWorkspaceLoading(false); }
     })();
   }, []);
-  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setForm(defaultCampaignForm()); setLeadFile(null); setFileName(""); setShowWizard(true); }
+  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setForm(defaultCampaignForm()); setLeadFile(null); setFileName(""); setColumnMapping(null); setMappingError(""); setShowWizard(true); }
   function downloadTemplate() {
     const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority lead\n";
     const link = document.createElement("a");
@@ -674,8 +699,25 @@ export default function Home() {
             </div>}
             {step === 2 && <div className="modalBody"><p className="eyebrow">STEP 2 OF 3 · LEAD LIST</p><h2 id="wizard-title">Add the right people.</h2><p className="modalIntro">Use our template so your campaign can move into setup without delays.</p>
               <div className="templateCard"><div><strong>Myntmore lead template</strong><small>Includes the exact columns our team needs.</small></div><button onClick={downloadTemplate}>↓ Download CSV</button></div>
-              <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => void chooseLeadFile(e.target.files?.[0] || null)}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small></label>
-              {submitError && <p className="formError" role="alert">{submitError}</p>}
+              {!columnMapping ? <>
+                <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => void chooseLeadFile(e.target.files?.[0] || null)}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small></label>
+                {submitError && <p className="formError" role="alert">{submitError}</p>}
+              </> : <div className="columnMapper">
+                <p className="modalIntro"><strong>{columnMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below — LinkedIn URL is required, the rest are optional.</p>
+                {LEAD_CSV_HEADERS.map((field) => (
+                  <label key={field}>{LEAD_FIELD_LABELS[field]}{LEAD_FIELD_REQUIRED[field] ? " *" : <span className="fieldHint">Optional</span>}
+                    <select value={columnMapping.mapping[field] || ""} onChange={(e) => updateColumnMapping(field, e.target.value)}>
+                      <option value="">— Not in file —</option>
+                      {columnMapping.headers.map((header) => <option key={header} value={header}>{header}</option>)}
+                    </select>
+                  </label>
+                ))}
+                {mappingError && <p className="formError" role="alert">{mappingError}</p>}
+                <div className="waalaxyActions">
+                  <button type="button" className="secondary" onClick={cancelColumnMapping}>Choose a different file</button>
+                  <button type="button" className="primary" disabled={!columnMapping.mapping.linkedin_url} onClick={applyColumnMapping}>Use these columns</button>
+                </div>
+              </div>}
             </div>}
             {step === 3 && <div className="modalBody sequenceBuilder"><p className="eyebrow">STEP 3 OF 3 · SEQUENCE</p><h2 id="wizard-title">Build the conversation.</h2><p className="modalIntro">Add the exact connection note and follow-ups you want us to configure for your outreach.</p>
               <label>Voice and tone<input value={form.tone} onChange={(e) => update("tone", e.target.value)}/></label>
