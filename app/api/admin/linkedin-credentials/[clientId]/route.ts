@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/require-admin";
 
-const SELECT_FIELDS = "linkedin_email,status,verification_code,code_requested_at,code_submitted_at,last_attempt_at,failure_reason,revealed_at,updated_at";
+// verification_code is deliberately excluded here -- like the password, it's
+// only ever returned by a dedicated, audited reveal action (see
+// reveal-code/route.ts), not as a side effect of loading this panel.
+const SELECT_FIELDS = "linkedin_email,status,verification_code,code_requested_at,code_submitted_at,last_attempt_at,failure_reason,revealed_at,code_revealed_at,updated_at";
 
 const ACTIONS = ["request_code", "request_approval", "mark_logged_in", "mark_failed", "reset"] as const;
 type Action = (typeof ACTIONS)[number];
@@ -11,7 +14,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ clie
   if (!auth.ok) return auth.response;
   const { clientId } = await params;
   const { data } = await auth.admin.schema("outreach").from("linkedin_credentials").select(SELECT_FIELDS).eq("client_id", clientId).maybeSingle();
-  return NextResponse.json(data || null);
+  if (!data) return NextResponse.json(null);
+  const { verification_code, ...rest } = data;
+  return NextResponse.json({ ...rest, has_code: Boolean(verification_code) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ clientId: string }> }) {
@@ -51,5 +56,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ cl
 
   const { data, error } = await auth.admin.schema("outreach").from("linkedin_credentials").update(update).eq("client_id", clientId).select(SELECT_FIELDS).single();
   if (error || !data) return NextResponse.json({ error: error?.message || "Unable to update this record." }, { status: 500 });
-  return NextResponse.json(data);
+  const { verification_code, ...rest } = data;
+  return NextResponse.json({ ...rest, has_code: Boolean(verification_code) });
 }

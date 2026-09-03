@@ -21,3 +21,10 @@ test("reports rows without a LinkedIn URL", () => {
 test("uses an exact 10 MiB upload limit", () => {
   assert.equal(MAX_LEAD_FILE_BYTES, 10 * 1024 * 1024);
 });
+
+test("does not open quote mode for a stray quote in the middle of a field", () => {
+  const rows = validateAndParseLeadsCsv(`${header}\nJane,O"Brien,Founder,Acme,https://linkedin.com/in/jane,jane@example.com,Notes here\nJohn,Doe,CEO,Widgets,https://linkedin.com/in/john,john@example.com,More notes`);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].lastName, 'O"Brien');
+  assert.equal(rows[1].firstName, "John");
+});

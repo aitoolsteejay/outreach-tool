@@ -15,7 +15,7 @@ function parseCsvRecords(text: string): string[][] {
         if (text[index + 1] === '"') { field += '"'; index += 1; }
         else inQuotes = false;
       } else field += char;
-    } else if (char === '"') inQuotes = true;
+    } else if (char === '"' && field === "") inQuotes = true;
     else if (char === ",") { record.push(field.trim()); field = ""; }
     else if (char === "\n" || char === "\r") {
       if (char === "\r" && text[index + 1] === "\n") index += 1;

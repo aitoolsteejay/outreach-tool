@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,10 @@ type Account = { id: string; fullName: string; email: string; role: string; crea
 type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
+
+function defaultCampaignForm() {
+  return { name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] };
+}
 
 const CLIENT_FAQS = [
   { q: "What happens after I submit a campaign?", a: "Your brief, lead list, and message sequence go straight to the Myntmore team. We review it and configure your sequence, moving your campaign from “Submitted” to “In review” and then “In setup.” You'll see the status update on your dashboard, and outreach typically goes live within one business day." },
@@ -106,7 +110,7 @@ export default function Home() {
   const [userError, setUserError] = useState("");
   const [userCreated, setUserCreated] = useState("");
   const [userLoading, setUserLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] });
+  const [form, setForm] = useState(defaultCampaignForm());
   const [waalaxyModal, setWaalaxyModal] = useState<{ id: string; name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [campaignStatus, setCampaignStatus] = useState("Submitted");
@@ -133,7 +137,7 @@ export default function Home() {
   const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
   const [alertPosting, setAlertPosting] = useState(false);
   const [alertError, setAlertError] = useState("");
-  type LinkedinStatus = { linkedin_email?: string; status: string; code_requested_at?: string | null; code_submitted_at?: string | null; failure_reason?: string | null; verification_code?: string | null; updated_at?: string } | null;
+  type LinkedinStatus = { linkedin_email?: string; status: string; code_requested_at?: string | null; code_submitted_at?: string | null; failure_reason?: string | null; has_code?: boolean; updated_at?: string } | null;
   const [linkedinStatus, setLinkedinStatus] = useState<LinkedinStatus>(null);
   const [linkedinLoading, setLinkedinLoading] = useState(true);
   const [linkedinForm, setLinkedinForm] = useState({ email: "", password: "" });
@@ -145,7 +149,14 @@ export default function Home() {
   const [adminLinkedinActing, setAdminLinkedinActing] = useState(false);
   const [adminLinkedinError, setAdminLinkedinError] = useState("");
   const [adminLinkedinReveal, setAdminLinkedinReveal] = useState<{ password: string; revealedAt: string } | null>(null);
+  const [adminLinkedinCodeReveal, setAdminLinkedinCodeReveal] = useState<{ code: string; revealedAt: string } | null>(null);
   const [adminLinkedinFailReason, setAdminLinkedinFailReason] = useState("");
+  // Guards against a stale async response from a previously-open client's panel
+  // landing on whichever client's panel happens to be open now (e.g. admin
+  // opens client A, then quickly switches to client B before A's fetch
+  // resolves) -- every setState below checks this still matches before firing.
+  const activeLinkedinClientIdRef = useRef<string | null>(null);
+  const activeWaalaxyCampaignIdRef = useRef<string | null>(null);
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
   function addPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
@@ -184,7 +195,7 @@ export default function Home() {
       finally { setWorkspaceLoading(false); }
     })();
   }, []);
-  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setShowWizard(true); }
+  function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setForm(defaultCampaignForm()); setLeadFile(null); setFileName(""); setShowWizard(true); }
   function downloadTemplate() {
     const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority lead\n";
     const link = document.createElement("a");
@@ -272,12 +283,17 @@ export default function Home() {
     setAdminLinkedinLoading(true);
     setAdminLinkedinError("");
     setAdminLinkedinReveal(null);
+    setAdminLinkedinCodeReveal(null);
     try {
       const headers = await authHeader();
       const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { headers });
-      setAdminLinkedinStatus(await readJson<LinkedinStatus>(response));
-    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to load LinkedIn status."); }
-    finally { setAdminLinkedinLoading(false); }
+      const data = await readJson<LinkedinStatus>(response);
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinStatus(data);
+    } catch (error) {
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinError(error instanceof Error ? error.message : "Unable to load LinkedIn status.");
+    } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinLoading(false); }
   }
   async function performLinkedinAction(clientId: string, action: string, reason?: string) {
     setAdminLinkedinActing(true);
@@ -287,11 +303,15 @@ export default function Home() {
       const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action, reason }) });
       const data = await readJson<LinkedinStatus & { error?: string }>(response);
       if (!response.ok) throw new Error(data?.error || "Unable to update this record.");
+      if (activeLinkedinClientIdRef.current !== clientId) return;
       setAdminLinkedinStatus(data);
       setAdminLinkedinFailReason("");
       setAdminLinkedinReveal(null);
-    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to update this record."); }
-    finally { setAdminLinkedinActing(false); }
+      setAdminLinkedinCodeReveal(null);
+    } catch (error) {
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinError(error instanceof Error ? error.message : "Unable to update this record.");
+    } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinActing(false); }
   }
   async function revealLinkedinPassword(clientId: string) {
     setAdminLinkedinActing(true);
@@ -301,9 +321,27 @@ export default function Home() {
       const response = await fetch(`/api/admin/linkedin-credentials/${clientId}/reveal`, { method: "POST", headers });
       const data = await readJson<{ error?: string; password?: string; revealedAt?: string }>(response);
       if (!response.ok || !data.password || !data.revealedAt) throw new Error(data?.error || "Unable to reveal this password.");
+      if (activeLinkedinClientIdRef.current !== clientId) return;
       setAdminLinkedinReveal({ password: data.password, revealedAt: data.revealedAt });
-    } catch (error) { setAdminLinkedinError(error instanceof Error ? error.message : "Unable to reveal this password."); }
-    finally { setAdminLinkedinActing(false); }
+    } catch (error) {
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinError(error instanceof Error ? error.message : "Unable to reveal this password.");
+    } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinActing(false); }
+  }
+  async function revealLinkedinCode(clientId: string) {
+    setAdminLinkedinActing(true);
+    setAdminLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/linkedin-credentials/${clientId}/reveal-code`, { method: "POST", headers });
+      const data = await readJson<{ error?: string; code?: string; revealedAt?: string }>(response);
+      if (!response.ok || !data.code || !data.revealedAt) throw new Error(data?.error || "Unable to reveal this code.");
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinCodeReveal({ code: data.code, revealedAt: data.revealedAt });
+    } catch (error) {
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinError(error instanceof Error ? error.message : "Unable to reveal this code.");
+    } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinActing(false); }
   }
   useEffect(() => {
     if (!userId || profile.role !== "client") return;
@@ -318,6 +356,7 @@ export default function Home() {
     })();
   }, [userId, profile.role]);
   async function openWaalaxyModal(campaign: Campaign) {
+    activeWaalaxyCampaignIdRef.current = campaign.id;
     setWaalaxyModal({ id: campaign.id, name: campaign.name });
     setCampaignStatus(campaign.status);
     setCampaignProgress(campaign.progress);
@@ -327,6 +366,9 @@ export default function Home() {
     setWaalaxyError("");
     setWaalaxyNotConfigured(false);
     setWaalaxySyncInfo(null);
+    setWaalaxyLink({ waalaxyCampaignId: "", waalaxyListId: "" });
+    setWaalaxyCampaignsList([]);
+    setWaalaxyListsList([]);
     setWaalaxyLoading(true);
     try {
       const headers = await authHeader();
@@ -336,6 +378,7 @@ export default function Home() {
       fetch("/api/admin/waalaxy/lists", { headers }),
     ]);
       const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
+    if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
     if (linkRes.ok) {
       setWaalaxyLink({ waalaxyCampaignId: String(linkData.waalaxy_campaign_id || ""), waalaxyListId: String(linkData.waalaxy_list_id || "") });
       setWaalaxySyncInfo({ status: String(linkData.waalaxy_sync_status || "not_linked"), error: linkData.waalaxy_sync_error as string | null, imported: linkData.waalaxy_prospects_imported as number, syncedAt: linkData.waalaxy_synced_at as string | null });
@@ -350,8 +393,10 @@ export default function Home() {
       setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
       setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
     }
-    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy."); }
-    finally { setWaalaxyLoading(false); }
+    } catch (error) {
+      if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+      setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy.");
+    } finally { if (activeWaalaxyCampaignIdRef.current === campaign.id) setWaalaxyLoading(false); }
   }
   async function saveCampaignStatus() {
     if (!waalaxyModal) return;
@@ -385,6 +430,7 @@ export default function Home() {
     setAlerts((current) => current.map((alert) => alert.id === id ? { ...alert, resolved: true } : alert));
   }
   function openAccountModal(account: Account) {
+    activeLinkedinClientIdRef.current = account.role === "client" ? account.id : null;
     setAccountModal(account);
     setAccountError("");
     setAccountConfirmRemove(false);
@@ -393,8 +439,17 @@ export default function Home() {
     setAdminLinkedinStatus(null);
     setAdminLinkedinError("");
     setAdminLinkedinReveal(null);
+    setAdminLinkedinCodeReveal(null);
     setAdminLinkedinFailReason("");
     if (account.role === "client") void loadAdminLinkedinStatus(account.id);
+  }
+  function closeAccountModal() {
+    activeLinkedinClientIdRef.current = null;
+    setAccountModal(null);
+  }
+  function closeWaalaxyModal() {
+    activeWaalaxyCampaignIdRef.current = null;
+    setWaalaxyModal(null);
   }
   async function changeAccountRole(newRole: string) {
     if (!accountModal || newRole === accountModal.role) return;
@@ -421,7 +476,7 @@ export default function Home() {
       const result = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "Unable to remove this account.");
       setAccounts((current) => current.filter((account) => account.id !== accountModal.id));
-      setAccountModal(null);
+      closeAccountModal();
     } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to remove this account."); }
     finally { setAccountSaving(false); }
   }
@@ -580,9 +635,9 @@ export default function Home() {
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
       {waalaxyModal && <div className="modalBackdrop">
-        <button className="modalDismiss" onClick={() => setWaalaxyModal(null)} aria-label="Close manage campaign" />
+        <button className="modalDismiss" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign" />
         <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="waalaxy-title">
-          <button className="close" onClick={() => setWaalaxyModal(null)} aria-label="Close manage campaign">×</button>
+          <button className="close" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign">×</button>
           <div className="modalBody">
             <p className="eyebrow">MANAGE CAMPAIGN</p>
             <h2 id="waalaxy-title">{waalaxyModal.name}</h2>
@@ -609,7 +664,7 @@ export default function Home() {
               <label>Waalaxy campaign<select value={waalaxyLink.waalaxyCampaignId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyCampaignId: e.target.value })}><option value="">Select a campaign…</option>{waalaxyCampaignsList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Waalaxy prospect list<select value={waalaxyLink.waalaxyListId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyListId: e.target.value })}><option value="">Select a list…</option>{waalaxyListsList.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
               {waalaxyError && <p className="formError" role="alert">{waalaxyError}</p>}
-              {waalaxySyncInfo?.status === "synced" && <p className="formSuccess" role="status">Synced {waalaxySyncInfo.imported ?? 0} lead{waalaxySyncInfo.imported === 1 ? "" : "s"} to Waalaxy{waalaxySyncInfo.syncedAt ? ` on ${new Date(waalaxySyncInfo.syncedAt).toLocaleString()}` : ""}.</p>}
+              {waalaxySyncInfo?.status === "synced" && <p className="formSuccess" role="status">Synced {waalaxySyncInfo.imported ?? 0} lead{waalaxySyncInfo.imported === 1 ? "" : "s"} to Waalaxy{waalaxySyncInfo.syncedAt ? ` on ${new Date(waalaxySyncInfo.syncedAt).toLocaleString()}` : ""}.{waalaxySyncInfo.error ? ` ${waalaxySyncInfo.error}` : ""}</p>}
               {waalaxySyncInfo?.status === "partial" && <p className="formError" role="alert">Partially synced: {waalaxySyncInfo.imported ?? 0} leads imported. {waalaxySyncInfo.error}</p>}
               {waalaxySyncInfo?.status === "failed" && waalaxySyncInfo.error && <p className="formError" role="alert">Last sync attempt failed: {waalaxySyncInfo.error}</p>}
               <div className="waalaxyActions">
@@ -621,9 +676,9 @@ export default function Home() {
         </section>
       </div>}
       {accountModal && <div className="modalBackdrop">
-        <button className="modalDismiss" onClick={() => setAccountModal(null)} aria-label="Close manage account" />
+        <button className="modalDismiss" onClick={() => closeAccountModal()} aria-label="Close manage account" />
         <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="account-title">
-          <button className="close" onClick={() => setAccountModal(null)} aria-label="Close manage account">×</button>
+          <button className="close" onClick={() => closeAccountModal()} aria-label="Close manage account">×</button>
           <div className="modalBody">
             <p className="eyebrow">MANAGE ACCOUNT</p>
             <h2 id="account-title">{accountModal.fullName}</h2>
@@ -641,7 +696,8 @@ export default function Home() {
                 <p className="modalIntro">This client hasn&apos;t submitted LinkedIn credentials yet.</p>
               ) : <>
                 <p className="modalIntro">{adminLinkedinStatus.linkedin_email} — <strong>{adminLinkedinStatus.status.replaceAll("_", " ")}</strong></p>
-                {adminLinkedinStatus.status === "code_submitted" && adminLinkedinStatus.verification_code && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>{adminLinkedinStatus.verification_code}</span></div></div>}
+                {adminLinkedinStatus.status === "code_submitted" && adminLinkedinStatus.has_code && !adminLinkedinCodeReveal && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>Ready to reveal</span></div><button className="secondary" disabled={adminLinkedinActing} onClick={() => revealLinkedinCode(accountModal.id)}>Reveal code</button></div>}
+                {adminLinkedinCodeReveal && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>{adminLinkedinCodeReveal.code}</span></div></div>}
                 {adminLinkedinStatus.failure_reason && <p className="formError" role="alert">Last failure: {adminLinkedinStatus.failure_reason}</p>}
                 {adminLinkedinReveal && <div className="alertItem info"><Icon name="eye" size={15} /><div><strong>Password</strong><span>{adminLinkedinReveal.password}</span></div></div>}
                 {adminLinkedinError && <p className="formError" role="alert">{adminLinkedinError}</p>}
