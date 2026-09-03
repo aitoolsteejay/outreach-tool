@@ -133,6 +133,13 @@ export default function Home() {
   const [waalaxySyncInfo, setWaalaxySyncInfo] = useState<{ status: string; error?: string | null; imported?: number; syncedAt?: string | null } | null>(null);
   const [waalaxySaving, setWaalaxySaving] = useState(false);
   const [waalaxyPushing, setWaalaxyPushing] = useState(false);
+  type CampaignBrief = { goal: string; offer: string; tone: string; messagingStrategy: string; connectionNote: string; followUps: string[] };
+  const [campaignBrief, setCampaignBrief] = useState<CampaignBrief | null>(null);
+  const [campaignMetrics, setCampaignMetrics] = useState({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
+  const [metricsSaving, setMetricsSaving] = useState(false);
+  const [metricsError, setMetricsError] = useState("");
+  const [leadsDownloading, setLeadsDownloading] = useState(false);
+  const [leadsDownloadError, setLeadsDownloadError] = useState("");
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
   const [alertPosting, setAlertPosting] = useState(false);
@@ -370,12 +377,18 @@ export default function Home() {
     setWaalaxyCampaignsList([]);
     setWaalaxyListsList([]);
     setWaalaxyLoading(true);
+    setCampaignBrief(null);
+    setCampaignMetrics({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
+    setMetricsError("");
+    setLeadsDownloadError("");
     try {
       const headers = await authHeader();
-      const [linkRes, campaignsRes, listsRes] = await Promise.all([
+      const supabase = createClient();
+      const [linkRes, campaignsRes, listsRes, briefResult] = await Promise.all([
       fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
       fetch("/api/admin/waalaxy/campaigns", { headers }),
       fetch("/api/admin/waalaxy/lists", { headers }),
+      supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
     ]);
       const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
     if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
@@ -393,10 +406,55 @@ export default function Home() {
       setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
       setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
     }
+    if (!briefResult.error && briefResult.data) {
+      const row = briefResult.data;
+      setCampaignBrief({
+        goal: row.goal || "", offer: row.offer || "", tone: row.tone || "", messagingStrategy: row.messaging_strategy || "",
+        connectionNote: row.connection_note || "", followUps: (row.follow_up_messages || []).slice(0, row.follow_up_count || 1),
+      });
+      setCampaignMetrics({
+        connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0,
+        repliesReceived: row.replies_received || 0, positiveReplies: row.positive_replies || 0,
+      });
+    }
     } catch (error) {
       if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
       setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy.");
     } finally { if (activeWaalaxyCampaignIdRef.current === campaign.id) setWaalaxyLoading(false); }
+  }
+  async function saveCampaignMetrics() {
+    if (!waalaxyModal) return;
+    setMetricsSaving(true);
+    setMetricsError("");
+    const { error } = await createClient().schema("outreach").from("campaigns").update({
+      connections_sent: campaignMetrics.connectionsSent,
+      connections_accepted: campaignMetrics.connectionsAccepted,
+      replies_received: campaignMetrics.repliesReceived,
+      positive_replies: campaignMetrics.positiveReplies,
+      metrics_updated_at: new Date().toISOString(),
+    }).eq("id", waalaxyModal.id);
+    if (error) { setMetricsError(error.message); setMetricsSaving(false); return; }
+    setMetricsSaving(false);
+  }
+  async function downloadCampaignLeads(campaignId: string, campaignName: string) {
+    setLeadsDownloading(true);
+    setLeadsDownloadError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/campaigns/${campaignId}/leads-csv`, { headers });
+      if (!response.ok) {
+        const data = await readJson<{ error?: string }>(response).catch(() => ({ error: undefined }));
+        throw new Error(data.error || "Unable to download this campaign's leads.");
+      }
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${campaignName.replace(/[^a-zA-Z0-9._-]/g, "_") || "campaign"}-leads.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
+    } finally { setLeadsDownloading(false); }
   }
   async function saveCampaignStatus() {
     if (!waalaxyModal) return;
@@ -655,6 +713,38 @@ export default function Home() {
             {alertError && <p className="formError" role="alert">{alertError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === waalaxyModal.id)?.clientId || "", waalaxyModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
             {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
+            <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Brief, messages &amp; leads</h3>
+            <p className="modalIntro">Everything needed to configure this campaign in Waalaxy by hand.</p>
+            {waalaxyLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
+              <p className="formError" role="alert">Unable to load this campaign&apos;s brief.</p>
+            ) : <>
+              <div className="reviewStrip">
+                <span>Goal</span><strong>{campaignBrief.goal || "—"}</strong>
+                <span>Offer</span><strong>{campaignBrief.offer || "—"}</strong>
+                <span>Tone</span><strong>{campaignBrief.tone || "—"}</strong>
+              </div>
+              {campaignBrief.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{campaignBrief.messagingStrategy}</p></div>}
+              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "—"}</p></div>
+              {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "—"}</p></div>)}
+              {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
+              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(waalaxyModal.id, waalaxyModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
+            </>}
+            <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Performance metrics</h3>
+            <p className="modalIntro">Update these as outreach runs in Waalaxy — acceptance and positive reply rates are calculated for you.</p>
+            <div className="metricsGrid">
+              <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
+              <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
+              <label>Replies received<input type="number" min={0} value={campaignMetrics.repliesReceived} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, repliesReceived: Math.max(0, Number(e.target.value) || 0) })} /></label>
+              <label>Positive replies<input type="number" min={0} value={campaignMetrics.positiveReplies} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, positiveReplies: Math.max(0, Number(e.target.value) || 0) })} /></label>
+            </div>
+            <div className="metricRates">
+              <div className="metricRate"><strong>{campaignMetrics.connectionsSent ? Math.round((campaignMetrics.connectionsAccepted / campaignMetrics.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
+              <div className="metricRate"><strong>{campaignMetrics.repliesReceived ? Math.round((campaignMetrics.positiveReplies / campaignMetrics.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
+            </div>
+            {metricsError && <p className="formError" role="alert">{metricsError}</p>}
+            <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Waalaxy sync</h3>
             <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in — no manual CSV upload into Waalaxy.</p>

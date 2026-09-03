@@ -234,6 +234,16 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .waalaxyActions{display:flex;gap:10px;margin-top:22px}
 .waalaxyActions .secondary,.waalaxyActions .primary{flex:1;justify-content:center;display:flex;align-items:center}
 
+.briefField{margin-top:15px;padding:15px;border:1px solid var(--border);border-radius:13px;background:#FBFAF8}
+.briefField .briefLabel{font-size:11px;font-weight:750;margin:0 0 6px;display:block}
+.briefField p{margin:0;font-size:12px;line-height:1.5;color:var(--body);white-space:pre-wrap}
+.metricsGrid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.metricsGrid label{margin-top:17px}
+.metricRates{display:flex;gap:10px;margin-top:16px}
+.metricRate{flex:1;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:#FBFAF8;text-align:center}
+.metricRate strong{display:block;font-size:20px;font-weight:800;color:var(--ink)}
+.metricRate span{display:block;font-size:9px;color:var(--taupe);margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+
 /* Sidebar — fill the dead space between nav and footer with real data */
 .sidebarInsight{margin:22px 2px 0;padding:18px;background:#fff;border:1px solid #E7E9F5;border-radius:16px;box-shadow:0 10px 24px #4e39200a}
 .sidebarInsightHead{display:flex;align-items:center;gap:11px;margin-bottom:16px}
