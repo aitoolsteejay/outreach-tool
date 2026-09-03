@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, guessColumnMapping, leadRowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
-type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string };
+type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
 type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string };
 
@@ -115,6 +115,12 @@ export default function Home() {
   const [form, setForm] = useState(defaultCampaignForm());
   const [waalaxyModal, setWaalaxyModal] = useState<{ id: string; name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [heroTimeFilter, setHeroTimeFilter] = useState("all");
+  const [heroCampaignFilter, setHeroCampaignFilter] = useState("all");
+  // Captured once via a lazy useState initializer (which React runs exactly
+  // once, on mount) rather than a bare Date.now() in the render body -- see
+  // the heroCampaigns filter below.
+  const [nowMs] = useState(() => Date.now());
   const [campaignStatus, setCampaignStatus] = useState("Submitted");
   const [campaignProgress, setCampaignProgress] = useState(0);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -142,6 +148,16 @@ export default function Home() {
   const [metricsError, setMetricsError] = useState("");
   const [leadsDownloading, setLeadsDownloading] = useState(false);
   const [leadsDownloadError, setLeadsDownloadError] = useState("");
+  // Read-only campaign detail view for clients -- kept separate from the
+  // admin-only campaignBrief/campaignMetrics state above, which is editable.
+  const [clientCampaignModal, setClientCampaignModal] = useState<Campaign | null>(null);
+  const [clientCampaignLoading, setClientCampaignLoading] = useState(false);
+  const [clientCampaignError, setClientCampaignError] = useState("");
+  const [clientCampaignDetail, setClientCampaignDetail] = useState<(CampaignBrief & { connectionsSent: number; connectionsAccepted: number; repliesReceived: number; positiveReplies: number; submittedAt?: string }) | null>(null);
+  const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
+  const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
+  const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
+  const activeClientCampaignIdRef = useRef<string | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
   const [alertPosting, setAlertPosting] = useState(false);
@@ -211,7 +227,7 @@ export default function Home() {
         const { data: profileRow, error: profileError } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).is("access_revoked_at", null).single();
         if (profileError || !profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
         setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
-        const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id").order("created_at", { ascending: false });
+        const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id,submitted_at").order("created_at", { ascending: false });
         const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").is("access_revoked_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
         const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
         const [campaignsResult, profilesResult, alertsResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise]);
@@ -221,7 +237,7 @@ export default function Home() {
         setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
         setClientCount(allProfiles.filter((account) => account.role === "client").length);
         const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
-        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id })));
+        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at })));
         setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
       } catch (error) { setWorkspaceError(error instanceof Error ? error.message : "Unable to load the workspace."); }
       finally { setWorkspaceLoading(false); }
@@ -257,7 +273,7 @@ export default function Home() {
         const { error } = await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaignId, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
         if (error) throw error;
       }
-      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15 }, ...current]);
+      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15, submittedAt: new Date().toISOString() }, ...current]);
       setSubmitted(true);
     } catch (error) {
       if (campaignId) await supabase.schema("outreach").from("campaigns").delete().eq("id", campaignId);
@@ -481,6 +497,46 @@ export default function Home() {
       setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
     } finally { setLeadsDownloading(false); }
   }
+  async function openClientCampaignModal(campaign: Campaign) {
+    activeClientCampaignIdRef.current = campaign.id;
+    setClientCampaignModal(campaign);
+    setClientCampaignError("");
+    setClientCampaignDetail(null);
+    setClientCampaignConfirmDelete(false);
+    setClientCampaignDeleteError("");
+    setClientCampaignLoading(true);
+    try {
+      const { data, error } = await createClient().schema("outreach").from("campaigns")
+        .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
+        .eq("id", campaign.id).single();
+      if (activeClientCampaignIdRef.current !== campaign.id) return;
+      if (error || !data) throw error || new Error("Unable to load this campaign.");
+      setClientCampaignDetail({
+        goal: data.goal || "", offer: data.offer || "", tone: data.tone || "", messagingStrategy: data.messaging_strategy || "",
+        connectionNote: data.connection_note || "", followUps: (data.follow_up_messages || []).slice(0, data.follow_up_count || 1),
+        connectionsSent: data.connections_sent || 0, connectionsAccepted: data.connections_accepted || 0,
+        repliesReceived: data.replies_received || 0, positiveReplies: data.positive_replies || 0, submittedAt: data.submitted_at,
+      });
+    } catch (error) {
+      if (activeClientCampaignIdRef.current !== campaign.id) return;
+      setClientCampaignError(error instanceof Error ? error.message : "Unable to load this campaign.");
+    } finally { if (activeClientCampaignIdRef.current === campaign.id) setClientCampaignLoading(false); }
+  }
+  function closeClientCampaignModal() {
+    activeClientCampaignIdRef.current = null;
+    setClientCampaignModal(null);
+  }
+  async function deleteClientCampaign() {
+    if (!clientCampaignModal) return;
+    if (!clientCampaignConfirmDelete) { setClientCampaignConfirmDelete(true); return; }
+    setClientCampaignDeleting(true);
+    setClientCampaignDeleteError("");
+    const { error } = await createClient().schema("outreach").from("campaigns").delete().eq("id", clientCampaignModal.id);
+    if (error) { setClientCampaignDeleteError(error.message); setClientCampaignDeleting(false); return; }
+    setCampaigns((current) => current.filter((campaign) => campaign.id !== clientCampaignModal.id));
+    setClientCampaignDeleting(false);
+    closeClientCampaignModal();
+  }
   async function saveCampaignStatus() {
     if (!waalaxyModal) return;
     setStatusSaving(true);
@@ -593,13 +649,33 @@ export default function Home() {
   const isAdmin = profile.role === "admin";
   const activeCampaigns = campaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
   const totalLeads = campaigns.reduce((sum, campaign) => sum + (Number.parseInt(campaign.audience) || 0), 0);
-  const avgProgress = campaigns.length ? Math.round(campaigns.reduce((sum, campaign) => sum + campaign.progress, 0) / campaigns.length) : 0;
-  const activeRate = campaigns.length ? Math.round((activeCampaigns / campaigns.length) * 100) : 0;
-  const liveCount = campaigns.filter((campaign) => campaign.status === "Live").length;
   const inReviewCount = campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length;
   const visibleCampaigns = statusFilter === "all" ? campaigns : campaigns.filter((campaign) => campaign.status === statusFilter);
+  // The client hero's "All time" / "All campaigns" pickers only narrow the
+  // ring cards + stat tiles above the campaign list -- the list itself keeps
+  // its own independent status filter (visibleCampaigns, above). nowMs comes
+  // from state (set once on mount, see the effect below) rather than a bare
+  // Date.now() here, since reading the clock directly during render is an
+  // impure call React's purity rules flag.
+  const heroCutoffDays = heroTimeFilter === "all" ? null : Number(heroTimeFilter);
+  const heroCampaigns = campaigns.filter((campaign) => {
+    if (heroCampaignFilter !== "all" && campaign.id !== heroCampaignFilter) return false;
+    if (heroCutoffDays !== null) {
+      if (!campaign.submittedAt) return false;
+      const ageDays = (nowMs - new Date(campaign.submittedAt).getTime()) / 86400000;
+      if (ageDays > heroCutoffDays) return false;
+    }
+    return true;
+  });
+  const heroActiveCampaigns = heroCampaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
+  const heroTotalLeads = heroCampaigns.reduce((sum, campaign) => sum + (Number.parseInt(campaign.audience) || 0), 0);
+  const heroAvgProgress = heroCampaigns.length ? Math.round(heroCampaigns.reduce((sum, campaign) => sum + campaign.progress, 0) / heroCampaigns.length) : 0;
+  const heroActiveRate = heroCampaigns.length ? Math.round((heroActiveCampaigns / heroCampaigns.length) * 100) : 0;
+  const heroLiveCount = heroCampaigns.filter((campaign) => campaign.status === "Live").length;
+  const heroInReviewCount = heroCampaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length;
   const campaignAlerts = waalaxyModal ? alerts.filter((alert) => alert.campaignId === waalaxyModal.id) : [];
   const accountAlerts = accountModal ? alerts.filter((alert) => alert.campaignId === null && alert.clientId === accountModal.id) : [];
+  const clientCampaignAlerts = clientCampaignModal ? alerts.filter((alert) => alert.campaignId === clientCampaignModal.id) : [];
   const activeAlerts = alerts.filter((alert) => !alert.resolved);
   return (
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
@@ -637,20 +713,23 @@ export default function Home() {
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
           {activeAlerts.length > 0 && <div className="alertBanner">{activeAlerts.map((alert) => <div className={`alertBannerItem ${alert.severity}`} key={alert.id}><Icon name="alertTriangle" size={16} /><div><strong>{alert.message}</strong><span>{alert.campaignId ? `${campaigns.find((campaign) => campaign.id === alert.campaignId)?.name || "Campaign"}${alert.leadReference ? ` · ${alert.leadReference}` : ""}` : "Account-wide"}</span></div></div>)}</div>}
-          <section className="clientHero"><div className="clientHeroText"><p className="eyebrow">YOUR OUTREACH</p><h2>Hello {(profile.fullName || profile.email || "there").split(" ")[0]}.</h2><p>Brief the Myntmore team once, then follow every campaign from setup to conversations.</p></div><div className="clientHeroFilters"><button className="filter">All time <Icon name="chevronDown" size={13} /></button><button className="filter">All campaigns <Icon name="chevronDown" size={13} /></button></div></section>
+          <section className="clientHero"><div className="clientHeroText"><p className="eyebrow">YOUR OUTREACH</p><h2>Hello {(profile.fullName || profile.email || "there").split(" ")[0]}.</h2><p>Brief the Myntmore team once, then follow every campaign from setup to conversations.</p></div><div className="clientHeroFilters">
+            <select className="filter" value={heroTimeFilter} onChange={(e) => setHeroTimeFilter(e.target.value)} aria-label="Filter stats by time"><option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
+            <select className="filter" value={heroCampaignFilter} onChange={(e) => setHeroCampaignFilter(e.target.value)} aria-label="Filter stats by campaign"><option value="all">All campaigns</option>{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select>
+          </div></section>
           <div className="ringCards">
-            <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : campaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={activeRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{activeRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
-            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : totalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={avgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{avgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
+            <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroCampaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroActiveRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroActiveRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
+            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
           </div>
           <div className="actionTiles">
-            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "—" : campaigns.length}</strong><small>Submitted</small></div>
-            <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "—" : liveCount}</strong><small>Live</small></div>
-            <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "—" : inReviewCount}</strong><small>In review</small></div>
-            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "—" : totalLeads}</strong><small>Leads reached</small></div>
-            <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "—" : `${avgProgress}%`}</strong><small>Avg. progress</small></div>
+            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "—" : heroCampaigns.length}</strong><small>Submitted</small></div>
+            <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "—" : heroLiveCount}</strong><small>Live</small></div>
+            <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "—" : heroInReviewCount}</strong><small>In review</small></div>
+            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><small>Leads reached</small></div>
+            <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "—" : `${heroAvgProgress}%`}</strong><small>Avg. progress</small></div>
           </div>
           <div className="clientGrid">
-            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
               <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
               <div className="sidebarProfileCard linkedinCard">
@@ -803,6 +882,47 @@ export default function Home() {
                 <button className="secondary" onClick={saveWaalaxyLink} disabled={waalaxySaving || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxySaving ? "Saving…" : "Save link"}</button>
                 <button className="primary" onClick={pushLeadsToWaalaxy} disabled={waalaxyPushing || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxyPushing ? "Pushing leads…" : "Push leads to Waalaxy"}</button>
               </div>
+            </>}
+          </div>
+        </section>
+      </div>}
+      {clientCampaignModal && <div className="modalBackdrop">
+        <button className="modalDismiss" onClick={closeClientCampaignModal} aria-label="Close campaign details" />
+        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="client-campaign-title">
+          <button className="close" onClick={closeClientCampaignModal} aria-label="Close campaign details">×</button>
+          <div className="modalBody">
+            <p className="eyebrow">CAMPAIGN DETAILS</p>
+            <h2 id="client-campaign-title">{clientCampaignModal.name}</h2>
+            <p className="modalIntro">{clientCampaignModal.status} · {clientCampaignModal.progress}% complete{clientCampaignDetail?.submittedAt ? ` · Submitted ${new Date(clientCampaignDetail.submittedAt).toLocaleDateString()}` : ""}</p>
+            {clientCampaignLoading ? <p className="modalIntro">Loading…</p> : clientCampaignError ? (
+              <p className="formError" role="alert">{clientCampaignError}</p>
+            ) : clientCampaignDetail && <>
+              <div className="reviewStrip">
+                <span>Goal</span><strong>{clientCampaignDetail.goal || "—"}</strong>
+                <span>Offer</span><strong>{clientCampaignDetail.offer || "—"}</strong>
+                <span>Tone</span><strong>{clientCampaignDetail.tone || "—"}</strong>
+              </div>
+              {clientCampaignDetail.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{clientCampaignDetail.messagingStrategy}</p></div>}
+              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "—"}</p></div>
+              {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "—"}</p></div>)}
+              {(clientCampaignDetail.connectionsSent > 0 || clientCampaignDetail.repliesReceived > 0) && <>
+                <div className="waalaxyDivider" />
+                <h3 className="modalSectionTitle">Performance</h3>
+                <div className="metricRates">
+                  <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent ? Math.round((clientCampaignDetail.connectionsAccepted / clientCampaignDetail.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
+                  <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived ? Math.round((clientCampaignDetail.positiveReplies / clientCampaignDetail.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
+                </div>
+              </>}
+              {clientCampaignAlerts.length > 0 && <>
+                <div className="waalaxyDivider" />
+                <h3 className="modalSectionTitle">Alerts</h3>
+                <div className="alertList">{clientCampaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div></div>)}</div>
+              </>}
+              {clientCampaignModal.status === "Submitted" && !clientCampaignAlerts.some((alert) => !alert.resolved) && <>
+                <div className="waalaxyDivider" />
+                {clientCampaignDeleteError && <p className="formError" role="alert">{clientCampaignDeleteError}</p>}
+                <button className="dangerButton" disabled={clientCampaignDeleting} onClick={deleteClientCampaign}>{clientCampaignDeleting ? "Removing…" : clientCampaignConfirmDelete ? "Click again to confirm removal" : "Remove this campaign"}</button>
+              </>}
             </>}
           </div>
         </section>
