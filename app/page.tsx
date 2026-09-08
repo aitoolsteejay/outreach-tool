@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, guessColumnMapping, leadRowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -203,12 +203,14 @@ export default function Home() {
     }
   }
   function updateColumnMapping(field: LeadField, source: string) {
-    setColumnMapping((current) => current ? { ...current, mapping: { ...current.mapping, [field]: source || undefined } } : current);
+    setColumnMapping((current) => current ? { ...current, mapping: { ...current.mapping, [field]: source === "" ? undefined : Number(source) } } : current);
   }
   function cancelColumnMapping() { setColumnMapping(null); setMappingError(""); }
   function applyColumnMapping() {
     if (!columnMapping) return;
     setMappingError("");
+    const conflicts = findMappingConflicts(columnMapping.mapping);
+    if (conflicts.length) { setMappingError(`${conflicts.map((fields) => fields.join(" and ")).join("; ")} can't share the same column -- choose a different column for each.`); return; }
     try {
       const leadRows = buildLeadRowsFromMapping(columnMapping.headers, columnMapping.rows, columnMapping.mapping);
       const mappedFile = new File([leadRowsToCsv(leadRows)], columnMapping.sourceFileName, { type: "text/csv" });
@@ -421,7 +423,9 @@ export default function Home() {
     setCampaignBrief(null);
     setCampaignMetrics({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
     setMetricsError("");
+    setMetricsSaving(false);
     setLeadsDownloadError("");
+    setLeadsDownloading(false);
     try {
       const headers = await authHeader();
       const supabase = createClient();
@@ -465,6 +469,9 @@ export default function Home() {
   }
   async function saveCampaignMetrics() {
     if (!waalaxyModal) return;
+    const campaignId = waalaxyModal.id;
+    if (campaignMetrics.connectionsAccepted > campaignMetrics.connectionsSent) { setMetricsError("Connections accepted can't be more than connections sent."); return; }
+    if (campaignMetrics.positiveReplies > campaignMetrics.repliesReceived) { setMetricsError("Positive replies can't be more than replies received."); return; }
     setMetricsSaving(true);
     setMetricsError("");
     const { error } = await createClient().schema("outreach").from("campaigns").update({
@@ -473,7 +480,8 @@ export default function Home() {
       replies_received: campaignMetrics.repliesReceived,
       positive_replies: campaignMetrics.positiveReplies,
       metrics_updated_at: new Date().toISOString(),
-    }).eq("id", waalaxyModal.id);
+    }).eq("id", campaignId);
+    if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
     if (error) { setMetricsError(error.message); setMetricsSaving(false); return; }
     setMetricsSaving(false);
   }
@@ -494,8 +502,9 @@ export default function Home() {
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (error) {
+      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
       setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
-    } finally { setLeadsDownloading(false); }
+    } finally { if (activeWaalaxyCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
   }
   async function openClientCampaignModal(campaign: Campaign) {
     activeClientCampaignIdRef.current = campaign.id;
@@ -504,6 +513,7 @@ export default function Home() {
     setClientCampaignDetail(null);
     setClientCampaignConfirmDelete(false);
     setClientCampaignDeleteError("");
+    setClientCampaignDeleting(false);
     setClientCampaignLoading(true);
     try {
       const { data, error } = await createClient().schema("outreach").from("campaigns")
@@ -529,11 +539,13 @@ export default function Home() {
   async function deleteClientCampaign() {
     if (!clientCampaignModal) return;
     if (!clientCampaignConfirmDelete) { setClientCampaignConfirmDelete(true); return; }
+    const campaignId = clientCampaignModal.id;
     setClientCampaignDeleting(true);
     setClientCampaignDeleteError("");
-    const { error } = await createClient().schema("outreach").from("campaigns").delete().eq("id", clientCampaignModal.id);
-    if (error) { setClientCampaignDeleteError(error.message); setClientCampaignDeleting(false); return; }
-    setCampaigns((current) => current.filter((campaign) => campaign.id !== clientCampaignModal.id));
+    const { error } = await createClient().schema("outreach").from("campaigns").delete().eq("id", campaignId);
+    if (activeClientCampaignIdRef.current !== campaignId) return;
+    if (error) { setClientCampaignDeleteError(error.message); setClientCampaignDeleting(false); setClientCampaignConfirmDelete(false); return; }
+    setCampaigns((current) => current.filter((campaign) => campaign.id !== campaignId));
     setClientCampaignDeleting(false);
     closeClientCampaignModal();
   }
@@ -658,8 +670,12 @@ export default function Home() {
   // Date.now() here, since reading the clock directly during render is an
   // impure call React's purity rules flag.
   const heroCutoffDays = heroTimeFilter === "all" ? null : Number(heroTimeFilter);
+  // Falls back to "all" if the selected campaign no longer exists (e.g. it
+  // was just deleted) -- otherwise the stat tiles would silently filter to
+  // an empty set while the <select> visually resets to "All campaigns".
+  const heroCampaignFilterValid = heroCampaignFilter === "all" || campaigns.some((campaign) => campaign.id === heroCampaignFilter) ? heroCampaignFilter : "all";
   const heroCampaigns = campaigns.filter((campaign) => {
-    if (heroCampaignFilter !== "all" && campaign.id !== heroCampaignFilter) return false;
+    if (heroCampaignFilterValid !== "all" && campaign.id !== heroCampaignFilterValid) return false;
     if (heroCutoffDays !== null) {
       if (!campaign.submittedAt) return false;
       const ageDays = (nowMs - new Date(campaign.submittedAt).getTime()) / 86400000;
@@ -667,6 +683,7 @@ export default function Home() {
     }
     return true;
   });
+  const heroSubmittedCount = heroCampaigns.filter((campaign) => campaign.status === "Submitted").length;
   const heroActiveCampaigns = heroCampaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
   const heroTotalLeads = heroCampaigns.reduce((sum, campaign) => sum + (Number.parseInt(campaign.audience) || 0), 0);
   const heroAvgProgress = heroCampaigns.length ? Math.round(heroCampaigns.reduce((sum, campaign) => sum + campaign.progress, 0) / heroCampaigns.length) : 0;
@@ -715,14 +732,14 @@ export default function Home() {
           {activeAlerts.length > 0 && <div className="alertBanner">{activeAlerts.map((alert) => <div className={`alertBannerItem ${alert.severity}`} key={alert.id}><Icon name="alertTriangle" size={16} /><div><strong>{alert.message}</strong><span>{alert.campaignId ? `${campaigns.find((campaign) => campaign.id === alert.campaignId)?.name || "Campaign"}${alert.leadReference ? ` · ${alert.leadReference}` : ""}` : "Account-wide"}</span></div></div>)}</div>}
           <section className="clientHero"><div className="clientHeroText"><p className="eyebrow">YOUR OUTREACH</p><h2>Hello {(profile.fullName || profile.email || "there").split(" ")[0]}.</h2><p>Brief the Myntmore team once, then follow every campaign from setup to conversations.</p></div><div className="clientHeroFilters">
             <select className="filter" value={heroTimeFilter} onChange={(e) => setHeroTimeFilter(e.target.value)} aria-label="Filter stats by time"><option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
-            <select className="filter" value={heroCampaignFilter} onChange={(e) => setHeroCampaignFilter(e.target.value)} aria-label="Filter stats by campaign"><option value="all">All campaigns</option>{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select>
+            <select className="filter" value={heroCampaignFilterValid} onChange={(e) => setHeroCampaignFilter(e.target.value)} aria-label="Filter stats by campaign"><option value="all">All campaigns</option>{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select>
           </div></section>
           <div className="ringCards">
             <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroCampaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroActiveRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroActiveRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
             <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
           </div>
           <div className="actionTiles">
-            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "—" : heroCampaigns.length}</strong><small>Submitted</small></div>
+            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "—" : heroSubmittedCount}</strong><small>Submitted</small></div>
             <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "—" : heroLiveCount}</strong><small>Live</small></div>
             <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "—" : heroInReviewCount}</strong><small>In review</small></div>
             <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><small>Leads reached</small></div>
@@ -785,16 +802,16 @@ export default function Home() {
                 <p className="modalIntro"><strong>{columnMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below — LinkedIn URL is required, the rest are optional.</p>
                 {LEAD_CSV_HEADERS.map((field) => (
                   <label key={field}>{LEAD_FIELD_LABELS[field]}{LEAD_FIELD_REQUIRED[field] ? " *" : <span className="fieldHint">Optional</span>}
-                    <select value={columnMapping.mapping[field] || ""} onChange={(e) => updateColumnMapping(field, e.target.value)}>
+                    <select value={columnMapping.mapping[field] ?? ""} onChange={(e) => updateColumnMapping(field, e.target.value)}>
                       <option value="">— Not in file —</option>
-                      {columnMapping.headers.map((header) => <option key={header} value={header}>{header}</option>)}
+                      {describeColumnOptions(columnMapping.headers).map((option) => <option key={option.index} value={option.index}>{option.label}</option>)}
                     </select>
                   </label>
                 ))}
                 {mappingError && <p className="formError" role="alert">{mappingError}</p>}
                 <div className="waalaxyActions">
                   <button type="button" className="secondary" onClick={cancelColumnMapping}>Choose a different file</button>
-                  <button type="button" className="primary" disabled={!columnMapping.mapping.linkedin_url} onClick={applyColumnMapping}>Use these columns</button>
+                  <button type="button" className="primary" disabled={columnMapping.mapping.linkedin_url === undefined} onClick={applyColumnMapping}>Use these columns</button>
                 </div>
               </div>}
             </div>}

@@ -3,7 +3,10 @@ export const MAX_LEAD_FILE_BYTES = 10 * 1024 * 1024;
 
 export type LeadField = (typeof LEAD_CSV_HEADERS)[number];
 export type LeadRow = { firstName: string; lastName: string; jobTitle: string; company: string; linkedinUrl: string; email: string; notes: string };
-export type ColumnMapping = Partial<Record<LeadField, string>>;
+// Maps a field to the INDEX of the source CSV column, not its header text --
+// text can't disambiguate two columns that happen to share the same header
+// (e.g. a CSV with two columns both literally named "Email").
+export type ColumnMapping = Partial<Record<LeadField, number>>;
 
 export const LEAD_FIELD_LABELS: Record<LeadField, string> = {
   first_name: "First name", last_name: "Last name", job_title: "Job title", company: "Company", linkedin_url: "LinkedIn URL", email: "Email", notes: "Notes",
@@ -79,10 +82,13 @@ function buildLeadRows(rows: string[][], indexFor: (field: LeadField) => number)
 
 export function validateAndParseLeadsCsv(text: string): LeadRow[] {
   const { headers, rows } = parseCsvHeaderAndRows(text);
-  if (rows.length === 0) throw new Error("The CSV must include a header and at least one lead.");
+  // Header mismatch is checked before the empty-rows check so a template a
+  // client started filling out (wrong headers, zero data rows yet) still
+  // routes to the column-mapping UI instead of a generic "add a lead" error.
   const lowerHeaders = headers.map((column) => column.toLowerCase());
   const missing = LEAD_CSV_HEADERS.filter((column) => !lowerHeaders.includes(column));
   if (missing.length) throw new MissingHeadersError(`Missing required CSV column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`, headers, rows);
+  if (rows.length === 0) throw new Error("The CSV must include a header and at least one lead.");
   return buildLeadRows(rows, (field) => lowerHeaders.indexOf(field));
 }
 
@@ -105,19 +111,46 @@ const normalizeHeader = (header: string) => header.toLowerCase().replace(/[^a-z0
 export function guessColumnMapping(headers: string[]): ColumnMapping {
   const normalized = headers.map(normalizeHeader);
   const mapping: ColumnMapping = {};
+  const used = new Set<number>();
   for (const field of LEAD_CSV_HEADERS) {
     const candidates = [field.replace(/_/g, ""), ...FIELD_SYNONYMS[field]];
-    const matchIndex = normalized.findIndex((header) => candidates.includes(header));
-    if (matchIndex !== -1) mapping[field] = headers[matchIndex];
+    const matchIndex = normalized.findIndex((header, index) => candidates.includes(header) && !used.has(index));
+    if (matchIndex !== -1) { mapping[field] = matchIndex; used.add(matchIndex); }
   }
   return mapping;
 }
 
-// Builds lead rows from a user-confirmed column mapping (field -> the CSV's
-// actual header text). Reuses the same per-row linkedin_url validation as
-// the strict auto-parse path.
+// Display labels for the mapping UI's column dropdowns -- appends a
+// disambiguator ("Email (column 3)") only to headers that share their exact
+// text with another column, since two identically-labeled <option>s would
+// otherwise be indistinguishable to both the user and the browser.
+export function describeColumnOptions(headers: string[]): { index: number; label: string }[] {
+  const counts = new Map<string, number>();
+  for (const header of headers) counts.set(header, (counts.get(header) || 0) + 1);
+  return headers.map((header, index) => ({ index, label: (counts.get(header) || 0) > 1 ? `${header} (column ${index + 1})` : header }));
+}
+
+// Detects two different fields mapped to the same source column -- e.g.
+// linkedin_url and email both pointing at the same "Email" column -- which
+// would otherwise silently duplicate one column's data into two fields.
+// Returns groups of field labels that collide, or [] if the mapping is clean.
+export function findMappingConflicts(mapping: ColumnMapping): string[][] {
+  const byIndex = new Map<number, LeadField[]>();
+  for (const field of LEAD_CSV_HEADERS) {
+    const index = mapping[field];
+    if (index === undefined) continue;
+    const fields = byIndex.get(index) || [];
+    fields.push(field);
+    byIndex.set(index, fields);
+  }
+  return [...byIndex.values()].filter((fields) => fields.length > 1).map((fields) => fields.map((field) => LEAD_FIELD_LABELS[field]));
+}
+
+// Builds lead rows from a user-confirmed column mapping (field -> the CSV
+// column's index). Reuses the same per-row linkedin_url validation as the
+// strict auto-parse path.
 export function buildLeadRowsFromMapping(headers: string[], rows: string[][], mapping: ColumnMapping): LeadRow[] {
-  return buildLeadRows(rows, (field) => { const source = mapping[field]; return source ? headers.indexOf(source) : -1; });
+  return buildLeadRows(rows, (field) => mapping[field] ?? -1);
 }
 
 function csvEscape(value: string): string {

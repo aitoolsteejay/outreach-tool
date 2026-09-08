@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, validateAndParseLeadsCsv } from "../lib/csv.ts";
+import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, validateAndParseLeadsCsv } from "../lib/csv.ts";
 
 const header = "first_name,last_name,job_title,company,linkedin_url,email,notes";
 
@@ -26,17 +26,26 @@ test("throws a MissingHeadersError carrying the raw headers and rows for the map
   );
 });
 
-test("guesses a column mapping from common header synonyms", () => {
-  const mapping = guessColumnMapping(["First Name", "Surname", "Job Title", "Employer", "LinkedIn Profile", "Email Address", "Comments"]);
-  assert.deepEqual(mapping, {
-    first_name: "First Name", last_name: "Surname", job_title: "Job Title", company: "Employer",
-    linkedin_url: "LinkedIn Profile", email: "Email Address", notes: "Comments",
+test("routes a header-only CSV (zero data rows) with wrong headers to the mapping UI, not a generic error", () => {
+  assert.throws(() => validateAndParseLeadsCsv("Name,Company\n"), MissingHeadersError);
+});
+
+test("still reports the plain empty-file error once headers are correct but there are no data rows", () => {
+  assert.throws(() => validateAndParseLeadsCsv(`${header}\n`), (error: unknown) => {
+    assert.ok(!(error instanceof MissingHeadersError));
+    assert.match((error as Error).message, /at least one lead/);
+    return true;
   });
+});
+
+test("guesses a column mapping from common header synonyms, by index", () => {
+  const mapping = guessColumnMapping(["First Name", "Surname", "Job Title", "Employer", "LinkedIn Profile", "Email Address", "Comments"]);
+  assert.deepEqual(mapping, { first_name: 0, last_name: 1, job_title: 2, company: 3, linkedin_url: 4, email: 5, notes: 6 });
 });
 
 test("builds lead rows from a confirmed column mapping and round-trips through leadRowsToCsv", () => {
   const { headers, rows } = parseCsvHeaderAndRows("First Name,LinkedIn Profile\nJane,https://linkedin.com/in/jane");
-  const leadRows = buildLeadRowsFromMapping(headers, rows, { first_name: "First Name", linkedin_url: "LinkedIn Profile" });
+  const leadRows = buildLeadRowsFromMapping(headers, rows, { first_name: 0, linkedin_url: 1 });
   assert.equal(leadRows.length, 1);
   assert.equal(leadRows[0].firstName, "Jane");
   assert.equal(leadRows[0].linkedinUrl, "https://linkedin.com/in/jane");
@@ -47,7 +56,35 @@ test("builds lead rows from a confirmed column mapping and round-trips through l
 
 test("buildLeadRowsFromMapping still requires a linkedin_url per row", () => {
   const { headers, rows } = parseCsvHeaderAndRows("First Name\nJane");
-  assert.throws(() => buildLeadRowsFromMapping(headers, rows, { first_name: "First Name" }), /row 2/);
+  assert.throws(() => buildLeadRowsFromMapping(headers, rows, { first_name: 0 }), /row 2/);
+});
+
+test("index-based mapping correctly disambiguates duplicate header names", () => {
+  // Two columns both literally named "Email" -- a string-keyed mapping could
+  // never tell them apart; index-based mapping can select either one.
+  const { headers, rows } = parseCsvHeaderAndRows("Name,Email,Email,LinkedIn\nJane,personal@example.com,work@example.com,https://linkedin.com/in/jane");
+  const mappedToSecondEmail = buildLeadRowsFromMapping(headers, rows, { first_name: 0, email: 2, linkedin_url: 3 });
+  assert.equal(mappedToSecondEmail[0].email, "work@example.com");
+  const mappedToFirstEmail = buildLeadRowsFromMapping(headers, rows, { first_name: 0, email: 1, linkedin_url: 3 });
+  assert.equal(mappedToFirstEmail[0].email, "personal@example.com");
+});
+
+test("describeColumnOptions labels duplicate headers distinctly, leaves unique ones alone", () => {
+  const options = describeColumnOptions(["Name", "Email", "Email"]);
+  assert.deepEqual(options, [
+    { index: 0, label: "Name" },
+    { index: 1, label: "Email (column 2)" },
+    { index: 2, label: "Email (column 3)" },
+  ]);
+});
+
+test("findMappingConflicts flags two fields mapped to the same source column", () => {
+  const conflicts = findMappingConflicts({ email: 1, linkedin_url: 1, first_name: 0 });
+  assert.deepEqual(conflicts, [["LinkedIn URL", "Email"]]);
+});
+
+test("findMappingConflicts reports nothing for a clean one-to-one mapping", () => {
+  assert.deepEqual(findMappingConflicts({ first_name: 0, email: 1, linkedin_url: 2 }), []);
 });
 
 test("reports rows without a LinkedIn URL", () => {
