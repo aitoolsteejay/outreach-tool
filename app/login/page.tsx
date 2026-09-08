@@ -18,10 +18,18 @@ export default function LoginPage() {
   const [adminLoading, setAdminLoading] = useState(false);
 
   useEffect(() => {
-    createClient().schema("outreach").rpc("has_admin").then(({ data, error: lookupError }) => {
+    const supabase = createClient();
+    supabase.schema("outreach").rpc("has_admin").then(({ data, error: lookupError }) => {
       if (!lookupError) setCanCreateAdmin(!data);
     });
-  }, []);
+    // Already signed in (e.g. followed an old bookmark, or landed here from
+    // the marketing site's "Log in" before that check finished) -- skip
+    // straight to the dashboard instead of asking for credentials again.
+    // The dashboard itself re-validates the session/profile on mount, so
+    // this is just avoiding an unnecessary extra step, not the source of
+    // truth for access.
+    supabase.auth.getUser().then(({ data }) => { if (data.user) router.replace("/dashboard"); });
+  }, [router]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,7 +40,7 @@ export default function LoginPage() {
     if (signInError) { setError(signInError.message); setLoading(false); return; }
     const { data: membership } = await supabase.schema("outreach").from("profiles").select("role").eq("id", data.user.id).is("access_revoked_at", null).maybeSingle();
     if (!membership) { await supabase.auth.signOut(); setError("This account does not have access to the Myntmore Outreach portal."); setLoading(false); return; }
-    router.push("/");
+    router.push("/dashboard");
   }
 
   async function createAdmin(event: FormEvent<HTMLFormElement>) {
