@@ -244,14 +244,14 @@ export default function LandingPage() {
           </div>
           <div className="feature-grid">
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🔒</div>
-              <h3>Credentials handled carefully</h3>
-              <p>Your LinkedIn login is encrypted the moment you submit it. Our team only ever unlocks it to run your campaign, and every access is logged with a timestamp.</p>
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🧰</div>
+              <h3>We run the software, not you</h3>
+              <p>LinkedIn logins, sequence setup, and delivery all happen on our side, using our own tools. You send a brief and a lead list. That is the whole learning curve.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>📋</div>
-              <h3>Bring your own CSV</h3>
-              <p>Upload your lead list however it is already formatted. If your column names do not match ours, map them in a few clicks, nothing to reformat by hand.</p>
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>📍</div>
+              <h3>Always know where you stand</h3>
+              <p>Every campaign shows its real status right now: Submitted, In review, In setup, Live, or Completed. No waiting on an update email to find out.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
               <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>📈</div>
