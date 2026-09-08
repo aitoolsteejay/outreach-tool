@@ -18,27 +18,27 @@ function defaultCampaignForm() {
 
 const CLIENT_FAQS = [
   { q: "What happens after I submit a campaign?", a: "Your brief, lead list, and message sequence go straight to the Myntmore team. We review it and configure your sequence, moving your campaign from “Submitted” to “In review” and then “In setup.” You'll see the status update on your dashboard, and outreach typically goes live within one business day." },
-  { q: "What columns does my lead list CSV need?", a: "first_name, last_name, job_title, company, linkedin_url, email, notes — exactly matching the template you can download in step 2 of the campaign wizard. Every row needs a linkedin_url; rows without one won't be imported." },
+  { q: "What columns does my lead list CSV need?", a: "first_name, last_name, job_title, company, linkedin_url, email, notes, exactly matching the template you can download in step 2 of the campaign wizard. Every row needs a linkedin_url; rows without one won't be imported." },
   { q: "How many follow-up messages can I include?", a: "Up to three, plus your connection request note. Pick 1–3 follow-ups when you build your sequence in step 3." },
-  { q: "Can I personalize my messages?", a: "Yes — insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each lead's real details when the sequence sends." },
+  { q: "Can I personalize my messages?", a: "Yes. Insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each lead's real details when the sequence sends." },
   { q: "What do the campaign statuses mean?", a: "Submitted → In review → In setup → Live → Completed. “In review” means we're checking your brief and leads, “In setup” means we're configuring your sequence, and “Live” means outreach is actively sending." },
-  { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet — reach out to your Myntmore contact and we'll make the change before it goes live." },
-  { q: "My CSV upload failed — what do I do?", a: "Nothing is submitted until both your brief and CSV are saved successfully. Correct the message shown in the campaign wizard and submit again, or contact your Myntmore representative if the issue continues." },
-  { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore — never shared with other clients." },
+  { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet. Reach out to your Myntmore contact and we'll make the change before it goes live." },
+  { q: "My CSV upload failed. What do I do?", a: "Nothing is submitted until both your brief and CSV are saved successfully. Correct the message shown in the campaign wizard and submit again, or contact your Myntmore representative if the issue continues." },
+  { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore, never shared with other clients." },
   { q: "How do I download the lead list template?", a: "In step 2 of the campaign wizard, click “Download CSV” on the template card. It includes the exact columns we need, with an example row." },
-  { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file — plenty for most lead lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
+  { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file. That's plenty for most lead lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
   { q: "Is there a character limit on my connection note?", a: "300 characters, matching LinkedIn's own connection note limit. You'll see a live counter while you type in step 3." },
-  { q: "Can I submit more than one campaign?", a: "Yes — use “+ New campaign” any time. Each one is tracked separately under “Your campaigns” with its own status and progress." },
-  { q: "What does “Active rate” mean on my dashboard?", a: "The share of your campaigns that are still moving — anything not yet marked Completed, divided by your total campaign count." },
+  { q: "Can I submit more than one campaign?", a: "Yes. Use “+ New campaign” any time. Each one is tracked separately under “Your campaigns” with its own status and progress." },
+  { q: "What does “Active rate” mean on my dashboard?", a: "The share of your campaigns that are still moving: anything not yet marked Completed, divided by your total campaign count." },
   { q: "What does “Avg. progress” mean?", a: "The average progress percentage across all your campaigns, updated by the Myntmore team as each one moves through setup and delivery." },
-  { q: "What's the difference between the connection note and follow-ups?", a: "The connection note is the first message sent with your LinkedIn invite. Follow-ups are the messages sent afterward, once someone accepts — you can configure up to three." },
-  { q: "Can multiple people from my company have logins?", a: "Yes, but each person needs their own account — ask your Myntmore contact to set one up. Everyone only sees the campaigns submitted from their own login." },
-  { q: "Can I download the CSV I already uploaded?", a: "Not yet from the dashboard directly — reach out to your Myntmore contact if you need a copy of a lead list you've submitted." },
-  { q: "What happens to my lead list file after I upload it?", a: "It's stored privately and is only ever accessible to your account and the Myntmore team — it's never bundled with or visible to other clients." },
+  { q: "What's the difference between the connection note and follow-ups?", a: "The connection note is the first message sent with your LinkedIn invite. Follow-ups are the messages sent afterward, once someone accepts. You can configure up to three." },
+  { q: "Can multiple people from my company have logins?", a: "Yes, but each person needs their own account. Ask your Myntmore contact to set one up. Everyone only sees the campaigns submitted from their own login." },
+  { q: "Can I download the CSV I already uploaded?", a: "Not yet from the dashboard directly. Reach out to your Myntmore contact if you need a copy of a lead list you've submitted." },
+  { q: "What happens to my lead list file after I upload it?", a: "It's stored privately and is only ever accessible to your account and the Myntmore team. It's never bundled with or visible to other clients." },
 ];
 
 const ADMIN_FAQS = [
-  { q: "How do I move a campaign through statuses?", a: "Open the “⋯” menu on any campaign row in the work queue — the Manage campaign panel has a status dropdown and a progress slider." },
+  { q: "How do I move a campaign through statuses?", a: "Open the “⋯” menu on any campaign row in the work queue. The Manage campaign panel has a status dropdown and a progress slider." },
   { q: "How do I sync a client's leads to Waalaxy?", a: "Same “⋯” menu, in the Waalaxy sync section. Create the campaign and message sequence in Waalaxy first, then link it here and push the client's uploaded leads in." },
   { q: "How do I manage client accounts?", a: "Use “User accounts” in the sidebar to see every account, change roles, or revoke Outreach access." },
 ];
@@ -850,11 +850,11 @@ export default function Home() {
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
             {isAdmin ? <>
-              <div><b>{workspaceLoading ? "—" : inReviewCount}</b><span>In review</span></div>
-              <div><b>{workspaceLoading ? "—" : clientCount}</b><span>Clients</span></div>
+              <div><b>{workspaceLoading ? "-" : inReviewCount}</b><span>In review</span></div>
+              <div><b>{workspaceLoading ? "-" : clientCount}</b><span>Clients</span></div>
             </> : <>
-              <div><b>{workspaceLoading ? "—" : activeCampaigns}</b><span>Active</span></div>
-              <div><b>{workspaceLoading ? "—" : totalLeads}</b><span>Leads reached</span></div>
+              <div><b>{workspaceLoading ? "-" : activeCampaigns}</b><span>Active</span></div>
+              <div><b>{workspaceLoading ? "-" : totalLeads}</b><span>Leads reached</span></div>
             </>}
           </div>
           <button className="sidebarInsightCta" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "Add client" : "New campaign"} <Icon name="arrowUpRight" size={13} /></button>
@@ -882,25 +882,25 @@ export default function Home() {
             <select className="filter" value={heroCampaignFilterValid} onChange={(e) => setHeroCampaignFilter(e.target.value)} aria-label="Filter stats by campaign"><option value="all">All campaigns</option>{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select>
           </div></section>
           <div className="ringCards">
-            <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroCampaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroActiveRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroActiveRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
-            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
+            <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "-" : heroCampaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroActiveRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroActiveRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
+            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
           </div>
           <div className="actionTiles">
-            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "—" : heroSubmittedCount}</strong><small>Submitted</small></div>
-            <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "—" : heroLiveCount}</strong><small>Live</small></div>
-            <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "—" : heroInReviewCount}</strong><small>In review</small></div>
-            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "—" : heroTotalLeads}</strong><small>Leads reached</small></div>
-            <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "—" : `${heroAvgProgress}%`}</strong><small>Avg. progress</small></div>
+            <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "-" : heroSubmittedCount}</strong><small>Submitted</small></div>
+            <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "-" : heroLiveCount}</strong><small>Live</small></div>
+            <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "-" : heroInReviewCount}</strong><small>In review</small></div>
+            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><small>Leads reached</small></div>
+            <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroAvgProgress}%`}</strong><small>Avg. progress</small></div>
           </div>
           <div className="clientGrid">
             <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
-              <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
+              <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "-" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "-" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "-" : campaigns.length}</b><small>Total</small></div></div></div>
               {linkedinStatus?.status !== "logged_in" && <div className="sidebarProfileCard linkedinCard">
                 <div className="sidebarInsightHead"><span><Icon name="logout" size={15} /></span><div><strong>LinkedIn access</strong><small>For your outreach campaigns</small></div></div>
                 {linkedinLoading ? <p className="modalIntro">Loading…</p> : <>
                   {(!linkedinStatus || linkedinStatus.status === "failed") && <>
-                    {linkedinStatus?.status === "failed" && <p className="formError" role="alert">{linkedinStatus.failure_reason || "Login failed — please check your details and try again."}</p>}
+                    {linkedinStatus?.status === "failed" && <p className="formError" role="alert">{linkedinStatus.failure_reason || "Login failed. Please check your details and try again."}</p>}
                     <form className="loginForm" onSubmit={submitLinkedinCredentials}>
                       <label>LinkedIn email<input type="email" value={linkedinForm.email} onChange={(e) => setLinkedinForm({ ...linkedinForm, email: e.target.value })} required /></label>
                       <label>LinkedIn password<input type="password" value={linkedinForm.password} onChange={(e) => setLinkedinForm({ ...linkedinForm, password: e.target.value })} minLength={4} required /></label>
@@ -908,9 +908,9 @@ export default function Home() {
                       <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Saving…" : "Submit details"}</button>
                     </form>
                   </>}
-                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted — our team will use this to set up your outreach. We&apos;ll ask here if LinkedIn needs a verification step.</p>}
+                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted. Our team will use this to set up your outreach. We&apos;ll ask here if LinkedIn needs a verification step.</p>}
                   {linkedinStatus?.status === "awaiting_code" && <form className="loginForm" onSubmit={(e) => submitLinkedinCode(e)}>
-                    <p className="formError" role="alert">LinkedIn sent a verification code — enter it below so we can finish signing in.</p>
+                    <p className="formError" role="alert">LinkedIn sent a verification code. Enter it below so we can finish signing in.</p>
                     <label>Verification code<input value={linkedinCode} onChange={(e) => setLinkedinCode(e.target.value)} required /></label>
                     {linkedinError && <p className="formError" role="alert">{linkedinError}</p>}
                     <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Submitting…" : "Submit code"}</button>
@@ -920,7 +920,7 @@ export default function Home() {
                     {linkedinError && <p className="formError" role="alert">{linkedinError}</p>}
                     <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }} onClick={() => submitLinkedinCode(null, "approved")}>{linkedinSaving ? "Confirming…" : "I've approved it"}</button>
                   </>}
-                  {linkedinStatus?.status === "code_submitted" && <p className="modalIntro">Thanks — we&apos;re finishing your login now.</p>}
+                  {linkedinStatus?.status === "code_submitted" && <p className="modalIntro">Thanks. We&apos;re finishing your login now.</p>}
                 </>}
               </div>}
               <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
@@ -935,7 +935,7 @@ export default function Home() {
           {!submitted ? <>
             <div className="stepper"><span className={step >= 1 ? "done" : ""}>1</span><i/><span className={step >= 2 ? "done" : ""}>2</span><i/><span className={step >= 3 ? "done" : ""}>3</span></div>
             {step === 1 && <div className="modalBody"><p className="eyebrow">STEP 1 OF 3 · CAMPAIGN BRIEF</p><h2 id="wizard-title">What are we building?</h2><p className="modalIntro">Give our team the context we need to shape your outreach.</p>
-              <label>Campaign name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. India SaaS founders — September"/></label>
+              <label>Campaign name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. India SaaS founders, September"/></label>
               <label>Primary goal<select value={form.goal} onChange={(e) => update("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
               <label>Your offer or value proposition<textarea value={form.offer} onChange={(e) => update("offer", e.target.value)} placeholder="What makes this conversation valuable for the recipient?" rows={3}/></label>
             </div>}
@@ -945,11 +945,11 @@ export default function Home() {
                 <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => void chooseLeadFile(e.target.files?.[0] || null)}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small></label>
                 {submitError && <p className="formError" role="alert">{submitError}</p>}
               </> : <div className="columnMapper">
-                <p className="modalIntro"><strong>{columnMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below — LinkedIn URL is required, the rest are optional.</p>
+                <p className="modalIntro"><strong>{columnMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below. LinkedIn URL is required, the rest are optional.</p>
                 {LEAD_CSV_HEADERS.map((field) => (
                   <label key={field}>{LEAD_FIELD_LABELS[field]}{LEAD_FIELD_REQUIRED[field] ? " *" : <span className="fieldHint">Optional</span>}
                     <select value={columnMapping.mapping[field] ?? ""} onChange={(e) => updateColumnMapping(field, e.target.value)}>
-                      <option value="">— Not in file —</option>
+                      <option value="">(Not in file)</option>
                       {describeColumnOptions(columnMapping.headers).map((option) => <option key={option.index} value={option.index}>{option.label}</option>)}
                     </select>
                   </label>
@@ -990,9 +990,9 @@ export default function Home() {
             <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Alerts</h3>
-            <p className="modalIntro">Post an issue for the client to see on their dashboard — leave the lead field blank for a campaign-wide alert, or name a specific lead (e.g. their LinkedIn URL) to flag just that row.</p>
+            <p className="modalIntro">Post an issue for the client to see on their dashboard. Leave the lead field blank for a campaign-wide alert, or name a specific lead (e.g. their LinkedIn URL) to flag just that row.</p>
             <label>Lead <span className="fieldHint">Optional</span><input value={alertForm.leadReference} onChange={(e) => setAlertForm({ ...alertForm, leadReference: e.target.value })} placeholder="e.g. linkedin.com/in/jane-doe" /></label>
-            <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn URL incorrect — please check and resubmit." rows={2} /></label>
+            <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn URL incorrect, please check and resubmit." rows={2} /></label>
             <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
             {alertError && <p className="formError" role="alert">{alertError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === waalaxyModal.id)?.clientId || "", waalaxyModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
@@ -1004,19 +1004,19 @@ export default function Home() {
               <p className="formError" role="alert">Unable to load this campaign&apos;s brief.</p>
             ) : <>
               <div className="reviewStrip">
-                <span>Goal</span><strong>{campaignBrief.goal || "—"}</strong>
-                <span>Offer</span><strong>{campaignBrief.offer || "—"}</strong>
-                <span>Tone</span><strong>{campaignBrief.tone || "—"}</strong>
+                <span>Goal</span><strong>{campaignBrief.goal || "-"}</strong>
+                <span>Offer</span><strong>{campaignBrief.offer || "-"}</strong>
+                <span>Tone</span><strong>{campaignBrief.tone || "-"}</strong>
               </div>
               {campaignBrief.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{campaignBrief.messagingStrategy}</p></div>}
-              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "—"}</p></div>
-              {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "—"}</p></div>)}
+              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "-"}</p></div>
+              {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
               {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
               <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(waalaxyModal.id, waalaxyModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
             </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Update these as outreach runs in Waalaxy — acceptance and positive reply rates are calculated for you.</p>
+            <p className="modalIntro">Update these as outreach runs in Waalaxy. Acceptance and positive reply rates are calculated for you.</p>
             <div className="metricsGrid">
               <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
               <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
@@ -1031,9 +1031,9 @@ export default function Home() {
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Waalaxy sync</h3>
-            <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in — no manual CSV upload into Waalaxy.</p>
+            <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in. No manual CSV upload into Waalaxy.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : waalaxyNotConfigured ? (
-              <p className="formError" role="alert">Waalaxy integration isn&apos;t configured yet — set WAALAXY_API_KEY on the server, then reopen this.</p>
+              <p className="formError" role="alert">Waalaxy integration isn&apos;t configured yet. Set WAALAXY_API_KEY on the server, then reopen this.</p>
             ) : <>
               <label>Waalaxy campaign<select value={waalaxyLink.waalaxyCampaignId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyCampaignId: e.target.value })}><option value="">Select a campaign…</option>{waalaxyCampaignsList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Waalaxy prospect list<select value={waalaxyLink.waalaxyListId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyListId: e.target.value })}><option value="">Select a list…</option>{waalaxyListsList.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
@@ -1061,13 +1061,13 @@ export default function Home() {
               <p className="formError" role="alert">{clientCampaignError}</p>
             ) : clientCampaignDetail && <>
               <div className="reviewStrip">
-                <span>Goal</span><strong>{clientCampaignDetail.goal || "—"}</strong>
-                <span>Offer</span><strong>{clientCampaignDetail.offer || "—"}</strong>
-                <span>Tone</span><strong>{clientCampaignDetail.tone || "—"}</strong>
+                <span>Goal</span><strong>{clientCampaignDetail.goal || "-"}</strong>
+                <span>Offer</span><strong>{clientCampaignDetail.offer || "-"}</strong>
+                <span>Tone</span><strong>{clientCampaignDetail.tone || "-"}</strong>
               </div>
               {clientCampaignDetail.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{clientCampaignDetail.messagingStrategy}</p></div>}
-              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "—"}</p></div>
-              {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "—"}</p></div>)}
+              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "-"}</p></div>
+              {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
               {(clientCampaignDetail.connectionsSent > 0 || clientCampaignDetail.repliesReceived > 0) && <>
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Performance</h3>
@@ -1084,7 +1084,7 @@ export default function Home() {
               {clientCampaignModal.status !== "Completed" && <>
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Add leads</h3>
-                <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new leads, and we&apos;ll add them to this campaign — anyone already on the list is skipped automatically.</p>
+                <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new leads, and we&apos;ll add them to this campaign. Anyone already on the list is skipped automatically.</p>
                 {!addLeadsMapping ? <>
                   <label className={`dropzone ${addLeadsFileName ? "hasFile" : ""}`}>
                     <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseAddLeadsFile(e.target.files?.[0] || null)} />
@@ -1096,11 +1096,11 @@ export default function Home() {
                   {addLeadsResult && <p className="formSuccess" role="status">Added {addLeadsResult.added} new lead{addLeadsResult.added === 1 ? "" : "s"}{addLeadsResult.duplicates ? ` (skipped ${addLeadsResult.duplicates} already in this campaign)` : ""}. This campaign now has {addLeadsResult.total} leads.</p>}
                   <button type="button" className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={!addLeadsFile || addLeadsUploading} onClick={uploadMoreLeads}>{addLeadsUploading ? "Adding leads…" : "Add leads"}</button>
                 </> : <div className="columnMapper">
-                  <p className="modalIntro"><strong>{addLeadsMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below — LinkedIn URL is required, the rest are optional.</p>
+                  <p className="modalIntro"><strong>{addLeadsMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below. LinkedIn URL is required, the rest are optional.</p>
                   {LEAD_CSV_HEADERS.map((field) => (
                     <label key={field}>{LEAD_FIELD_LABELS[field]}{LEAD_FIELD_REQUIRED[field] ? " *" : <span className="fieldHint">Optional</span>}
                       <select value={addLeadsMapping.mapping[field] ?? ""} onChange={(e) => updateAddLeadsMapping(field, e.target.value)}>
-                        <option value="">— Not in file —</option>
+                        <option value="">(Not in file)</option>
                         {describeColumnOptions(addLeadsMapping.headers).map((option) => <option key={option.index} value={option.index}>{option.label}</option>)}
                       </select>
                     </label>
@@ -1141,7 +1141,7 @@ export default function Home() {
               {adminLinkedinLoading ? <p className="modalIntro">Loading…</p> : !adminLinkedinStatus ? (
                 <p className="modalIntro">This client hasn&apos;t submitted LinkedIn credentials yet.</p>
               ) : <>
-                <p className="modalIntro">{adminLinkedinStatus.linkedin_email} — <strong>{adminLinkedinStatus.status.replaceAll("_", " ")}</strong></p>
+                <p className="modalIntro">{adminLinkedinStatus.linkedin_email}: <strong>{adminLinkedinStatus.status.replaceAll("_", " ")}</strong></p>
                 {adminLinkedinStatus.status === "code_submitted" && adminLinkedinStatus.has_code && !adminLinkedinCodeReveal && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>Ready to reveal</span></div><button className="secondary" disabled={adminLinkedinActing} onClick={() => revealLinkedinCode(accountModal.id)}>Reveal code</button></div>}
                 {adminLinkedinCodeReveal && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Code from client</strong><span>{adminLinkedinCodeReveal.code}</span></div></div>}
                 {adminLinkedinStatus.failure_reason && <p className="formError" role="alert">Last failure: {adminLinkedinStatus.failure_reason}</p>}
@@ -1161,8 +1161,8 @@ export default function Home() {
               </>}
               <div className="waalaxyDivider" />
               <h3 className="modalSectionTitle">Alerts</h3>
-              <p className="modalIntro">Post an account-wide issue — for something affecting all of this client&apos;s outreach, not one campaign (e.g. a LinkedIn login problem).</p>
-              <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn login failed — please log in again." rows={2} /></label>
+              <p className="modalIntro">Post an account-wide issue, for something affecting all of this client&apos;s outreach, not one campaign (e.g. a LinkedIn login problem).</p>
+              <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn login failed, please log in again." rows={2} /></label>
               <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
               {alertError && <p className="formError" role="alert">{alertError}</p>}
               <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(accountModal.id, null)}>{alertPosting ? "Posting…" : "Post alert"}</button>
@@ -1170,7 +1170,7 @@ export default function Home() {
             </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Remove access</h3>
-            <p className="modalIntro">Revokes this person&apos;s access to Outreach only — their Myntmore login for other tools is unaffected.</p>
+            <p className="modalIntro">Revokes this person&apos;s access to Outreach only. Their Myntmore login for other tools is unaffected.</p>
             <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
           </div>
         </section>

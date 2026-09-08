@@ -376,6 +376,26 @@ export default function LandingPage() {
               <summary>Is my data shared with other clients?<span className="plus">+</span></summary>
               <p>No. Your lead lists, messages, and results are visible only to your account and our team.</p>
             </details>
+            <details className="faq-item mm-reveal mm-r3">
+              <summary>Can I add more leads to a campaign that is already running?<span className="plus">+</span></summary>
+              <p>Yes. Upload another batch any time from your campaign&apos;s details, a new week, a fresh list pull, and we merge it in. Anyone already on the list is skipped automatically.</p>
+            </details>
+            <details className="faq-item mm-reveal mm-r1">
+              <summary>How long does it take to go live?<span className="plus">+</span></summary>
+              <p>Most campaigns move from submitted to live within one business day, once your brief and lead list are in and reviewed.</p>
+            </details>
+            <details className="faq-item mm-reveal mm-r2">
+              <summary>Can I run more than one campaign at a time?<span className="plus">+</span></summary>
+              <p>Yes. Each campaign is tracked separately, with its own brief, leads, status, and results, all in the same dashboard.</p>
+            </details>
+            <details className="faq-item mm-reveal mm-r3">
+              <summary>Can I change a campaign after I submit it?<span className="plus">+</span></summary>
+              <p>Not directly from your dashboard yet. Reach out to your Myntmore contact and we will make the change before it goes live.</p>
+            </details>
+            <details className="faq-item mm-reveal mm-r1">
+              <summary>Do I need to install any software?<span className="plus">+</span></summary>
+              <p>No. There is nothing to download or configure. You send a brief and a lead list, and our team runs the sequence on our own tools.</p>
+            </details>
           </div>
         </div>
       </section>
