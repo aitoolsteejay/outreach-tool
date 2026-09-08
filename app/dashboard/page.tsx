@@ -274,7 +274,7 @@ export default function Home() {
     const supabase = createClient();
     let storagePath = "";
     try {
-      storagePath = `${userId}/add-leads/${crypto.randomUUID()}-${addLeadsFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      storagePath = `${userId}/${campaignId}/pending/${crypto.randomUUID()}-${addLeadsFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
       const { error: uploadError } = await supabase.storage.from("outreach-leads").upload(storagePath, addLeadsFile);
       if (uploadError) throw uploadError;
       const headers = await authHeader();
@@ -451,7 +451,7 @@ export default function Home() {
       const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_failed", reason }) });
       const data = await readJson<LinkedinStatus & { error?: string }>(response);
       if (!response.ok) throw new Error(data?.error || "Unable to update this record.");
-      const { data: alertRow } = await createClient().schema("outreach").from("campaign_alerts").insert({
+      const { data: alertRow, error: alertError } = await createClient().schema("outreach").from("campaign_alerts").insert({
         client_id: clientId, campaign_id: null, severity: "warning", message: reason, created_by: userId,
       }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").single();
       if (activeLinkedinClientIdRef.current !== clientId) return;
@@ -459,7 +459,15 @@ export default function Home() {
       setAdminLinkedinFailReason("");
       setAdminLinkedinReveal(null);
       setAdminLinkedinCodeReveal(null);
-      if (alertRow) setAlerts((current) => [{ id: alertRow.id, clientId: alertRow.client_id, campaignId: alertRow.campaign_id, leadReference: alertRow.lead_reference, severity: alertRow.severity, message: alertRow.message, resolved: alertRow.resolved, createdAt: alertRow.created_at }, ...current]);
+      if (alertRow) {
+        setAlerts((current) => [{ id: alertRow.id, clientId: alertRow.client_id, campaignId: alertRow.campaign_id, leadReference: alertRow.lead_reference, severity: alertRow.severity, message: alertRow.message, resolved: alertRow.resolved, createdAt: alertRow.created_at }, ...current]);
+      } else {
+        // The credential status update above already went through, so don't
+        // pretend it didn't -- but the client won't see an alert explaining
+        // why their LinkedIn card reappeared unless we tell the admin to
+        // follow up manually.
+        setAdminLinkedinError(`Marked as failed, but the alert to the client didn't post${alertError?.message ? ` (${alertError.message})` : ""}. They won't see an explanation until you retry.`);
+      }
     } catch (error) {
       if (activeLinkedinClientIdRef.current !== clientId) return;
       setAdminLinkedinError(error instanceof Error ? error.message : "Unable to ask this client to log in again.");

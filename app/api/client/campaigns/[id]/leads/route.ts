@@ -20,7 +20,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (typeof storagePath !== "string" || !storagePath) return NextResponse.json({ error: "Missing the uploaded file." }, { status: 400 });
   // Defense in depth -- storage RLS already scopes uploads to the caller's
   // own folder, but don't trust a client-supplied path blindly here either.
-  if (!storagePath.startsWith(`${auth.userId}/`)) return NextResponse.json({ error: "Invalid file path." }, { status: 400 });
+  // This must be scoped to THIS campaign's own pending-upload folder, not
+  // just the caller's user-id prefix: accepting any of the caller's own
+  // files would let a client point this route at a DIFFERENT campaign's
+  // live lead_files.storage_path, which then gets merged into the wrong
+  // campaign and deleted out from under the campaign it actually belongs to.
+  if (!storagePath.startsWith(`${auth.userId}/${campaignId}/pending/`)) return NextResponse.json({ error: "Invalid file path." }, { status: 400 });
 
   const { data: campaign, error: campaignError } = await auth.admin.schema("outreach").from("campaigns").select("id,client_id").eq("id", campaignId).single();
   if (campaignError || !campaign) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
@@ -31,7 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (downloadError || !newBlob) throw new Error(downloadError?.message || "Unable to read the uploaded file.");
     const newRows = parseLeadsCsv(await newBlob.text());
 
-    const { data: existingFile } = await auth.admin.schema("outreach").from("lead_files").select("storage_path").eq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: existingFile } = await auth.admin.schema("outreach").from("lead_files").select("id,storage_path").eq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const baseFileId = existingFile?.id ?? null;
     let existingRows: ReturnType<typeof parseLeadsCsv> = [];
     if (existingFile) {
       const { data: existingBlob, error: existingDownloadError } = await auth.admin.storage.from("outreach-leads").download(existingFile.storage_path);
@@ -49,6 +55,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       addedCount += 1;
     }
     const duplicateCount = newRows.length - addedCount;
+
+    // Guard against two concurrent "Add leads" submissions both merging onto
+    // the same base file: re-check right before writing that no other
+    // request has already replaced this campaign's lead file since we read
+    // it above. This isn't a true database-level lock, but it closes the
+    // common case (double-click, two tabs) where the loser would otherwise
+    // silently overwrite the winner's newly-added leads while still
+    // reporting success to its own caller.
+    const { data: raceCheck } = await auth.admin.schema("outreach").from("lead_files").select("id").eq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if ((raceCheck?.id ?? null) !== baseFileId) {
+      return NextResponse.json({ error: "Someone just added leads to this campaign. Please try again." }, { status: 409 });
+    }
 
     const csvText = leadRowsToCsv(existingRows);
     const csvBytes = new TextEncoder().encode(csvText);
