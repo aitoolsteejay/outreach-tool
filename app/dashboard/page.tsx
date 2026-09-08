@@ -505,15 +505,24 @@ export default function Home() {
   }
   useEffect(() => {
     if (!userId || profile.role !== "client") return;
-    void (async () => {
-      const headers = await authHeader();
-      setLinkedinLoading(true);
+    let cancelled = false;
+    async function fetchLinkedinStatus(showLoading: boolean) {
+      if (showLoading) setLinkedinLoading(true);
       try {
+        const headers = await authHeader();
         const response = await fetch("/api/client/linkedin-credentials", { headers });
-        setLinkedinStatus(await readJson<LinkedinStatus>(response));
+        const data = await readJson<LinkedinStatus>(response);
+        if (!cancelled) setLinkedinStatus(data);
       } catch { /* non-fatal -- the form below just shows as not-yet-submitted */ }
-      finally { setLinkedinLoading(false); }
-    })();
+      finally { if (!cancelled && showLoading) setLinkedinLoading(false); }
+    }
+    void fetchLinkedinStatus(true);
+    // There's no realtime subscription in this app -- without this, a
+    // client who already has the dashboard open never sees an admin's "ask
+    // this client to log in again" take effect (the card stays hidden)
+    // until they happen to reload the page. A light poll closes that gap.
+    const intervalId = window.setInterval(() => { void fetchLinkedinStatus(false); }, 60000);
+    return () => { cancelled = true; window.clearInterval(intervalId); };
   }, [userId, profile.role]);
   async function openWaalaxyModal(campaign: Campaign) {
     activeWaalaxyCampaignIdRef.current = campaign.id;
@@ -617,25 +626,37 @@ export default function Home() {
     } finally { if (activeWaalaxyCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
   }
   async function downloadAllCampaigns() {
-    if (campaigns.length === 0) { setCampaignsExportError("There are no campaigns to export yet."); return; }
     setCampaignsExportLoading(true);
     setCampaignsExportError("");
     try {
-      // campaigns (state) already has client name / formatted status / lead
-      // count resolved for every row -- only the metrics columns need a
-      // fresh query, then get merged in by id.
-      const { data, error } = await createClient().schema("outreach").from("campaigns").select("id,connections_sent,connections_accepted,replies_received,positive_replies");
-      if (error) throw error;
-      const metricsById = new Map((data || []).map((row) => [row.id, row]));
-      const rows = campaigns.map((campaign) => {
-        const metrics = metricsById.get(campaign.id);
-        const sent = metrics?.connections_sent || 0;
-        const accepted = metrics?.connections_accepted || 0;
+      // Query everything fresh at click time instead of reusing the
+      // `campaigns` state captured once at mount -- that state can be
+      // arbitrarily stale on a work queue an admin leaves open for a
+      // while, silently omitting campaigns created since mount and
+      // showing phantom all-zero rows for ones since deleted.
+      const supabase = createClient();
+      const campaignsPromise = supabase.schema("outreach").from("campaigns")
+        .select("id,name,lead_count,status,progress,client_id,submitted_at,connections_sent,connections_accepted,replies_received,positive_replies")
+        .order("created_at", { ascending: false });
+      // Unlike the accounts list shown elsewhere, this export intentionally
+      // does NOT filter out clients whose access has since been revoked --
+      // their past campaigns are kept around specifically to preserve
+      // historical data (see access_revoked_at), so the export shouldn't
+      // blank out who they belonged to.
+      const profilesPromise = supabase.schema("outreach").from("profiles").select("id,full_name,email,access_revoked_at").eq("role", "client");
+      const [campaignsResult, profilesResult] = await Promise.all([campaignsPromise, profilesPromise]);
+      if (campaignsResult.error) throw campaignsResult.error;
+      if (profilesResult.error) throw profilesResult.error;
+      if (!campaignsResult.data || campaignsResult.data.length === 0) { setCampaignsExportError("There are no campaigns to export yet."); return; }
+      const clientNames = new Map((profilesResult.data || []).map((account) => [account.id, `${account.full_name || account.email}${account.access_revoked_at ? " (access revoked)" : ""}`]));
+      const rows = campaignsResult.data.map((row) => {
+        const sent = row.connections_sent || 0;
+        const accepted = row.connections_accepted || 0;
         return [
-          campaign.client || "", campaign.name, campaign.status, campaign.progress, Number.parseInt(campaign.audience) || 0,
-          sent, accepted, sent ? Math.round((accepted / sent) * 100) : "",
-          metrics?.replies_received || 0, metrics?.positive_replies || 0,
-          campaign.submittedAt ? new Date(campaign.submittedAt).toLocaleDateString() : "",
+          clientNames.get(row.client_id) || "", row.name, row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), row.progress, row.lead_count || 0,
+          sent, accepted, sent ? Math.round((accepted / sent) * 100) : 0,
+          row.replies_received || 0, row.positive_replies || 0,
+          row.submitted_at ? new Date(row.submitted_at).toLocaleDateString() : "",
         ];
       });
       const csv = rowsToCsv(

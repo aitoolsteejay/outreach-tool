@@ -79,10 +79,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       original_name: typeof originalName === "string" && originalName ? originalName : "leads.csv",
       content_type: "text/csv", size_bytes: csvBytes.byteLength,
     });
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) {
+      // Nothing durably references mergedPath yet -- clean it up rather
+      // than leaving an orphaned object in storage forever.
+      await auth.admin.storage.from("outreach-leads").remove([mergedPath]).catch(() => {});
+      throw new Error(insertError.message);
+    }
 
     const { error: updateError } = await auth.admin.schema("outreach").from("campaigns").update({ lead_count: existingRows.length }).eq("id", campaignId);
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) {
+      // Roll back the lead_files row and the upload too, so a failure here
+      // never leaves the campaign's authoritative file and its lead_count
+      // disagreeing -- better to fail the whole request than half-apply it.
+      await auth.admin.schema("outreach").from("lead_files").delete().eq("campaign_id", campaignId).eq("storage_path", mergedPath);
+      await auth.admin.storage.from("outreach-leads").remove([mergedPath]).catch(() => {});
+      throw new Error(updateError.message);
+    }
 
     // The raw just-uploaded batch is now folded into the merged file above --
     // remove it so storage doesn't accumulate an intermediate copy forever.

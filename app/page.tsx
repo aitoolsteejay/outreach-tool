@@ -129,8 +129,21 @@ export default function LandingPage() {
   async function goToApp() {
     setLoginChecking(true);
     try {
-      const { data } = await createClient().auth.getUser();
-      router.push(data.user ? "/dashboard" : "/login");
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) { router.push("/login"); return; }
+      // Also check access here, not just that a session exists -- otherwise
+      // a stale/revoked session bounces through a full /dashboard mount
+      // (which re-checks the same thing) before hard-reloading back to
+      // /login with no explanation. Checking it here means a revoked
+      // session goes straight to /login in one clean navigation.
+      const { data: profileRow, error: profileError } = await supabase.schema("outreach").from("profiles").select("id").eq("id", data.user.id).is("access_revoked_at", null).single();
+      if (profileError || !profileRow) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+      router.push("/dashboard");
     } catch {
       router.push("/login");
     }
