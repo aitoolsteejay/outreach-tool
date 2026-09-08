@@ -105,7 +105,7 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 
 /* Light workspace navigation */
 .sidebar{background:#fff;color:var(--ink);border-right:1px solid var(--border)}
-.sidebar .brandAsset{width:165px;padding:0 10px;background:transparent;border-radius:0;box-shadow:none}
+.sidebar .brandAsset{width:165px;padding:0 10px;margin-bottom:30px;background:transparent;border-radius:0;box-shadow:none}
 .sidebar .navItem{color:var(--body)}
 .sidebar .navItem span{color:var(--taupe)}
 .sidebar .navItem:hover{background:#F8F6F2;color:var(--ink)}
