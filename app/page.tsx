@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -61,7 +62,7 @@ export default function LandingPage() {
 
       <nav className="nav">
         <div className="wrap">
-          <div className="navmark"><span className="sq">M</span> Myntmore</div>
+          <div className="navmark"><Image src="/myntmore-logo.png" alt="Myntmore" width={62} height={40} priority /></div>
           <div className="navlinks">
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
@@ -367,10 +368,14 @@ const LANDING_CSS = `
 .mm-landing section{padding:88px 0}
 @media(max-width:760px){.mm-landing section{padding:56px 0}.mm-landing .wrap{padding:0 20px}}
 
-.mm-landing .nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);background:color-mix(in srgb, var(--paper) 82%, transparent);border-bottom:1px solid var(--line)}
+/* app/globals.css has a bare, unscoped "nav { display:grid }" rule (for the
+   dashboard's sidebar) that would otherwise leak onto this nav too, since
+   Next.js loads all global CSS app-wide regardless of route -- override it
+   explicitly rather than relying on our higher-specificity .nav rules alone,
+   since we never otherwise declare a display value for .nav itself. */
+.mm-landing .nav{display:block;position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);background:color-mix(in srgb, var(--paper) 82%, transparent);border-bottom:1px solid var(--line)}
 .mm-landing .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px}
-.mm-landing .navmark{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-0.01em}
-.mm-landing .navmark .sq{width:26px;height:26px;border-radius:8px 8px 8px 2px;background:linear-gradient(135deg,var(--blue),var(--violet));display:grid;place-items:center;color:#fff;font-family:var(--serif);font-size:15px;font-weight:600}
+.mm-landing .navmark{display:flex;align-items:center}
 .mm-landing .navlinks{display:flex;align-items:center;gap:22px;font-size:13px;font-weight:600;color:var(--ink-soft)}
 .mm-landing .navlinks a{text-decoration:none}
 .mm-landing .navlinks a:hover{color:var(--ink)}
