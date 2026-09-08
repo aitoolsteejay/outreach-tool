@@ -18,6 +18,9 @@ export default function LandingPage() {
   const noteBoxRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef<HTMLSpanElement>(null);
   const metricsRef = useRef<HTMLDivElement>(null);
+  const csvTableRef = useRef<HTMLTableElement>(null);
+  const csvMapFromRef = useRef<HTMLSpanElement>(null);
+  const csvMapToRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const box = noteBoxRef.current;
@@ -98,6 +101,29 @@ export default function LandingPage() {
     }, { threshold: 0.4 });
     observer.observe(card);
     return () => observer.disconnect();
+  }, []);
+
+  // CSV mockup: cycles which source column is "being mapped", highlighting
+  // that table header in sync with the from/to caption underneath it, so the
+  // "we match your columns" claim reads as something actually happening
+  // rather than a static screenshot.
+  useEffect(() => {
+    const table = csvTableRef.current;
+    const fromEl = csvMapFromRef.current;
+    const toEl = csvMapToRef.current;
+    if (!table || !fromEl || !toEl) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const pairs: [string, string][] = [["Surname", "last_name"], ["Employer", "company"], ["LinkedIn Profile", "linkedin_url"], ["First Name", "first_name"]];
+    let index = 0;
+    const apply = () => {
+      const [from, to] = pairs[index];
+      table.querySelectorAll("th").forEach((th) => th.classList.toggle("mm-mapping", th.textContent === from));
+      fromEl.textContent = from;
+      toEl.textContent = to;
+    };
+    apply();
+    const intervalId = window.setInterval(() => { index = (index + 1) % pairs.length; apply(); }, 2200);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   async function goToApp() {
@@ -277,7 +303,7 @@ export default function LandingPage() {
             <div className="csv-card mm-reveal mm-r1">
               <div className="csv-head">your-leads-export.csv</div>
               <div className="csv-table-scroll">
-                <table className="csv-table">
+                <table className="csv-table" ref={csvTableRef}>
                   <tbody>
                     <tr><th>First Name</th><th>Surname</th><th>Employer</th><th>LinkedIn Profile</th></tr>
                     <tr><td>Amara</td><td>Okafor</td><td>Blume Analytics</td><td>linkedin.com/in/amara-o</td></tr>
@@ -286,7 +312,7 @@ export default function LandingPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="csv-map"><span>Surname</span><span className="arrow">→</span><span>last_name</span><span style={{ marginLeft: "auto", color: "var(--muted)" }}>mapped automatically</span></div>
+              <div className="csv-map"><span ref={csvMapFromRef}>Surname</span><span className="arrow">→</span><span ref={csvMapToRef}>last_name</span><span style={{ marginLeft: "auto", color: "var(--muted)" }}>mapped automatically</span></div>
             </div>
             <div className="mm-reveal mm-r2">
               <h3 style={{ fontSize: 19, marginBottom: 12 }}>No reformatting. No rejected uploads.</h3>
@@ -541,7 +567,9 @@ const LANDING_CSS = `
 .mm-landing .csv-card{background:var(--raised);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
 .mm-landing .csv-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase}
 .mm-landing .csv-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-.mm-landing .csv-table th{text-align:left;padding:10px 12px;background:var(--blue-tint);color:#3B5BDB;font-weight:600;white-space:nowrap}
+.mm-landing .csv-table th{text-align:left;padding:10px 12px;background:var(--blue-tint);color:#3B5BDB;font-weight:600;white-space:nowrap;transition:background .35s ease,color .35s ease}
+.mm-landing .csv-table th.mm-mapping{background:#3B5BDB;color:#fff}
+.mm-landing .csv-map span:first-child,.mm-landing .csv-map span:nth-child(3){display:inline-block;min-width:74px;transition:opacity .2s ease}
 .mm-landing .csv-table td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
 .mm-landing .csv-table-scroll{overflow-x:auto}
 .mm-landing .csv-map{padding:14px 18px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--ink-soft);border-top:1px solid var(--line);background:var(--paper)}
