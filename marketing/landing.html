@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Myntmore Outreach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Single light theme, deliberately -- white/cream ground only, no dark mode. */
+  :root{
+    --paper:#F6F4EE;
+    --raised:#FFFFFF;
+    --ink:#14151C;
+    --ink-soft:#4B4C5C;
+    --muted:#8B897F;
+    --line:#E6E1D3;
+    --blue:#4C6EF5;
+    --violet:#8B5CF6;
+    --blue-tint:#EEF0FF;
+    --violet-tint:#F1EBFE;
+    --green:#1F8F5D;
+    --green-tint:#E4F7ED;
+    --amber:#C2410C;
+    --amber-tint:#FDE7F1;
+    --shadow:0 20px 50px -20px rgba(20,21,28,0.18);
+    --band-bg:#FFFFFF;
+    --band-fg:#14151C;
+    --band-muted:#4B4C5C;
+    --serif:'Fraunces',Georgia,serif;
+    --sans:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif;
+    --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--serif);font-weight:560;letter-spacing:-0.02em;margin:0;text-wrap:balance}
+  p{margin:0}
+  a{color:inherit}
+  code,.mono{font-family:var(--mono)}
+  ::selection{background:var(--blue);color:#fff}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+  .eyebrow{font-family:var(--sans);font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--blue);margin:0 0 14px}
+  section{padding:88px 0}
+  @media(max-width:760px){section{padding:56px 0}.wrap{padding:0 20px}}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);background:color-mix(in srgb, var(--paper) 82%, transparent);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px}
+  .navmark{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-0.01em}
+  .navmark .sq{width:26px;height:26px;border-radius:8px 8px 8px 2px;background:linear-gradient(135deg,var(--blue),var(--violet));display:grid;place-items:center;color:#fff;font-family:var(--serif);font-size:15px;font-weight:600}
+  .navlinks{display:flex;align-items:center;gap:30px;font-size:13px;font-weight:600;color:var(--ink-soft)}
+  .navlinks a{text-decoration:none}
+  .navlinks a:hover{color:var(--ink)}
+  @media(max-width:760px){.navlinks a:not(.btn){display:none}}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:11px;padding:12px 20px;font-size:13px;font-weight:800;text-decoration:none;border:1px solid transparent;cursor:pointer;font-family:var(--sans)}
+  .btn-primary{background:var(--ink);color:#fff;box-shadow:var(--shadow)}
+  .btn-primary:hover{background:var(--blue);color:#fff}
+  .btn-ghost{border-color:var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+  .btn-small{padding:9px 14px;font-size:12px;border-radius:9px}
+
+  /* hero */
+  .hero{padding:76px 0 40px}
+  .hero .wrap{display:grid;grid-template-columns:1.05fr 0.95fr;gap:56px;align-items:center}
+  @media(max-width:900px){.hero .wrap{grid-template-columns:1fr}}
+  .hero h1{font-size:clamp(34px,4.6vw,58px);line-height:1.02}
+  .hero .sub{margin-top:20px;font-size:16px;line-height:1.65;color:var(--ink-soft);max-width:480px}
+  .hero .ctas{margin-top:30px;display:flex;gap:12px;flex-wrap:wrap}
+  .hero .fine{margin-top:16px;font-size:11.5px;color:var(--muted)}
+
+  .demo{background:var(--raised);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+  .demo-top{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .demo-top .label{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;font-size:10px;font-weight:800}
+  .pill-submitted{background:var(--blue-tint);color:#3B5BDB}
+  .pill-review{background:var(--violet-tint);color:#6D3FD1}
+  .pill-setup{background:var(--amber-tint);color:var(--amber)}
+  .pill-live{background:var(--green-tint);color:var(--green)}
+  .pill-done{background:var(--line);color:var(--muted)}
+  .demo-body{padding:22px 20px 20px}
+  .demo-field-label{font-size:10.5px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+  .note-box{margin-top:9px;border:1px solid var(--line);border-radius:12px;padding:14px 15px;font-size:13.5px;line-height:1.6;background:var(--paper);min-height:78px}
+  .note-box .caret{display:inline-block;width:2px;height:15px;background:var(--blue);vertical-align:-2px;animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+  .tokens{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+  .token{font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:7px;background:var(--blue-tint);color:#3B5BDB}
+  .stepper-mini{margin-top:20px;display:flex;align-items:center}
+  .stepper-mini .node{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .stepper-mini .node.on{background:var(--blue)}
+  .stepper-mini .seg{flex:1;height:1px;background:var(--line);margin:0 5px}
+  .stepper-mini.labels{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;color:var(--muted);font-weight:700}
+
+  /* stats strip */
+  .stats-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stats-strip .wrap{display:grid;grid-template-columns:repeat(3,1fr);padding:0}
+  .stat{padding:34px 28px;border-right:1px solid var(--line)}
+  .stat:last-child{border-right:0}
+  .stat strong{display:block;font-family:var(--serif);font-size:32px;font-weight:560}
+  .stat span{display:block;margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.5}
+  @media(max-width:760px){.stats-strip .wrap{grid-template-columns:1fr}.stat{border-right:0;border-bottom:1px solid var(--line);padding:24px 4px}.stat:last-child{border-bottom:0}}
+
+  /* how it works */
+  .section-head{max-width:600px;margin-bottom:48px}
+  .section-head h2{font-size:clamp(26px,3.2vw,38px)}
+  .section-head p{margin-top:14px;font-size:14.5px;color:var(--ink-soft);line-height:1.65}
+
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--raised)}
+  @media(max-width:900px){.flow{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.flow{grid-template-columns:1fr}}
+  .flow-step{padding:26px 24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative}
+  .flow-step:nth-child(4){border-right:0}
+  @media(max-width:900px){.flow-step:nth-child(2){border-right:0}.flow-step:nth-child(4){border-right:1px solid var(--line)}}
+  @media(max-width:560px){.flow-step{border-right:0!important}}
+  .flow-step .stage{display:inline-block;margin-bottom:14px}
+  .flow-step h3{font-size:16.5px;font-weight:650;margin-bottom:8px}
+  .flow-step p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+
+  /* features */
+  .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  @media(max-width:900px){.feature-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.feature-grid{grid-template-columns:1fr}}
+  .feature{background:var(--raised);padding:28px 26px}
+  .feature .icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;font-size:15px}
+  .feature h3{font-size:15px;font-weight:700;margin-bottom:8px}
+  .feature p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+
+  /* csv mockup */
+  .csv-wrap{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  @media(max-width:900px){.csv-wrap{grid-template-columns:1fr}}
+  .csv-card{background:var(--raised);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .csv-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase}
+  .csv-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .csv-table th{text-align:left;padding:10px 12px;background:var(--blue-tint);color:#3B5BDB;font-weight:600;white-space:nowrap}
+  .csv-table td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
+  .csv-table-scroll{overflow-x:auto}
+  .csv-map{padding:14px 18px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--ink-soft);border-top:1px solid var(--line);background:var(--paper)}
+  .csv-map .arrow{color:var(--blue);font-weight:800}
+
+  /* metrics mock */
+  .metrics-card{background:var(--raised);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+  .metrics-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line)}
+  .metrics-head strong{font-family:var(--serif);font-size:18px;font-weight:600}
+  .metrics-head span{display:block;font-size:11.5px;color:var(--muted);margin-top:3px}
+  .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+  @media(max-width:700px){.metrics-grid{grid-template-columns:1fr 1fr}}
+  .metric-tile{background:var(--raised);padding:22px 20px}
+  .metric-tile span{display:block;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
+  .metric-tile strong{display:block;margin-top:8px;font-family:var(--serif);font-size:26px;font-weight:560}
+  .metrics-foot{padding:14px 24px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
+
+  /* faq */
+  .faq{max-width:760px}
+  .faq-item{border-top:1px solid var(--line);padding:22px 0}
+  .faq-item:last-child{border-bottom:1px solid var(--line)}
+  .faq-item summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:15px;font-weight:650;font-family:var(--serif)}
+  .faq-item summary::-webkit-details-marker{display:none}
+  .faq-item summary .plus{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;color:var(--muted);transition:transform .2s ease}
+  .faq-item[open] summary .plus{transform:rotate(45deg);color:var(--blue);border-color:var(--blue)}
+  .faq-item p{margin-top:12px;font-size:13.5px;line-height:1.65;color:var(--ink-soft)}
+
+  /* cta band -- light card with a soft blue/violet glow, no dark background */
+  .cta-band{background:var(--band-bg);color:var(--band-fg);border:1px solid var(--line);border-radius:24px;padding:60px 52px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .cta-band:before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;right:-160px;top:-160px;background:radial-gradient(circle,rgba(76,110,245,0.22),transparent 70%)}
+  .cta-band:after{content:"";position:absolute;width:340px;height:340px;border-radius:50%;left:-140px;bottom:-160px;background:radial-gradient(circle,rgba(139,92,246,0.18),transparent 70%)}
+  .cta-inner{position:relative;z-index:1;max-width:560px}
+  .cta-band h2{font-size:clamp(26px,3.4vw,36px);color:var(--band-fg)}
+  .cta-band p{margin-top:14px;font-size:14px;color:var(--band-muted);line-height:1.65}
+  .cta-band .ctas{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap}
+  .cta-band .btn-primary{background:linear-gradient(135deg,#4C6EF5,#8B5CF6);color:#fff;box-shadow:0 14px 30px -8px rgba(76,110,245,0.5)}
+  .cta-band .btn-ghost{border-color:var(--line);color:var(--band-fg)}
+  .cta-band .btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+
+  footer{padding:48px 0 60px}
+  .foot-wrap{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;padding-top:32px;border-top:1px solid var(--line)}
+  .foot-brand{font-family:var(--serif);font-size:15px;font-weight:600}
+  .foot-tag{margin-top:6px;font-size:12px;color:var(--muted);max-width:320px;line-height:1.6}
+  .foot-links{display:flex;gap:22px;font-size:12px;color:var(--muted)}
+  .foot-links a{text-decoration:none}
+  .foot-links a:hover{color:var(--ink)}
+  .foot-copy{font-size:11px;color:var(--muted);margin-top:20px}
+
+  @media (prefers-reduced-motion: reduce){
+    .note-box .caret{animation:none;opacity:1}
+    *{scroll-behavior:auto!important}
+  }
+  html{scroll-behavior:smooth}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="navmark"><span class="sq">M</span> Myntmore</div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#metrics">Results</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn btn-primary btn-small" href="mailto:hello@myntmore.com?subject=Starting%20a%20campaign">Start a campaign</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">LinkedIn outreach, done for you</p>
+      <h1>Turn lead lists into real conversations.</h1>
+      <p class="sub">Send us your leads and your message. We configure the sequence, send the connection requests, and hand you a dashboard that shows exactly where every campaign stands, no outreach software for you to learn.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="mailto:hello@myntmore.com?subject=Starting%20a%20campaign">Start your first campaign</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="fine">Most briefs move from submitted to live within one business day.</p>
+    </div>
+
+    <div class="demo">
+      <div class="demo-top">
+        <span class="label">Connection note</span>
+        <span class="pill pill-submitted">Submitted</span>
+      </div>
+      <div class="demo-body">
+        <div class="demo-field-label"><span>Draft</span><span id="charCount">0 / 300</span></div>
+        <div class="note-box" id="noteBox" data-text="Hi {{first_name}}, I came across your work at {{company}} and would love to connect."></div>
+        <div class="tokens">
+          <span class="token">{{first_name}}</span>
+          <span class="token">{{last_name}}</span>
+          <span class="token">{{company}}</span>
+        </div>
+        <div class="stepper-mini">
+          <div class="node on"></div><div class="seg"></div>
+          <div class="node"></div><div class="seg"></div>
+          <div class="node"></div><div class="seg"></div>
+          <div class="node"></div><div class="seg"></div>
+          <div class="node"></div>
+        </div>
+        <div class="stepper-mini labels">
+          <span>Submitted</span><span>Review</span><span>Setup</span><span>Live</span><span>Done</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="stats-strip">
+  <div class="wrap">
+    <div class="stat"><strong>300</strong><span>characters per connection note. That is LinkedIn's own limit, and every draft is checked against it before it goes out.</span></div>
+    <div class="stat"><strong>1 to 3</strong><span>personalized follow ups per campaign, sent only after someone accepts your connection.</span></div>
+    <div class="stat"><strong>1 day</strong><span>typical turnaround from a submitted brief to a live campaign in your queue.</span></div>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2>Four stages. You can see all of them.</h2>
+      <p>No black box. Every campaign moves through the same stages in your dashboard, in this order, and you always know which one it is in.</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step">
+        <span class="pill pill-submitted stage">01 &middot; Submitted</span>
+        <h3>Brief us once</h3>
+        <p>Goal, offer, tone, your connection note, and up to three follow ups. Takes about ten minutes the first time.</p>
+      </div>
+      <div class="flow-step">
+        <span class="pill pill-review stage">02 &middot; In review</span>
+        <h3>We check it</h3>
+        <p>A person on our team reads the note, the offer, and the lead list before anything is scheduled to send under your name.</p>
+      </div>
+      <div class="flow-step">
+        <span class="pill pill-setup stage">03 &middot; In setup</span>
+        <h3>We build the sequence</h3>
+        <p>Your connection note and follow ups get configured and queued against your uploaded leads.</p>
+      </div>
+      <div class="flow-step">
+        <span class="pill pill-live stage">04 &middot; Live</span>
+        <h3>It runs, you watch</h3>
+        <p>Connection requests go out. Acceptance rate, replies, and progress update in your dashboard as they happen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">What you get</p>
+      <h2>Built around what outreach actually needs.</h2>
+      <p>Not a general automation platform with a learning curve. A short list of things that matter for LinkedIn outreach specifically, handled properly.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="icon" style="background:var(--blue-tint);color:#3B5BDB">&#128274;</div>
+        <h3>Credentials handled carefully</h3>
+        <p>Your LinkedIn login is encrypted the moment you submit it. Our team only ever unlocks it to run your campaign, and every access is logged with a timestamp.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" style="background:var(--violet-tint);color:#6D3FD1">&#128203;</div>
+        <h3>Bring your own CSV</h3>
+        <p>Upload your lead list however it is already formatted. If your column names do not match ours, map them in a few clicks, nothing to reformat by hand.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" style="background:var(--green-tint);color:var(--green)">&#128200;</div>
+        <h3>Real numbers, not vanity ones</h3>
+        <p>Acceptance rate and reply rate, calculated from what actually sent and what actually came back, updated as your campaign runs.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" style="background:var(--amber-tint);color:var(--amber)">&#128100;</div>
+        <h3>A person reviews every brief</h3>
+        <p>Before a single connection request goes out, someone checks the note, the offer, and the list against what you actually asked for.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" style="background:var(--blue-tint);color:#3B5BDB">&#128172;</div>
+        <h3>Personalize without the busywork</h3>
+        <p>Drop in {{first_name}}, {{last_name}}, or {{company}} anywhere in your note or follow ups. We fill in the real details per lead.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" style="background:var(--violet-tint);color:#6D3FD1">&#9888;</div>
+        <h3>Issues flagged, not buried</h3>
+        <p>A wrong LinkedIn URL or a login problem shows up as an alert on your dashboard, tied to the exact campaign or lead it affects.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Your lead list</p>
+      <h2>Upload it as is. We will match the columns.</h2>
+      <p>Most CSV tools reject a file the moment a header does not match exactly. We do not. If your export uses different column names, you map them once and we take it from there.</p>
+    </div>
+    <div class="csv-wrap">
+      <div class="csv-card">
+        <div class="csv-head">your-leads-export.csv</div>
+        <div class="csv-table-scroll">
+          <table class="csv-table">
+            <tr><th>First Name</th><th>Surname</th><th>Employer</th><th>LinkedIn Profile</th></tr>
+            <tr><td>Amara</td><td>Okafor</td><td>Blume Analytics</td><td>linkedin.com/in/amara-o</td></tr>
+            <tr><td>Devon</td><td>Reyes</td><td>Northfield Labs</td><td>linkedin.com/in/devon-r</td></tr>
+            <tr><td>Priya</td><td>Nair</td><td>Solace Health</td><td>linkedin.com/in/priya-nair</td></tr>
+          </table>
+        </div>
+        <div class="csv-map"><span>Surname</span><span class="arrow">&rarr;</span><span>last_name</span><span style="margin-left:auto;color:var(--muted)">mapped automatically</span></div>
+      </div>
+      <div>
+        <h3 style="font-size:19px;margin-bottom:12px">No reformatting. No rejected uploads.</h3>
+        <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7">Every lead still needs a LinkedIn URL, that part is not optional, LinkedIn is how the outreach reaches them. Everything else, job title, company, notes, is optional and can be mapped or left out entirely.</p>
+        <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin-top:14px">Files up to 10 MB. That covers a few thousand leads for most campaigns.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="metrics">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">What you will see</p>
+      <h2>Your dashboard, with example numbers.</h2>
+      <p>This is the same view you get once a campaign is live. The figures below are a worked example, not a promise, your results depend on your list and your offer.</p>
+    </div>
+    <div class="metrics-card">
+      <div class="metrics-head">
+        <div>
+          <strong>DTC Brand Founders, Q3</strong>
+          <span>Example campaign &middot; 180 leads &middot; live for 18 days</span>
+        </div>
+        <span class="pill pill-live">Live</span>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-tile"><span>Connections sent</span><strong>172</strong></div>
+        <div class="metric-tile"><span>Accepted</span><strong>76</strong></div>
+        <div class="metric-tile"><span>Acceptance rate</span><strong>44%</strong></div>
+        <div class="metric-tile"><span>Positive replies</span><strong>14</strong></div>
+      </div>
+      <div class="metrics-foot">Figures update automatically as connections are accepted and replies come in, tracked per campaign so you can compare across your account.</div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Questions</p>
+      <h2>Before you start.</h2>
+    </div>
+    <div class="faq">
+      <details class="faq-item" open>
+        <summary>What happens after I submit a campaign?<span class="plus">+</span></summary>
+        <p>Your brief, lead list, and message sequence go to our team. We review it, configure the sequence, and move your campaign from Submitted to In review and then In setup. You will see the status change on your dashboard as it happens.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What columns does my lead list need?<span class="plus">+</span></summary>
+        <p>First name, last name, job title, company, LinkedIn URL, email, and notes, matching a template you can download in the campaign wizard. Every lead needs a LinkedIn URL. If your file uses different column names, you can map them instead of reformatting.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Can I personalize the messages?<span class="plus">+</span></summary>
+        <p>Yes. Insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow ups, and we swap in each lead's real details when the sequence sends.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How is my LinkedIn login handled?<span class="plus">+</span></summary>
+        <p>It is encrypted the moment you submit it and never stored in plain text. Our team unlocks it only to run your campaign, and if LinkedIn asks for a verification code or a phone approval, you handle that directly from your dashboard.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is my data shared with other clients?<span class="plus">+</span></summary>
+        <p>No. Your lead lists, messages, and results are visible only to your account and our team.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta-band">
+      <div class="cta-inner">
+        <p class="eyebrow">Ready when you are</p>
+        <h2>Send us a lead list and a message. We will handle the rest.</h2>
+        <p>No setup call required to get started, though we are happy to have one. Submit a brief, upload your leads, and watch your first campaign move to live.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="mailto:hello@myntmore.com?subject=Starting%20a%20campaign">Start your first campaign</a>
+          <a class="btn btn-ghost" href="mailto:hello@myntmore.com?subject=Question%20about%20Myntmore%20Outreach">Ask a question first</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-wrap">
+      <div>
+        <div class="foot-brand">Myntmore Outreach</div>
+        <p class="foot-tag">LinkedIn outreach for teams who want real conversations, not another dashboard to manage.</p>
+      </div>
+      <div class="foot-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#faq">FAQ</a>
+        <a href="mailto:hello@myntmore.com">Contact</a>
+      </div>
+    </div>
+    <p class="foot-copy">Myntmore Outreach. Built for LinkedIn campaigns, start to finish.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var box = document.getElementById('noteBox');
+  var counter = document.getElementById('charCount');
+  var full = box.getAttribute('data-text');
+  var total = full.length;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function setFull(){
+    box.textContent = full;
+    counter.textContent = total + ' / 300';
+  }
+
+  if (reduced) { setFull(); return; }
+
+  var i = 0;
+  box.textContent = '';
+  counter.textContent = '0 / 300';
+  var caret = document.createElement('span');
+  caret.className = 'caret';
+  box.appendChild(caret);
+
+  function tick(){
+    if (i >= total) { setFull(); return; }
+    i++;
+    box.textContent = full.slice(0, i);
+    box.appendChild(caret);
+    counter.textContent = i + ' / 300';
+    var delay = 18 + Math.random() * 30;
+    setTimeout(tick, delay);
+  }
+  setTimeout(tick, 500);
+})();
+</script>
+
+</body>
+</html>
