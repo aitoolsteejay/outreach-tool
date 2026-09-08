@@ -160,6 +160,16 @@ export default function Home() {
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
   const activeClientCampaignIdRef = useRef<string | null>(null);
+  // Adding a fresh batch of leads to an already-submitted campaign -- state
+  // kept separate from the wizard's own leadFile/columnMapping so the two
+  // flows never interfere with each other.
+  const [addLeadsFile, setAddLeadsFile] = useState<File | null>(null);
+  const [addLeadsFileName, setAddLeadsFileName] = useState("");
+  const [addLeadsMapping, setAddLeadsMapping] = useState<{ headers: string[]; rows: string[][]; mapping: ColumnMapping; sourceFileName: string } | null>(null);
+  const [addLeadsMappingError, setAddLeadsMappingError] = useState("");
+  const [addLeadsUploading, setAddLeadsUploading] = useState(false);
+  const [addLeadsError, setAddLeadsError] = useState("");
+  const [addLeadsResult, setAddLeadsResult] = useState<{ added: number; duplicates: number; total: number } | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertForm, setAlertForm] = useState({ severity: "error", leadReference: "", message: "" });
   const [alertPosting, setAlertPosting] = useState(false);
@@ -220,6 +230,68 @@ export default function Home() {
       setFileName(columnMapping.sourceFileName);
       setColumnMapping(null);
     } catch (error) { setMappingError(error instanceof Error ? error.message : "Unable to map these columns."); }
+  }
+  // "Add leads" (an existing campaign's own upload flow, opened from the
+  // campaign-details modal) mirrors chooseLeadFile/applyColumnMapping above
+  // -- same column-mapping fallback -- but targets its own state so it never
+  // interferes with the new-campaign wizard.
+  async function chooseAddLeadsFile(file: File | null) {
+    setAddLeadsError("");
+    setAddLeadsMapping(null);
+    setAddLeadsMappingError("");
+    setAddLeadsResult(null);
+    if (!file) { setAddLeadsFile(null); setAddLeadsFileName(""); return; }
+    try { await readLeadFile(file); setAddLeadsFile(file); setAddLeadsFileName(file.name); }
+    catch (error) {
+      setAddLeadsFile(null); setAddLeadsFileName("");
+      if (error instanceof MissingHeadersError) { setAddLeadsMapping({ headers: error.headers, rows: error.rows, mapping: guessColumnMapping(error.headers), sourceFileName: file.name }); return; }
+      setAddLeadsError(error instanceof Error ? error.message : "Choose a valid CSV file.");
+    }
+  }
+  function updateAddLeadsMapping(field: LeadField, source: string) {
+    setAddLeadsMapping((current) => current ? { ...current, mapping: { ...current.mapping, [field]: source === "" ? undefined : Number(source) } } : current);
+  }
+  function cancelAddLeadsMapping() { setAddLeadsMapping(null); setAddLeadsMappingError(""); }
+  function applyAddLeadsMapping() {
+    if (!addLeadsMapping) return;
+    setAddLeadsMappingError("");
+    const conflicts = findMappingConflicts(addLeadsMapping.mapping);
+    if (conflicts.length) { setAddLeadsMappingError(`${conflicts.map((fields) => fields.join(" and ")).join("; ")} can't share the same column -- choose a different column for each.`); return; }
+    try {
+      const leadRows = buildLeadRowsFromMapping(addLeadsMapping.headers, addLeadsMapping.rows, addLeadsMapping.mapping);
+      const mappedFile = new File([leadRowsToCsv(leadRows)], addLeadsMapping.sourceFileName, { type: "text/csv" });
+      setAddLeadsFile(mappedFile);
+      setAddLeadsFileName(addLeadsMapping.sourceFileName);
+      setAddLeadsMapping(null);
+    } catch (error) { setAddLeadsMappingError(error instanceof Error ? error.message : "Unable to map these columns."); }
+  }
+  async function uploadMoreLeads() {
+    if (!clientCampaignModal || !addLeadsFile || !userId) return;
+    const campaignId = clientCampaignModal.id;
+    setAddLeadsUploading(true);
+    setAddLeadsError("");
+    setAddLeadsResult(null);
+    const supabase = createClient();
+    let storagePath = "";
+    try {
+      storagePath = `${userId}/add-leads/${crypto.randomUUID()}-${addLeadsFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage.from("outreach-leads").upload(storagePath, addLeadsFile);
+      if (uploadError) throw uploadError;
+      const headers = await authHeader();
+      const response = await fetch(`/api/client/campaigns/${campaignId}/leads`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ storagePath, originalName: addLeadsFile.name }) });
+      const data = await readJson<{ error?: string; added?: number; duplicates?: number; total?: number }>(response);
+      if (!response.ok || data.total === undefined) throw new Error(data.error || "Unable to add these leads.");
+      if (activeClientCampaignIdRef.current !== campaignId) return;
+      setAddLeadsResult({ added: data.added || 0, duplicates: data.duplicates || 0, total: data.total });
+      setAddLeadsFile(null);
+      setAddLeadsFileName("");
+      setCampaigns((current) => current.map((campaign) => campaign.id === campaignId ? { ...campaign, audience: `${data.total} leads` } : campaign));
+      setClientCampaignModal((current) => current && current.id === campaignId ? { ...current, audience: `${data.total} leads` } : current);
+    } catch (error) {
+      if (storagePath) await supabase.storage.from("outreach-leads").remove([storagePath]).catch(() => {});
+      if (activeClientCampaignIdRef.current !== campaignId) return;
+      setAddLeadsError(error instanceof Error ? error.message : "Unable to add these leads.");
+    } finally { if (activeClientCampaignIdRef.current === campaignId) setAddLeadsUploading(false); }
   }
   useEffect(() => {
     const supabase = createClient();
@@ -572,6 +644,14 @@ export default function Home() {
       setCampaignsExportError(error instanceof Error ? error.message : "Unable to export campaigns.");
     } finally { setCampaignsExportLoading(false); }
   }
+  function resetAddLeadsState() {
+    setAddLeadsFile(null);
+    setAddLeadsFileName("");
+    setAddLeadsMapping(null);
+    setAddLeadsMappingError("");
+    setAddLeadsError("");
+    setAddLeadsResult(null);
+  }
   async function openClientCampaignModal(campaign: Campaign) {
     activeClientCampaignIdRef.current = campaign.id;
     setClientCampaignModal(campaign);
@@ -581,6 +661,7 @@ export default function Home() {
     setClientCampaignDeleteError("");
     setClientCampaignDeleting(false);
     setClientCampaignLoading(true);
+    resetAddLeadsState();
     try {
       const { data, error } = await createClient().schema("outreach").from("campaigns")
         .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
@@ -999,6 +1080,37 @@ export default function Home() {
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Alerts</h3>
                 <div className="alertList">{clientCampaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div></div>)}</div>
+              </>}
+              {clientCampaignModal.status !== "Completed" && <>
+                <div className="waalaxyDivider" />
+                <h3 className="modalSectionTitle">Add leads</h3>
+                <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new leads, and we&apos;ll add them to this campaign — anyone already on the list is skipped automatically.</p>
+                {!addLeadsMapping ? <>
+                  <label className={`dropzone ${addLeadsFileName ? "hasFile" : ""}`}>
+                    <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseAddLeadsFile(e.target.files?.[0] || null)} />
+                    <span>{addLeadsFileName ? "✓" : "↑"}</span>
+                    <strong>{addLeadsFileName || "Drop a CSV of new leads here"}</strong>
+                    <small>{addLeadsFileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small>
+                  </label>
+                  {addLeadsError && <p className="formError" role="alert">{addLeadsError}</p>}
+                  {addLeadsResult && <p className="formSuccess" role="status">Added {addLeadsResult.added} new lead{addLeadsResult.added === 1 ? "" : "s"}{addLeadsResult.duplicates ? ` (skipped ${addLeadsResult.duplicates} already in this campaign)` : ""}. This campaign now has {addLeadsResult.total} leads.</p>}
+                  <button type="button" className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={!addLeadsFile || addLeadsUploading} onClick={uploadMoreLeads}>{addLeadsUploading ? "Adding leads…" : "Add leads"}</button>
+                </> : <div className="columnMapper">
+                  <p className="modalIntro"><strong>{addLeadsMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below — LinkedIn URL is required, the rest are optional.</p>
+                  {LEAD_CSV_HEADERS.map((field) => (
+                    <label key={field}>{LEAD_FIELD_LABELS[field]}{LEAD_FIELD_REQUIRED[field] ? " *" : <span className="fieldHint">Optional</span>}
+                      <select value={addLeadsMapping.mapping[field] ?? ""} onChange={(e) => updateAddLeadsMapping(field, e.target.value)}>
+                        <option value="">— Not in file —</option>
+                        {describeColumnOptions(addLeadsMapping.headers).map((option) => <option key={option.index} value={option.index}>{option.label}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                  {addLeadsMappingError && <p className="formError" role="alert">{addLeadsMappingError}</p>}
+                  <div className="waalaxyActions">
+                    <button type="button" className="secondary" onClick={cancelAddLeadsMapping}>Choose a different file</button>
+                    <button type="button" className="primary" disabled={addLeadsMapping.mapping.linkedin_url === undefined} onClick={applyAddLeadsMapping}>Use these columns</button>
+                  </div>
+                </div>}
               </>}
               {clientCampaignModal.status === "Submitted" && !clientCampaignAlerts.some((alert) => !alert.resolved) && <>
                 <div className="waalaxyDivider" />

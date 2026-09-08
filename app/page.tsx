@@ -62,7 +62,7 @@ export default function LandingPage() {
 
       <nav className="nav">
         <div className="wrap">
-          <div className="navmark"><Image src="/myntmore-logo.png" alt="Myntmore" width={62} height={40} priority /></div>
+          <div className="navmark"><Image src="/myntmore-logo.png" alt="Myntmore" width={102} height={66} priority /></div>
           <div className="navlinks">
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
