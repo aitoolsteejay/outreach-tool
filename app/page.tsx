@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -148,6 +148,8 @@ export default function Home() {
   const [metricsError, setMetricsError] = useState("");
   const [leadsDownloading, setLeadsDownloading] = useState(false);
   const [leadsDownloadError, setLeadsDownloadError] = useState("");
+  const [campaignsExportLoading, setCampaignsExportLoading] = useState(false);
+  const [campaignsExportError, setCampaignsExportError] = useState("");
   // Read-only campaign detail view for clients -- kept separate from the
   // admin-only campaignBrief/campaignMetrics state above, which is editable.
   const [clientCampaignModal, setClientCampaignModal] = useState<Campaign | null>(null);
@@ -506,6 +508,42 @@ export default function Home() {
       setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
     } finally { if (activeWaalaxyCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
   }
+  async function downloadAllCampaigns() {
+    if (campaigns.length === 0) { setCampaignsExportError("There are no campaigns to export yet."); return; }
+    setCampaignsExportLoading(true);
+    setCampaignsExportError("");
+    try {
+      // campaigns (state) already has client name / formatted status / lead
+      // count resolved for every row -- only the metrics columns need a
+      // fresh query, then get merged in by id.
+      const { data, error } = await createClient().schema("outreach").from("campaigns").select("id,connections_sent,connections_accepted,replies_received,positive_replies");
+      if (error) throw error;
+      const metricsById = new Map((data || []).map((row) => [row.id, row]));
+      const rows = campaigns.map((campaign) => {
+        const metrics = metricsById.get(campaign.id);
+        const sent = metrics?.connections_sent || 0;
+        const accepted = metrics?.connections_accepted || 0;
+        return [
+          campaign.client || "", campaign.name, campaign.status, campaign.progress, Number.parseInt(campaign.audience) || 0,
+          sent, accepted, sent ? Math.round((accepted / sent) * 100) : "",
+          metrics?.replies_received || 0, metrics?.positive_replies || 0,
+          campaign.submittedAt ? new Date(campaign.submittedAt).toLocaleDateString() : "",
+        ];
+      });
+      const csv = rowsToCsv(
+        ["Client", "Campaign", "Status", "Progress %", "Leads", "Connections sent", "Connections accepted", "Acceptance rate %", "Replies received", "Positive replies", "Submitted"],
+        rows,
+      );
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `myntmore-campaigns-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      setCampaignsExportError(error instanceof Error ? error.message : "Unable to export campaigns.");
+    } finally { setCampaignsExportLoading(false); }
+  }
   async function openClientCampaignModal(campaign: Campaign) {
     activeClientCampaignIdRef.current = campaign.id;
     setClientCampaignModal(campaign);
@@ -726,7 +764,7 @@ export default function Home() {
           <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <article className="accountRow" key={account.id}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><button className="more" aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)}><Icon name="dots" /></button></article>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
-          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select><button type="button" className="secondary" disabled={campaignsExportLoading} onClick={downloadAllCampaigns}>{campaignsExportLoading ? "Preparing…" : "Download all campaigns"}</button></div></div>{campaignsExportError && <p className="formError" role="alert" style={{ margin: "0 25px 14px" }}>{campaignsExportError}</p>}<div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
           {activeAlerts.length > 0 && <div className="alertBanner">{activeAlerts.map((alert) => <div className={`alertBannerItem ${alert.severity}`} key={alert.id}><Icon name="alertTriangle" size={16} /><div><strong>{alert.message}</strong><span>{alert.campaignId ? `${campaigns.find((campaign) => campaign.id === alert.campaignId)?.name || "Campaign"}${alert.leadReference ? ` · ${alert.leadReference}` : ""}` : "Account-wide"}</span></div></div>)}</div>}

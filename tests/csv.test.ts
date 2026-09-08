@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, validateAndParseLeadsCsv } from "../lib/csv.ts";
+import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, rowsToCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
 
 const header = "first_name,last_name,job_title,company,linkedin_url,email,notes";
 
@@ -93,6 +93,14 @@ test("reports rows without a LinkedIn URL", () => {
 
 test("uses an exact 10 MiB upload limit", () => {
   assert.equal(MAX_LEAD_FILE_BYTES, 10 * 1024 * 1024);
+});
+
+test("rowsToCsv escapes commas, quotes, and coerces numbers, and round-trips through parseCsvHeaderAndRows", () => {
+  const csv = rowsToCsv(["Client", "Campaign", "Acceptance rate"], [["Acme, Inc.", 'Say "hi" campaign', 44], ["Beta Co", "Q3 push", 0]]);
+  assert.equal(csv, 'Client,Campaign,Acceptance rate\r\n"Acme, Inc.","Say ""hi"" campaign",44\r\nBeta Co,Q3 push,0\r\n');
+  const { headers, rows } = parseCsvHeaderAndRows(csv);
+  assert.deepEqual(headers, ["Client", "Campaign", "Acceptance rate"]);
+  assert.deepEqual(rows, [["Acme, Inc.", 'Say "hi" campaign', "44"], ["Beta Co", "Q3 push", "0"]]);
 });
 
 test("does not open quote mode for a stray quote in the middle of a field", () => {

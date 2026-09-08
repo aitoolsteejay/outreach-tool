@@ -167,3 +167,12 @@ export function leadRowsToCsv(rows: LeadRow[]): string {
   }
   return `${lines.join("\r\n")}\r\n`;
 }
+
+// General-purpose CSV serializer for admin exports that aren't lead lists
+// (e.g. a campaigns-overview report) -- same escaping rules as leadRowsToCsv,
+// just not tied to the LeadRow shape.
+export function rowsToCsv(headers: string[], rows: (string | number)[][]): string {
+  const lines = [headers.map((header) => csvEscape(String(header))).join(",")];
+  for (const row of rows) lines.push(row.map((value) => csvEscape(String(value))).join(","));
+  return `${lines.join("\r\n")}\r\n`;
+}
