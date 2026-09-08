@@ -365,6 +365,34 @@ export default function Home() {
       setAdminLinkedinError(error instanceof Error ? error.message : "Unable to update this record.");
     } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinActing(false); }
   }
+  // Resets this client's LinkedIn connection back to the credential form
+  // (reusing the "failed" status, which is what already makes the form
+  // reappear client-side) and posts an account-wide alert at the same time,
+  // so asking a client to log in again is one click instead of two separate
+  // manual steps (mark failed, then remember to also post an alert).
+  async function requestClientRelogin(clientId: string) {
+    const reason = "Please log in to LinkedIn again to keep your outreach running.";
+    setAdminLinkedinActing(true);
+    setAdminLinkedinError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/admin/linkedin-credentials/${clientId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_failed", reason }) });
+      const data = await readJson<LinkedinStatus & { error?: string }>(response);
+      if (!response.ok) throw new Error(data?.error || "Unable to update this record.");
+      const { data: alertRow } = await createClient().schema("outreach").from("campaign_alerts").insert({
+        client_id: clientId, campaign_id: null, severity: "warning", message: reason, created_by: userId,
+      }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").single();
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinStatus(data);
+      setAdminLinkedinFailReason("");
+      setAdminLinkedinReveal(null);
+      setAdminLinkedinCodeReveal(null);
+      if (alertRow) setAlerts((current) => [{ id: alertRow.id, clientId: alertRow.client_id, campaignId: alertRow.campaign_id, leadReference: alertRow.lead_reference, severity: alertRow.severity, message: alertRow.message, resolved: alertRow.resolved, createdAt: alertRow.created_at }, ...current]);
+    } catch (error) {
+      if (activeLinkedinClientIdRef.current !== clientId) return;
+      setAdminLinkedinError(error instanceof Error ? error.message : "Unable to ask this client to log in again.");
+    } finally { if (activeLinkedinClientIdRef.current === clientId) setAdminLinkedinActing(false); }
+  }
   async function revealLinkedinPassword(clientId: string) {
     setAdminLinkedinActing(true);
     setAdminLinkedinError("");
@@ -787,7 +815,7 @@ export default function Home() {
             <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <article className="campaign" key={campaign.id}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><button className="more" aria-label={`More options for ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)}><Icon name="dots" /></button></article>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
               <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "—" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "—" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "—" : campaigns.length}</b><small>Total</small></div></div></div>
-              <div className="sidebarProfileCard linkedinCard">
+              {linkedinStatus?.status !== "logged_in" && <div className="sidebarProfileCard linkedinCard">
                 <div className="sidebarInsightHead"><span><Icon name="logout" size={15} /></span><div><strong>LinkedIn access</strong><small>For your outreach campaigns</small></div></div>
                 {linkedinLoading ? <p className="modalIntro">Loading…</p> : <>
                   {(!linkedinStatus || linkedinStatus.status === "failed") && <>
@@ -812,9 +840,8 @@ export default function Home() {
                     <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }} onClick={() => submitLinkedinCode(null, "approved")}>{linkedinSaving ? "Confirming…" : "I've approved it"}</button>
                   </>}
                   {linkedinStatus?.status === "code_submitted" && <p className="modalIntro">Thanks — we&apos;re finishing your login now.</p>}
-                  {linkedinStatus?.status === "logged_in" && <p className="formSuccess" role="status">Connected as {linkedinStatus.linkedin_email}.</p>}
                 </>}
-              </div>
+              </div>}
               <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
             </aside>
           </div>
@@ -1016,6 +1043,7 @@ export default function Home() {
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "request_approval")}>Request phone approval</button>
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_logged_in")}>Mark logged in</button>
                 </div>
+                {adminLinkedinStatus.status === "logged_in" && <button className="secondary" style={{ width: "100%", marginTop: 8 }} disabled={adminLinkedinActing} onClick={() => requestClientRelogin(accountModal.id)}>Ask client to log in again</button>}
                 <label>Failure reason <span className="fieldHint">Optional</span><input value={adminLinkedinFailReason} onChange={(e) => setAdminLinkedinFailReason(e.target.value)} placeholder="e.g. Incorrect password" /></label>
                 <button className="dangerButton" style={{ marginTop: 8 }} disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_failed", adminLinkedinFailReason)}>Mark failed</button>
               </>}
