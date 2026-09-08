@@ -255,8 +255,8 @@ export default function LandingPage() {
             </div>
             <div className="feature mm-reveal mm-r3">
               <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>📈</div>
-              <h3>Real numbers, not vanity ones</h3>
-              <p>Acceptance rate and reply rate, calculated from what actually sent and what actually came back, updated as your campaign runs.</p>
+              <h3>See what is actually working</h3>
+              <p>Acceptance rate and reply rate, updated as your campaign runs, so you can tell within days whether a list or a message is landing, not guess at the end of the month.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
               <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}>👤</div>
@@ -269,9 +269,9 @@ export default function LandingPage() {
               <p>Drop in {"{{first_name}}"}, {"{{last_name}}"}, or {"{{company}}"} anywhere in your note or follow ups. We fill in the real details per lead.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>⚠️</div>
-              <h3>Issues flagged, not buried</h3>
-              <p>A wrong LinkedIn URL or a login problem shows up as an alert on your dashboard, tied to the exact campaign or lead it affects.</p>
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>🔔</div>
+              <h3>Problems reach you the same day</h3>
+              <p>A bad LinkedIn URL, a login that needs your attention, anything that could stall a campaign shows up as an alert on your dashboard right away, not weeks later when you ask why nothing sent.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
               <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>🔁</div>
