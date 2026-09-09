@@ -12,6 +12,30 @@ import { createClient } from "@/lib/supabase/client";
 // so this check only saves an unnecessary detour through the login form.
 const DEMO_NOTE = "Hi {{first_name}}, I came across your work at {{company}} and would love to connect.";
 
+// Small line-icon set for this page, drawn in the same grammar as the
+// dashboard's own Icon component (24x24, 1.8 stroke, round caps) rather than
+// emoji, so the landing page and the tool it is selling look like one
+// product instead of a marketing page bolted onto a different one.
+type LandingIconName = "monitor" | "mapPin" | "trendUp" | "userCheck" | "message" | "bell" | "refresh" | "layers" | "shield" | "target" | "users" | "grid";
+function LandingIcon({ name, size = 22 }: { name: LandingIconName; size?: number }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (name) {
+    case "monitor": return <svg {...p}><rect x="2" y="4" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
+    case "mapPin": return <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>;
+    case "trendUp": return <svg {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>;
+    case "userCheck": return <svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>;
+    case "message": return <svg {...p}><path d="M21 11.5a8.38 8.38 0 0 1-3.8 7.6 8.5 8.5 0 0 1-9.08.2L3 21l1.9-5.7a8.38 8.38 0 0 1 .2-9.08 8.5 8.5 0 0 1 15.9 5.28z" /></svg>;
+    case "bell": return <svg {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>;
+    case "refresh": return <svg {...p}><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>;
+    case "layers": return <svg {...p}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>;
+    case "shield": return <svg {...p}><path d="M12 2 4 5v6c0 5.25 3.5 9.5 8 11 4.5-1.5 8-5.75 8-11V5l-8-3z" /></svg>;
+    case "target": return <svg {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /></svg>;
+    case "users": return <svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+    case "grid": return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></svg>;
+    default: return null;
+  }
+}
+
 export default function LandingPage() {
   const router = useRouter();
   const [loginChecking, setLoginChecking] = useState(false);
@@ -232,22 +256,26 @@ export default function LandingPage() {
           </div>
           <div className="flow">
             <div className="flow-step mm-reveal mm-r1">
-              <span className="pill pill-submitted stage">01 · Submitted</span>
+              <div className="flow-num">1</div>
+              <span className="pill pill-submitted stage">Submitted</span>
               <h3>Brief us once</h3>
               <p>Goal, offer, tone, your connection note, and up to three follow ups. Takes about ten minutes the first time.</p>
             </div>
             <div className="flow-step mm-reveal mm-r2">
-              <span className="pill pill-review stage">02 · In review</span>
+              <div className="flow-num">2</div>
+              <span className="pill pill-review stage">In review</span>
               <h3>We check it</h3>
               <p>A person on our team reads the note, the offer, and the lead list before anything is scheduled to send under your name.</p>
             </div>
             <div className="flow-step mm-reveal mm-r3">
-              <span className="pill pill-setup stage">03 · In setup</span>
+              <div className="flow-num">3</div>
+              <span className="pill pill-setup stage">In setup</span>
               <h3>We build the sequence</h3>
               <p>Your connection note and follow ups get configured and queued against your uploaded leads.</p>
             </div>
             <div className="flow-step mm-reveal mm-r4">
-              <span className="pill pill-live stage">04 · Live</span>
+              <div className="flow-num">4</div>
+              <span className="pill pill-live stage">Live</span>
               <h3>It runs, you watch</h3>
               <p>Connection requests go out. Acceptance rate, replies, and progress update in your dashboard as they happen.</p>
             </div>
@@ -294,47 +322,47 @@ export default function LandingPage() {
           </div>
           <div className="feature-grid">
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🧰</div>
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="monitor" /></div>
               <h3>We run the software, not you</h3>
               <p>LinkedIn logins, sequence setup, and delivery all happen on our side, using our own tools. You send a brief and a lead list. That is the whole learning curve.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>📍</div>
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="mapPin" /></div>
               <h3>Always know where you stand</h3>
               <p>Every campaign shows its real status right now: Submitted, In review, In setup, Live, or Completed. No waiting on an update email to find out.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>📈</div>
+              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="trendUp" /></div>
               <h3>See what is actually working</h3>
               <p>Acceptance rate and reply rate, updated as your campaign runs, so you can tell within days whether a list or a message is landing, not guess at the end of the month.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}>👤</div>
+              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}><LandingIcon name="userCheck" /></div>
               <h3>A person reviews every brief</h3>
               <p>Before a single connection request goes out, someone checks the note, the offer, and the list against what you actually asked for.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>💬</div>
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="message" /></div>
               <h3>Personalize without the busywork</h3>
               <p>Drop in {"{{first_name}}"}, {"{{last_name}}"}, or {"{{company}}"} anywhere in your note or follow ups. We fill in the real details per lead.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>🔔</div>
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="bell" /></div>
               <h3>Problems reach you the same day</h3>
               <p>A bad LinkedIn URL, a login that needs your attention, anything that could stall a campaign shows up as an alert on your dashboard right away, not weeks later when you ask why nothing sent.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>🔁</div>
+              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="refresh" /></div>
               <h3>Add leads anytime</h3>
               <p>Upload another batch whenever you have one, a new week, a fresh list pull, and we merge it into the same campaign. Anyone already on the list is skipped automatically.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}>🗂️</div>
+              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}><LandingIcon name="layers" /></div>
               <h3>Run multiple campaigns at once</h3>
               <p>Each one tracked separately, with its own brief, leads, status, and results, all from the same dashboard.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🛡️</div>
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="shield" /></div>
               <h3>Your data stays private</h3>
               <p>Lead lists, messages, and results are visible only to your account and our team, never shared or bundled with anyone else&apos;s.</p>
             </div>
@@ -351,17 +379,17 @@ export default function LandingPage() {
           </div>
           <div className="feature-grid">
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🎯</div>
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="target" /></div>
               <h3>Founders and solo operators</h3>
               <p>Outreach that keeps running without becoming the thing you do instead of the rest of your job.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>📊</div>
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="users" /></div>
               <h3>Sales and growth teams</h3>
               <p>A steady stream of LinkedIn conversations for the pipeline, without adding another tool for the team to learn.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>🧩</div>
+              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="grid" /></div>
               <h3>Agencies and consultants</h3>
               <p>Run outreach for more than one client at once, each campaign tracked separately with its own dashboard.</p>
             </div>
@@ -536,10 +564,18 @@ const LANDING_CSS = `
   --green-tint:#E4F7ED;
   --amber:#C2410C;
   --amber-tint:#FDE7F1;
+  /* Same gradient stops the dashboard itself uses for .clientAction /
+     .ringCardGold and .ringCardInk -- reused here so the sales page reads
+     as the same product as the tool, not a separately-designed wrapper. */
+  --blue-grad:linear-gradient(135deg,#6C8CFF,#3F5EEA);
+  --violet-grad:linear-gradient(135deg,#B18CF5,#7C4FE0);
   --shadow:0 20px 50px -20px rgba(20,21,28,0.18);
-  --band-bg:#FFFFFF;
-  --band-fg:#14151C;
-  --band-muted:#4B4C5C;
+  /* The CTA band below borrows the tool's own dark brand-panel treatment
+     (see .loginBrand in globals.css): near-black with floating, blurred
+     radial blue/violet glow, rather than a generic light card. */
+  --band-bg:#0A0A0A;
+  --band-fg:#FFFFFF;
+  --band-muted:#B7B6C6;
   --serif:'Fraunces',Georgia,serif;
   --sans:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif;
   --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
@@ -633,50 +669,51 @@ const LANDING_CSS = `
 .mm-landing .stepper-mini .seg{flex:1;height:1px;background:var(--line);margin:0 5px}
 .mm-landing .stepper-mini.labels{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;color:var(--muted);font-weight:700}
 
-.mm-landing .stats-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.mm-landing .stats-strip .wrap{display:grid;grid-template-columns:repeat(3,1fr);padding:0}
-.mm-landing .stat{padding:34px 28px;border-right:1px solid var(--line)}
-.mm-landing .stat:last-child{border-right:0}
+.mm-landing .stats-strip .wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:60px 32px}
+.mm-landing .stat{padding:30px 26px;border:1px solid var(--line);border-radius:16px;background:var(--raised)}
 .mm-landing .stat strong{display:block;font-family:var(--serif);font-size:32px;font-weight:560}
-.mm-landing .stat span{display:block;margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.5}
-@media(max-width:760px){.mm-landing .stats-strip .wrap{grid-template-columns:1fr}.mm-landing .stat{border-right:0;border-bottom:1px solid var(--line);padding:24px 4px}.mm-landing .stat:last-child{border-bottom:0}}
+.mm-landing .stat:nth-child(2) strong{color:var(--blue)}
+.mm-landing .stat:nth-child(3) strong{color:var(--violet)}
+.mm-landing .stat span{display:block;margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.5}
+@media(max-width:760px){.mm-landing .stats-strip .wrap{grid-template-columns:1fr;padding:40px 20px}}
 
 .mm-landing .section-head{max-width:600px;margin-bottom:48px}
 .mm-landing .section-head h2{font-size:clamp(26px,3.2vw,38px)}
 .mm-landing .section-head p{margin-top:14px;font-size:14.5px;color:var(--ink-soft);line-height:1.65}
 
-.mm-landing .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--raised)}
+.mm-landing .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media(max-width:900px){.mm-landing .flow{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.mm-landing .flow{grid-template-columns:1fr}}
-.mm-landing .flow-step{padding:26px 24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative}
-.mm-landing .flow-step:nth-child(4){border-right:0}
-@media(max-width:900px){.mm-landing .flow-step:nth-child(2){border-right:0}.mm-landing .flow-step:nth-child(4){border-right:1px solid var(--line)}}
-@media(max-width:560px){.mm-landing .flow-step{border-right:0!important}}
-.mm-landing .flow-step .stage{display:inline-block;margin-bottom:14px;transition:transform .2s ease}
-.mm-landing .flow-step:hover .stage{transform:scale(1.06)}
+.mm-landing .flow-step{background:var(--raised);border:1px solid var(--line);border-radius:18px;padding:26px 24px;position:relative;transition:transform .25s ease,box-shadow .25s ease}
+.mm-landing .flow-step:hover{transform:translateY(-3px);box-shadow:0 16px 34px -18px rgba(20,21,28,.18)}
+.mm-landing .flow-num{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-family:var(--serif);font-size:16px;font-weight:650;color:#fff;margin-bottom:16px}
+.mm-landing .flow-step:nth-child(odd) .flow-num{background:var(--blue-grad)}
+.mm-landing .flow-step:nth-child(even) .flow-num{background:var(--violet-grad)}
+.mm-landing .flow-step .stage{display:inline-block;margin-bottom:14px}
 .mm-landing .flow-step h3{font-size:16.5px;font-weight:650;margin-bottom:8px}
 .mm-landing .flow-step p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
 
 .mm-landing .compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:760px){.mm-landing .compare-wrap{grid-template-columns:1fr}}
-.mm-landing .compare-col{border:1px solid var(--line);border-radius:18px;padding:30px 28px}
+.mm-landing .compare-col{border:1px solid var(--line);border-radius:18px;padding:32px 30px}
 .mm-landing .compare-bad{background:var(--paper)}
-.mm-landing .compare-good{background:var(--raised);box-shadow:var(--shadow);border-color:var(--blue)}
+.mm-landing .compare-good{background:var(--blue-grad);border-color:transparent;box-shadow:0 24px 50px -20px rgba(63,94,234,.45)}
 .mm-landing .compare-label{display:inline-block;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
-.mm-landing .compare-good .compare-label{color:var(--blue)}
+.mm-landing .compare-good .compare-label{color:#fff;opacity:.8}
 .mm-landing .compare-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
 .mm-landing .compare-col li{display:flex;gap:12px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+.mm-landing .compare-good li{color:#EAF0FF}
 .mm-landing .compare-mark{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
 .mm-landing .compare-bad .compare-mark{background:#FBEAEA;color:#C0392B}
-.mm-landing .compare-good .compare-mark{background:var(--green-tint);color:var(--green)}
+.mm-landing .compare-good .compare-mark{background:rgba(255,255,255,.2);color:#fff}
 
-.mm-landing .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.mm-landing .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:900px){.mm-landing .feature-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.mm-landing .feature-grid{grid-template-columns:1fr}}
-.mm-landing .feature{background:var(--raised);padding:28px 26px;transition:background .25s ease}
-.mm-landing .feature:hover{background:color-mix(in srgb, var(--raised) 92%, var(--blue))}
-.mm-landing .feature .icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;font-size:15px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
-.mm-landing .feature:hover .icon{transform:scale(1.12) rotate(-4deg)}
+.mm-landing .feature{background:var(--raised);border:1px solid var(--line);border-radius:18px;padding:28px 26px;transition:transform .25s ease,box-shadow .25s ease}
+.mm-landing .feature:hover{transform:translateY(-3px);box-shadow:0 16px 34px -18px rgba(20,21,28,.18)}
+.mm-landing .feature .icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.mm-landing .feature:hover .icon{transform:scale(1.08) rotate(-4deg)}
 .mm-landing .feature h3{font-size:15px;font-weight:700;margin-bottom:8px}
 .mm-landing .feature p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
 
@@ -715,18 +752,18 @@ const LANDING_CSS = `
 .mm-landing .faq-item p{margin-top:12px;font-size:13.5px;line-height:1.65;color:var(--ink-soft);animation:mmFadeIn .35s ease both}
 @keyframes mmFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
-.mm-landing .cta-band{background:var(--band-bg);color:var(--band-fg);border:1px solid var(--line);border-radius:24px;padding:60px 52px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
-.mm-landing .cta-band:before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;right:-160px;top:-160px;background:radial-gradient(circle,rgba(76,110,245,0.22),transparent 70%);animation:mmDrift1 9s ease-in-out infinite}
-.mm-landing .cta-band:after{content:"";position:absolute;width:340px;height:340px;border-radius:50%;left:-140px;bottom:-160px;background:radial-gradient(circle,rgba(139,92,246,0.18),transparent 70%);animation:mmDrift2 11s ease-in-out infinite}
+.mm-landing .cta-band{background:var(--band-bg);color:var(--band-fg);border:0;border-radius:24px;padding:64px 52px;position:relative;overflow:hidden;box-shadow:0 30px 80px -24px rgba(10,10,10,0.5)}
+.mm-landing .cta-band:before{content:"";position:absolute;width:480px;height:480px;border-radius:50%;right:-200px;top:-200px;background:radial-gradient(circle,rgba(76,110,245,0.42),transparent 68%);filter:blur(10px);animation:mmDrift1 9s ease-in-out infinite}
+.mm-landing .cta-band:after{content:"";position:absolute;width:400px;height:400px;border-radius:50%;left:-180px;bottom:-200px;background:radial-gradient(circle,rgba(139,92,246,0.36),transparent 68%);filter:blur(10px);animation:mmDrift2 11s ease-in-out infinite}
 @keyframes mmDrift1{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,10px)}}
 @keyframes mmDrift2{0%,100%{transform:translate(0,0)}50%{transform:translate(12px,-10px)}}
 .mm-landing .cta-inner{position:relative;z-index:1;max-width:560px}
 .mm-landing .cta-band h2{font-size:clamp(26px,3.4vw,36px);color:var(--band-fg)}
 .mm-landing .cta-band p{margin-top:14px;font-size:14px;color:var(--band-muted);line-height:1.65}
 .mm-landing .cta-band .ctas{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap}
-.mm-landing .cta-band .btn-primary{background:linear-gradient(135deg,#4C6EF5,#8B5CF6);color:#fff;box-shadow:0 14px 30px -8px rgba(76,110,245,0.5)}
-.mm-landing .cta-band .btn-ghost{border-color:var(--line);color:var(--band-fg)}
-.mm-landing .cta-band .btn-ghost:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+.mm-landing .cta-band .btn-primary{background:var(--blue-grad);color:#fff;box-shadow:0 14px 30px -8px rgba(76,110,245,0.5)}
+.mm-landing .cta-band .btn-ghost{border-color:rgba(255,255,255,.22);color:var(--band-fg)}
+.mm-landing .cta-band .btn-ghost:hover:not(:disabled){border-color:#fff;color:#fff}
 
 .mm-landing footer{padding:48px 0 60px}
 .mm-landing .foot-wrap{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;padding-top:32px;border-top:1px solid var(--line)}
