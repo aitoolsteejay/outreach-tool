@@ -636,7 +636,8 @@ const LANDING_CSS = `
    Next.js loads all global CSS app-wide regardless of route -- override it
    explicitly rather than relying on our higher-specificity .nav rules alone,
    since we never otherwise declare a display value for .nav itself. */
-.mm-landing .nav{display:block;position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);background:color-mix(in srgb, var(--paper) 82%, transparent);border-bottom:1px solid var(--line)}
+.mm-landing .nav{display:block;position:sticky;top:0;z-index:20;backdrop-filter:blur(16px);background:color-mix(in srgb, var(--paper) 97%, transparent);border-bottom:1px solid var(--line)}
+.mm-landing section[id]{scroll-margin-top:90px}
 .mm-landing .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px}
 .mm-landing .navmark{display:flex;align-items:center}
 .mm-landing .navlinks{display:flex;align-items:center;gap:22px;font-size:13px;font-weight:600;color:var(--ink-soft)}
