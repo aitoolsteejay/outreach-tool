@@ -12,6 +12,22 @@ import { createClient } from "@/lib/supabase/client";
 // so this check only saves an unnecessary detour through the login form.
 const DEMO_NOTE = "Hi {{first_name}}, I came across your work at {{company}} and would love to connect.";
 
+// Source-column -> our-column pairs for the CSV mockup, in the order the
+// auto-cycle steps through them. Also driven directly by clicking a column
+// header (see the #lead-list section), so it's a plain data array rather
+// than logic baked into the effect.
+const CSV_MAP_PAIRS: [string, string][] = [["Surname", "last_name"], ["Employer", "company"], ["LinkedIn Profile", "linkedin_url"], ["First Name", "first_name"]];
+
+// Fills a note's {{tokens}} with one sample lead's details, the same
+// substitution the real sequence does per lead -- used by the "Try it
+// yourself" note builder so what a visitor types renders as an actual
+// message instead of staying an abstract template.
+const TRY_IT_LEAD = { first_name: "Priya", last_name: "Nair", company: "Solace Health" };
+function renderWithSampleLead(note: string): string {
+  const filled = note.replaceAll("{{first_name}}", TRY_IT_LEAD.first_name).replaceAll("{{last_name}}", TRY_IT_LEAD.last_name).replaceAll("{{company}}", TRY_IT_LEAD.company);
+  return filled.trim() ? filled : "Start typing to see how it would read.";
+}
+
 // Small line-icon set for this page, drawn in the same grammar as the
 // dashboard's own Icon component (24x24, 1.8 stroke, round caps) rather than
 // emoji, so the landing page and the tool it is selling look like one
@@ -42,9 +58,8 @@ export default function LandingPage() {
   const noteBoxRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef<HTMLSpanElement>(null);
   const metricsRef = useRef<HTMLDivElement>(null);
-  const csvTableRef = useRef<HTMLTableElement>(null);
-  const csvMapFromRef = useRef<HTMLSpanElement>(null);
-  const csvMapToRef = useRef<HTMLSpanElement>(null);
+  const [csvMapIndex, setCsvMapIndex] = useState(0);
+  const [tryNote, setTryNote] = useState(DEMO_NOTE);
 
   useEffect(() => {
     const box = noteBoxRef.current;
@@ -127,26 +142,14 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  // CSV mockup: cycles which source column is "being mapped", highlighting
-  // that table header in sync with the from/to caption underneath it, so the
-  // "we match your columns" claim reads as something actually happening
-  // rather than a static screenshot.
+  // CSV mockup: cycles which source column is "being mapped" (state-driven
+  // rather than direct DOM writes, so a visitor can also click a column
+  // header to jump straight to it -- see the #lead-list section), so the "we
+  // match your columns" claim reads as something actually happening rather
+  // than a static screenshot.
   useEffect(() => {
-    const table = csvTableRef.current;
-    const fromEl = csvMapFromRef.current;
-    const toEl = csvMapToRef.current;
-    if (!table || !fromEl || !toEl) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const pairs: [string, string][] = [["Surname", "last_name"], ["Employer", "company"], ["LinkedIn Profile", "linkedin_url"], ["First Name", "first_name"]];
-    let index = 0;
-    const apply = () => {
-      const [from, to] = pairs[index];
-      table.querySelectorAll("th").forEach((th) => th.classList.toggle("mm-mapping", th.textContent === from));
-      fromEl.textContent = from;
-      toEl.textContent = to;
-    };
-    apply();
-    const intervalId = window.setInterval(() => { index = (index + 1) % pairs.length; apply(); }, 2200);
+    const intervalId = window.setInterval(() => { setCsvMapIndex((index) => (index + 1) % CSV_MAP_PAIRS.length); }, 2200);
     return () => window.clearInterval(intervalId);
   }, []);
 
@@ -418,21 +421,50 @@ export default function LandingPage() {
             <div className="csv-card mm-reveal mm-r1">
               <div className="csv-head">your-leads-export.csv</div>
               <div className="csv-table-scroll">
-                <table className="csv-table" ref={csvTableRef}>
+                <table className="csv-table">
                   <tbody>
-                    <tr><th>First Name</th><th>Surname</th><th>Employer</th><th>LinkedIn Profile</th></tr>
+                    <tr>{["First Name", "Surname", "Employer", "LinkedIn Profile"].map((header) => (
+                      <th key={header} className={CSV_MAP_PAIRS[csvMapIndex][0] === header ? "mm-mapping" : ""}>
+                        <button type="button" onClick={() => setCsvMapIndex(CSV_MAP_PAIRS.findIndex(([from]) => from === header))}>{header}</button>
+                      </th>
+                    ))}</tr>
                     <tr><td>Amara</td><td>Okafor</td><td>Blume Analytics</td><td>linkedin.com/in/amara-o</td></tr>
                     <tr><td>Devon</td><td>Reyes</td><td>Northfield Labs</td><td>linkedin.com/in/devon-r</td></tr>
                     <tr><td>Priya</td><td>Nair</td><td>Solace Health</td><td>linkedin.com/in/priya-nair</td></tr>
                   </tbody>
                 </table>
               </div>
-              <div className="csv-map"><span ref={csvMapFromRef}>Surname</span><span className="arrow">→</span><span ref={csvMapToRef}>last_name</span><span style={{ marginLeft: "auto", color: "var(--muted)" }}>mapped automatically</span></div>
+              <div className="csv-map"><span>{CSV_MAP_PAIRS[csvMapIndex][0]}</span><span className="arrow">→</span><span>{CSV_MAP_PAIRS[csvMapIndex][1]}</span><span style={{ marginLeft: "auto", color: "var(--muted)" }}>click a column to try it</span></div>
             </div>
             <div className="mm-reveal mm-r2">
               <h3 style={{ fontSize: 19, marginBottom: 12 }}>No reformatting. No rejected uploads.</h3>
               <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7 }}>Every lead still needs a LinkedIn URL, that part is not optional, LinkedIn is how the outreach reaches them. Everything else, job title, company, notes, is optional and can be mapped or left out entirely.</p>
               <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7, marginTop: 14 }}>Files up to 10 MB. That covers a few thousand leads for most campaigns.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="wrap">
+          <div className="section-head mm-reveal">
+            <p className="eyebrow">Try it yourself</p>
+            <h2>Write your note. See exactly what a lead would see.</h2>
+            <p>The same 300-character limit and personalization your campaign uses. Type your own connection note and watch it fill in for a real sample lead.</p>
+          </div>
+          <div className="try-wrap mm-reveal mm-r1">
+            <div className="try-card">
+              <div className="demo-field-label"><span>Your connection note</span><span>{tryNote.length}/300</span></div>
+              <textarea className="try-input" value={tryNote} maxLength={300} onChange={(e) => setTryNote(e.target.value)} rows={4} placeholder="Hi {{first_name}}, ..." />
+              <div className="tokens">
+                <button type="button" className="token token-btn" onClick={() => setTryNote((current) => `${current}${current ? " " : ""}{{first_name}}`)}>{"{{first_name}}"}</button>
+                <button type="button" className="token token-btn" onClick={() => setTryNote((current) => `${current}${current ? " " : ""}{{last_name}}`)}>{"{{last_name}}"}</button>
+                <button type="button" className="token token-btn" onClick={() => setTryNote((current) => `${current}${current ? " " : ""}{{company}}`)}>{"{{company}}"}</button>
+              </div>
+            </div>
+            <div className="try-preview">
+              <div className="demo-field-label"><span>What Priya Nair would see</span></div>
+              <p className="try-preview-text">{renderWithSampleLead(tryNote)}</p>
             </div>
           </div>
         </div>
@@ -678,6 +710,16 @@ const LANDING_CSS = `
 @keyframes mmBlink{50%{opacity:0}}
 .mm-landing .tokens{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
 .mm-landing .token{font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:7px;background:var(--blue-tint);color:#3B5BDB}
+.mm-landing .token-btn{border:0;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.mm-landing .token-btn:hover{background:#DCE3FF;transform:translateY(-1px)}
+.mm-landing .token-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.mm-landing .try-wrap{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:stretch}
+@media(max-width:860px){.mm-landing .try-wrap{grid-template-columns:1fr}}
+.mm-landing .try-card,.mm-landing .try-preview{background:var(--raised);border:1px solid var(--line);border-radius:18px;padding:22px 20px;box-shadow:var(--shadow)}
+.mm-landing .try-input{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:12px;padding:14px 15px;font-size:13.5px;line-height:1.6;background:var(--paper);font-family:inherit;color:var(--ink);resize:vertical}
+.mm-landing .try-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-tint)}
+.mm-landing .try-preview-text{margin-top:14px;font-size:14px;line-height:1.75;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 17px;min-height:96px;white-space:pre-wrap}
 .mm-landing .stepper-mini{margin-top:20px;display:flex;align-items:center}
 .mm-landing .stepper-mini .node{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .3s ease}
 .mm-landing .stepper-mini .node.on{background:var(--blue)}
@@ -747,8 +789,12 @@ const LANDING_CSS = `
 .mm-landing .csv-card{background:var(--raised);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
 .mm-landing .csv-head{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase}
 .mm-landing .csv-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-.mm-landing .csv-table th{text-align:left;padding:10px 12px;background:var(--blue-tint);color:#3B5BDB;font-weight:600;white-space:nowrap;transition:background .35s ease,color .35s ease}
+.mm-landing .csv-table th{padding:0;background:var(--blue-tint);color:#3B5BDB;font-weight:600;white-space:nowrap;transition:background .35s ease,color .35s ease}
 .mm-landing .csv-table th.mm-mapping{background:#3B5BDB;color:#fff}
+.mm-landing .csv-table th button{all:unset;display:block;width:100%;padding:10px 12px;text-align:left;color:inherit;cursor:pointer}
+.mm-landing .csv-table th button:hover,.mm-landing .csv-table th button:focus-visible{background:#DCE3FF}
+.mm-landing .csv-table th.mm-mapping button:hover,.mm-landing .csv-table th.mm-mapping button:focus-visible{background:#2f52d6}
+.mm-landing .csv-table th button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
 .mm-landing .csv-map span:first-child,.mm-landing .csv-map span:nth-child(3){display:inline-block;min-width:74px;transition:opacity .2s ease}
 .mm-landing .csv-table td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
 .mm-landing .csv-table-scroll{overflow-x:auto}
