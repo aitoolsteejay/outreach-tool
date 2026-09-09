@@ -333,7 +333,12 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .alertItem.resolved{opacity:.55}
 .alertItem.resolved svg{color:#23855c}
 .campaignInfo strong svg{margin-left:6px;vertical-align:-2px;color:#B42318}
-.leadStatusList{margin-top:16px;max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:13px}
+.sectionHeadRow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}
+.sectionHeadRow .modalSectionTitle{margin:0}
+.expandToggle{border:1px solid var(--border);background:#fff;border-radius:8px;padding:5px 10px;font-size:10px;font-weight:700;color:var(--body);white-space:nowrap}
+.expandToggle:hover{border-color:var(--gold);color:var(--ink)}
+.leadStatusList{margin-top:16px;max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:13px;transition:max-height .25s ease}
+.leadStatusList.expanded{max-height:none}
 .leadStatusRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-top:1px solid var(--border)}
 .leadStatusRow:first-child{border-top:0}
 .leadStatusName{min-width:0;flex:1}

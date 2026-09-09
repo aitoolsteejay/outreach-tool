@@ -161,6 +161,7 @@ export default function Home() {
   const [clientCampaignDetail, setClientCampaignDetail] = useState<(CampaignBrief & { connectionsSent: number; connectionsAccepted: number; repliesReceived: number; positiveReplies: number; submittedAt?: string }) | null>(null);
   type LeadStatus = { linkedinUrl: string; firstName: string; lastName: string; company: string; connectionRequestDate: string | null; connectedAt: string | null; repliedAt: string | null };
   const [clientLeadStatuses, setClientLeadStatuses] = useState<LeadStatus[]>([]);
+  const [leadStatusExpanded, setLeadStatusExpanded] = useState(false);
   const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
@@ -734,6 +735,7 @@ export default function Home() {
     setClientCampaignError("");
     setClientCampaignDetail(null);
     setClientLeadStatuses([]);
+    setLeadStatusExpanded(false);
     setClientCampaignConfirmDelete(false);
     setClientCampaignDeleteError("");
     setClientCampaignDeleting(false);
@@ -1181,9 +1183,9 @@ export default function Home() {
               </>}
               {clientLeadStatuses.length > 0 && <>
                 <div className="waalaxyDivider" />
-                <h3 className="modalSectionTitle">Leads</h3>
+                <div className="sectionHeadRow"><h3 className="modalSectionTitle">Leads ({clientLeadStatuses.length})</h3>{clientLeadStatuses.length > 5 && <button type="button" className="expandToggle" onClick={() => setLeadStatusExpanded((current) => !current)}>{leadStatusExpanded ? "Show less" : "Expand"}</button>}</div>
                 <p className="modalIntro">Status for each lead in this campaign, current as of your last metrics update.</p>
-                <div className="leadStatusList">
+                <div className={`leadStatusList ${leadStatusExpanded ? "expanded" : ""}`}>
                   {clientLeadStatuses.map((lead) => {
                     const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
                     const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
