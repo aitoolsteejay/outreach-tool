@@ -202,13 +202,6 @@ export default function LandingPage() {
               <a className="btn btn-ghost" href="#how">See how it works</a>
             </div>
             <p className="fine">Most briefs move from submitted to live within one business day.</p>
-            <div className="hero-annotation" aria-hidden="true">
-              <svg viewBox="0 0 130 60" fill="none">
-                <path d="M4 50C34 54 74 44 100 14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                <path d="M78 10L100 14L96 36" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </svg>
-              <span>Just the note. We handle the rest.</span>
-            </div>
           </div>
 
           <div className="demo">
@@ -322,47 +315,47 @@ export default function LandingPage() {
           </div>
           <div className="feature-grid">
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="monitor" /></div>
+              <div className="icon"><LandingIcon name="monitor" /></div>
               <h3>We run the software, not you</h3>
               <p>LinkedIn logins, sequence setup, and delivery all happen on our side, using our own tools. You send a brief and a lead list. That is the whole learning curve.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="mapPin" /></div>
+              <div className="icon"><LandingIcon name="mapPin" /></div>
               <h3>Always know where you stand</h3>
               <p>Every campaign shows its real status right now: Submitted, In review, In setup, Live, or Completed. No waiting on an update email to find out.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="trendUp" /></div>
+              <div className="icon"><LandingIcon name="trendUp" /></div>
               <h3>See what is actually working</h3>
               <p>Acceptance rate and reply rate, updated as your campaign runs, so you can tell within days whether a list or a message is landing, not guess at the end of the month.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}><LandingIcon name="userCheck" /></div>
+              <div className="icon"><LandingIcon name="userCheck" /></div>
               <h3>A person reviews every brief</h3>
               <p>Before a single connection request goes out, someone checks the note, the offer, and the list against what you actually asked for.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="message" /></div>
+              <div className="icon"><LandingIcon name="message" /></div>
               <h3>Personalize without the busywork</h3>
               <p>Drop in {"{{first_name}}"}, {"{{last_name}}"}, or {"{{company}}"} anywhere in your note or follow ups. We fill in the real details per lead.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="bell" /></div>
+              <div className="icon"><LandingIcon name="bell" /></div>
               <h3>Problems reach you the same day</h3>
               <p>A bad LinkedIn URL, a login that needs your attention, anything that could stall a campaign shows up as an alert on your dashboard right away, not weeks later when you ask why nothing sent.</p>
             </div>
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="refresh" /></div>
+              <div className="icon"><LandingIcon name="refresh" /></div>
               <h3>Add leads anytime</h3>
               <p>Upload another batch whenever you have one, a new week, a fresh list pull, and we merge it into the same campaign. Anyone already on the list is skipped automatically.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--amber-tint)", color: "var(--amber)" }}><LandingIcon name="layers" /></div>
+              <div className="icon"><LandingIcon name="layers" /></div>
               <h3>Run multiple campaigns at once</h3>
               <p>Each one tracked separately, with its own brief, leads, status, and results, all from the same dashboard.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="shield" /></div>
+              <div className="icon"><LandingIcon name="shield" /></div>
               <h3>Your data stays private</h3>
               <p>Lead lists, messages, and results are visible only to your account and our team, never shared or bundled with anyone else&apos;s.</p>
             </div>
@@ -379,17 +372,17 @@ export default function LandingPage() {
           </div>
           <div className="feature-grid">
             <div className="feature mm-reveal mm-r1">
-              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}><LandingIcon name="target" /></div>
+              <div className="icon"><LandingIcon name="target" /></div>
               <h3>Founders and solo operators</h3>
               <p>Outreach that keeps running without becoming the thing you do instead of the rest of your job.</p>
             </div>
             <div className="feature mm-reveal mm-r2">
-              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}><LandingIcon name="users" /></div>
+              <div className="icon"><LandingIcon name="users" /></div>
               <h3>Sales and growth teams</h3>
               <p>A steady stream of LinkedIn conversations for the pipeline, without adding another tool for the team to learn.</p>
             </div>
             <div className="feature mm-reveal mm-r3">
-              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}><LandingIcon name="grid" /></div>
+              <div className="icon"><LandingIcon name="grid" /></div>
               <h3>Agencies and consultants</h3>
               <p>Run outreach for more than one client at once, each campaign tracked separately with its own dashboard.</p>
             </div>
@@ -560,10 +553,21 @@ const LANDING_CSS = `
   --violet:#8B5CF6;
   --blue-tint:#EEF0FF;
   --violet-tint:#F1EBFE;
+  /* Green/amber match the dashboard's own status-pill colors (Live/In
+     setup) -- kept only for that real status meaning (see .pill-live,
+     .pill-setup below), never used decoratively. */
   --green:#1F8F5D;
   --green-tint:#E4F7ED;
   --amber:#C2410C;
   --amber-tint:#FDE7F1;
+  /* A quiet neutral for the repeated feature/persona icons -- grey with a
+     slight cool bias toward the brand blue rather than a flat mid-grey, so
+     it reads as chosen. The blue/violet gradients stay reserved for the
+     few moments meant to carry real visual weight (the step badges, the
+     comparison panel, the closing CTA) instead of being spent on every
+     icon on the page. */
+  --neutral-tint:#EDEEF4;
+  --neutral-ink:#5B5F73;
   /* Same gradient stops the dashboard itself uses for .clientAction /
      .ringCardGold and .ringCardInk -- reused here so the sales page reads
      as the same product as the tool, not a separately-designed wrapper. */
@@ -579,7 +583,6 @@ const LANDING_CSS = `
   --serif:'Fraunces',Georgia,serif;
   --sans:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif;
   --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
-  --hand:'Caveat',cursive;
   min-height:100vh;
   background:var(--paper);
   color:var(--ink);
@@ -639,12 +642,6 @@ const LANDING_CSS = `
 .mm-landing .hero .sub{margin-top:20px;font-size:16px;line-height:1.65;color:var(--ink-soft);max-width:480px}
 .mm-landing .hero .ctas{margin-top:30px;display:flex;gap:12px;flex-wrap:wrap}
 .mm-landing .hero .fine{margin-top:16px;font-size:11.5px;color:var(--muted)}
-.mm-landing .hero-annotation{margin-top:22px;display:flex;align-items:center;gap:10px;color:var(--blue)}
-.mm-landing .hero-annotation svg{width:64px;height:auto;flex:none;transform:rotate(-4deg)}
-.mm-landing .hero-annotation svg path{stroke-dasharray:140;stroke-dashoffset:140;animation:mmDrawArrow 1s .9s cubic-bezier(.16,.84,.44,1) forwards}
-.mm-landing .hero-annotation span{font-family:var(--hand);font-size:19px;font-weight:700;color:var(--ink);transform:rotate(-1.5deg)}
-@keyframes mmDrawArrow{to{stroke-dashoffset:0}}
-@media(max-width:900px){.mm-landing .hero-annotation{display:none}}
 
 .mm-landing .demo{background:var(--raised);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;animation:mmDemoIn .8s cubic-bezier(.16,.84,.44,1) both}
 @keyframes mmDemoIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
@@ -704,7 +701,7 @@ const LANDING_CSS = `
 .mm-landing .compare-col li{display:flex;gap:12px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
 .mm-landing .compare-good li{color:#EAF0FF}
 .mm-landing .compare-mark{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
-.mm-landing .compare-bad .compare-mark{background:#FBEAEA;color:#C0392B}
+.mm-landing .compare-bad .compare-mark{background:#FEF2F2;color:#B42318}
 .mm-landing .compare-good .compare-mark{background:rgba(255,255,255,.2);color:#fff}
 
 .mm-landing .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
@@ -712,8 +709,8 @@ const LANDING_CSS = `
 @media(max-width:560px){.mm-landing .feature-grid{grid-template-columns:1fr}}
 .mm-landing .feature{background:var(--raised);border:1px solid var(--line);border-radius:18px;padding:28px 26px;transition:transform .25s ease,box-shadow .25s ease}
 .mm-landing .feature:hover{transform:translateY(-3px);box-shadow:0 16px 34px -18px rgba(20,21,28,.18)}
-.mm-landing .feature .icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
-.mm-landing .feature:hover .icon{transform:scale(1.08) rotate(-4deg)}
+.mm-landing .feature .icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px;background:var(--neutral-tint);color:var(--neutral-ink);transition:transform .25s cubic-bezier(.34,1.56,.64,1),background .25s ease,color .25s ease}
+.mm-landing .feature:hover .icon{transform:scale(1.08) rotate(-4deg);background:var(--blue-tint);color:#3B5BDB}
 .mm-landing .feature h3{font-size:15px;font-weight:700;margin-bottom:8px}
 .mm-landing .feature p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
 

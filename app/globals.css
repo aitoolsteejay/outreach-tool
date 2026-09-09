@@ -1,7 +1,7 @@
 @import "tailwindcss";
 :root { --ink:#18231e; --muted:#52525B; --line:#E8E2D9; --lime:#4C6EF5; }
 * { box-sizing:border-box; } html { scroll-behavior:smooth; }
-body { margin:0; background:#F8F6F2; color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
+body { margin:0; background:#F8F6F2; color:var(--ink); font-family:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif; }
 button,a { font:inherit; } button { cursor:pointer; }
 .shell { min-height:100vh; display:grid; grid-template-columns:238px 1fr; }
 .sidebar { position:sticky;top:0;height:100vh;background:#0a0a0a;color:white;padding:30px 18px 22px;display:flex;flex-direction:column; }
@@ -31,14 +31,14 @@ nav { display:grid;gap:7px; }.navItem { display:flex;align-items:center;gap:12px
 /* Myntmore boutique-agency design language */
 .modalDismiss{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;cursor:default}
 :root{--ink:#0a0a0a;--cream:#F6F7FB;--gold:#4C6EF5;--amber:#8B5CF6;--taupe:#8B8DA3;--body:#4B4C5C;--border:#E4E6F0}
-body{font-family:var(--font-sans),-apple-system,"Segoe UI",Arial,sans-serif;background:var(--cream);color:var(--ink);line-height:1.5}
+body{font-family:'Manrope',-apple-system,"Segoe UI",Arial,sans-serif;background:var(--cream);color:var(--ink);line-height:1.5}
 .workspaceGate{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:18px;background:var(--cream);color:var(--taupe);font-size:13px}.workspaceGate img{width:140px;height:auto}
 .content{position:relative;isolation:isolate;overflow:hidden}.content:before{content:"";position:absolute;z-index:-1;width:520px;height:520px;border-radius:50%;right:-280px;top:80px;background:radial-gradient(circle,#4C6EF538 0,#4C6EF512 46%,transparent 71%);filter:blur(18px);animation:blobFloat 13s ease-in-out infinite alternate}
 .brand{font-weight:900;letter-spacing:-.8px}.brandMark{border-radius:11px;font-family:inherit;font-weight:950;font-size:20px;box-shadow:0 8px 26px #4C6EF52b}
 .brandAsset{width:145px;padding:10px 14px;background:#fff;border-radius:16px;box-shadow:0 10px 30px #00000024}.brandAsset img{display:block;width:100%;height:auto}.loginLogo.brandAsset{width:178px;padding:12px 17px}
 .navItem{border-radius:14px;color:#a7a19a;font-weight:600}.navItem:hover,.navItem.active{background:#ffffff12}.navItem.active{box-shadow:inset 3px 0 0 var(--gold)}
 .profile{border-color:#ffffff18}.avatar{background:var(--gold);color:#fff}
-h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-family:var(--font-sans),-apple-system,"Segoe UI",Arial,sans-serif;font-weight:800}.topbar h1{font-size:32px;letter-spacing:-.8px}
+h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-family:'Fraunces',Georgia,serif;font-weight:800}.topbar h1{font-size:32px;letter-spacing:-.8px}
 .eyebrow{font-weight:900;letter-spacing:1.9px}.primary,.lightButton,.loginButton{border-radius:13px;transition:transform .25s ease,box-shadow .25s ease,background .25s ease}.primary:hover,.lightButton:hover,.loginButton:hover{transform:translateY(-2px);box-shadow:0 12px 28px #8B5CF628}
 .welcome{min-height:300px;border:1px solid var(--border);background:#fff;border-radius:26px;padding:48px 50px;box-shadow:0 18px 55px #4f3a2010}.welcome:before,.welcome:after{content:"";position:absolute;border-radius:50%;filter:blur(3px);pointer-events:none}.welcome:before{width:390px;height:390px;right:-70px;top:-150px;background:radial-gradient(circle at 42% 48%,#4C6EF5bd,transparent 67%);animation:blobFloat 11s ease-in-out infinite alternate}.welcome:after{width:240px;height:240px;right:140px;bottom:-165px;background:radial-gradient(circle,#8f73e44d,transparent 68%);animation:blobFloat 15s ease-in-out infinite alternate-reverse}.eyebrow.dark{color:var(--amber)}.welcome h2{font-size:44px;line-height:1.02;letter-spacing:-2.2px;max-width:620px}.welcome p:not(.eyebrow){font-size:14px;line-height:1.65;max-width:500px}.handUnderline{position:relative;white-space:nowrap}.handUnderline:after{content:"";position:absolute;left:1%;right:0;bottom:-7px;height:7px;background:radial-gradient(ellipse at center,#4C6EF5 0 42%,transparent 46%) 0 0/16px 6px repeat-x;transform:rotate(-1deg)}
 .handNote,.loginNote{display:inline-block;margin-left:17px;color:var(--amber);font:600 14px "Comic Sans MS","Bradley Hand",cursive;transform:rotate(-3deg)}.orbit{z-index:1}.orbitCore{border-radius:27px;box-shadow:0 20px 60px #0a0a0a2c}.orbitRing{border-style:dashed}.orbitDot{animation:pulseDot 2.8s ease-in-out infinite}
