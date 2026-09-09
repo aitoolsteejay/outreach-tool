@@ -276,6 +276,23 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section>
+        <div className="wrap">
+          <div className="guidedWrap">
+            <div className="mm-reveal">
+              <p className="eyebrow">Stay guided</p>
+              <h2>You are never left wondering what happens next.</h2>
+              <p>From your first submitted brief to your first reply, every step is visible in your dashboard, not a black box you check back on later.</p>
+            </div>
+            <ul className="guidedList mm-reveal mm-r2">
+              <li><LandingIcon name="userCheck" /><div><strong>A person reviews every brief</strong><span>Before a single connection request goes out, someone checks the note, the offer, and the list against what you actually asked for.</span></div></li>
+              <li><LandingIcon name="mapPin" /><div><strong>Your status is always current</strong><span>Submitted, In review, In setup, Live, or Completed, shown in your dashboard the moment it changes, not on a schedule.</span></div></li>
+              <li><LandingIcon name="bell" /><div><strong>Problems reach you the same day</strong><span>A login that needs your attention or a bad LinkedIn URL shows up as an alert right away, not weeks later when you ask why nothing sent.</span></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <section id="compare">
         <div className="wrap">
           <div className="section-head mm-reveal">
@@ -677,6 +694,16 @@ const LANDING_CSS = `
 .mm-landing .section-head{max-width:600px;margin-bottom:48px}
 .mm-landing .section-head h2{font-size:clamp(26px,3.2vw,38px)}
 .mm-landing .section-head p{margin-top:14px;font-size:14.5px;color:var(--ink-soft);line-height:1.65}
+
+.mm-landing .guidedWrap{display:grid;grid-template-columns:0.85fr 1.15fr;gap:56px;align-items:start}
+@media(max-width:860px){.mm-landing .guidedWrap{grid-template-columns:1fr;gap:32px}}
+.mm-landing .guidedWrap h2{font-size:clamp(26px,3.2vw,36px);margin-top:14px}
+.mm-landing .guidedWrap>div:first-child p{margin-top:14px;font-size:14.5px;color:var(--ink-soft);line-height:1.65;max-width:420px}
+.mm-landing .guidedList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:28px}
+.mm-landing .guidedList li{display:flex;gap:16px}
+.mm-landing .guidedList svg{flex:none;width:22px;height:22px;color:var(--blue);margin-top:2px}
+.mm-landing .guidedList strong{display:block;font-size:14.5px;font-weight:700;margin-bottom:5px}
+.mm-landing .guidedList span{display:block;font-size:13px;color:var(--ink-soft);line-height:1.6}
 
 .mm-landing .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media(max-width:900px){.mm-landing .flow{grid-template-columns:1fr 1fr}}
