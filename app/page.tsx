@@ -488,7 +488,7 @@ export default function LandingPage() {
             </details>
             <details className="faq-item mm-reveal mm-r3">
               <summary>Can I change a campaign after I submit it?<span className="plus">+</span></summary>
-              <p>Not directly from your dashboard yet. Reach out to your Myntmore contact and we will make the change before it goes live.</p>
+              <p>Yes. Edit the goal, offer, tone, connection note, or follow-ups from your campaign&apos;s details at any point before it is completed. We are notified automatically whenever you do, so we can review the change before continuing outreach.</p>
             </details>
             <details className="faq-item mm-reveal mm-r1">
               <summary>Do I need to install any software?<span className="plus">+</span></summary>

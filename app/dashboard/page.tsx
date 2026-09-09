@@ -165,6 +165,14 @@ export default function Home() {
   const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
+  // Editing an already-submitted campaign's brief/messaging -- separate from
+  // the wizard's own `form` state (different field names, and the two are
+  // never open at once, but keeping them independent avoids either leaking
+  // stale data into the other).
+  const [editingCampaign, setEditingCampaign] = useState(false);
+  const [editCampaignForm, setEditCampaignForm] = useState<CampaignBrief & { followUpCount: number }>({ goal: "", offer: "", tone: "", messagingStrategy: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] });
+  const [editCampaignSaving, setEditCampaignSaving] = useState(false);
+  const [editCampaignError, setEditCampaignError] = useState("");
   const activeClientCampaignIdRef = useRef<string | null>(null);
   // Adding a fresh batch of leads to an already-submitted campaign -- state
   // kept separate from the wizard's own leadFile/columnMapping so the two
@@ -736,6 +744,9 @@ export default function Home() {
     setClientCampaignDetail(null);
     setClientLeadStatuses([]);
     setLeadStatusExpanded(false);
+    setEditingCampaign(false);
+    setEditCampaignError("");
+    setEditCampaignSaving(false);
     setClientCampaignConfirmDelete(false);
     setClientCampaignDeleteError("");
     setClientCampaignDeleting(false);
@@ -779,6 +790,56 @@ export default function Home() {
   function closeClientCampaignModal() {
     activeClientCampaignIdRef.current = null;
     setClientCampaignModal(null);
+  }
+  function startEditingCampaign() {
+    if (!clientCampaignDetail) return;
+    const followUpCount = Math.max(1, Math.min(3, clientCampaignDetail.followUps.length || 1));
+    const followUps = [...clientCampaignDetail.followUps, "", "", ""].slice(0, 3);
+    setEditCampaignForm({ goal: clientCampaignDetail.goal, offer: clientCampaignDetail.offer, tone: clientCampaignDetail.tone, messagingStrategy: clientCampaignDetail.messagingStrategy, connectionNote: clientCampaignDetail.connectionNote, followUpCount, followUps });
+    setEditCampaignError("");
+    setEditingCampaign(true);
+  }
+  function updateEditField(field: keyof Omit<CampaignBrief, "followUps">, value: string) {
+    setEditCampaignForm((current) => ({ ...current, [field]: value }));
+  }
+  function updateEditFollowUp(index: number, value: string) {
+    setEditCampaignForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) }));
+  }
+  function addEditPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
+    setEditCampaignForm((current) => field === "connectionNote"
+      ? { ...current, connectionNote: `${current.connectionNote}${current.connectionNote ? " " : ""}${token}` }
+      : { ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? `${message}${message ? " " : ""}${token}` : message) });
+  }
+  async function saveCampaignEdits() {
+    if (!clientCampaignModal) return;
+    const campaignId = clientCampaignModal.id;
+    if (!editCampaignForm.connectionNote.trim() || editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).some((message) => !message.trim())) {
+      setEditCampaignError("The connection note and every follow-up need a message.");
+      return;
+    }
+    setEditCampaignSaving(true);
+    setEditCampaignError("");
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/client/campaigns/${campaignId}`, {
+        method: "PATCH", headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: editCampaignForm.goal, offer: editCampaignForm.offer, tone: editCampaignForm.tone, messagingStrategy: editCampaignForm.messagingStrategy,
+          connectionNote: editCampaignForm.connectionNote, followUpCount: editCampaignForm.followUpCount, followUps: editCampaignForm.followUps,
+        }),
+      });
+      const data = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Unable to save these changes.");
+      if (activeClientCampaignIdRef.current !== campaignId) return;
+      setClientCampaignDetail((current) => current && ({
+        ...current, goal: editCampaignForm.goal, offer: editCampaignForm.offer, tone: editCampaignForm.tone, messagingStrategy: editCampaignForm.messagingStrategy,
+        connectionNote: editCampaignForm.connectionNote, followUps: editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount),
+      }));
+      setEditingCampaign(false);
+    } catch (error) {
+      if (activeClientCampaignIdRef.current !== campaignId) return;
+      setEditCampaignError(error instanceof Error ? error.message : "Unable to save these changes.");
+    } finally { if (activeClientCampaignIdRef.current === campaignId) setEditCampaignSaving(false); }
   }
   async function deleteClientCampaign() {
     if (!clientCampaignModal) return;
@@ -1165,14 +1226,35 @@ export default function Home() {
             {clientCampaignLoading ? <p className="modalIntro">Loading…</p> : clientCampaignError ? (
               <p className="formError" role="alert">{clientCampaignError}</p>
             ) : clientCampaignDetail && <>
-              <div className="reviewStrip">
-                <span>Goal</span><strong>{clientCampaignDetail.goal || "-"}</strong>
-                <span>Offer</span><strong>{clientCampaignDetail.offer || "-"}</strong>
-                <span>Tone</span><strong>{clientCampaignDetail.tone || "-"}</strong>
+              <div className="sectionHeadRow">
+                <h3 className="modalSectionTitle" style={{ marginTop: 0 }}>Campaign brief</h3>
+                {!editingCampaign && clientCampaignModal.status !== "Completed" && <button type="button" className="expandToggle" onClick={startEditingCampaign}>Edit</button>}
               </div>
-              {clientCampaignDetail.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{clientCampaignDetail.messagingStrategy}</p></div>}
-              <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "-"}</p></div>
-              {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
+              {!editingCampaign ? <>
+                <div className="reviewStrip">
+                  <span>Goal</span><strong>{clientCampaignDetail.goal || "-"}</strong>
+                  <span>Offer</span><strong>{clientCampaignDetail.offer || "-"}</strong>
+                  <span>Tone</span><strong>{clientCampaignDetail.tone || "-"}</strong>
+                </div>
+                {clientCampaignDetail.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{clientCampaignDetail.messagingStrategy}</p></div>}
+                <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "-"}</p></div>
+                {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
+              </> : <div className="sequenceBuilder">
+                <p className="modalIntro">Editing this campaign flags it for our team to review before we continue outreach with the new messaging.</p>
+                <label>Primary goal<select value={editCampaignForm.goal} onChange={(e) => updateEditField("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
+                <label>Your offer or value proposition<textarea value={editCampaignForm.offer} onChange={(e) => updateEditField("offer", e.target.value)} placeholder="What makes this conversation valuable for the recipient?" rows={3} /></label>
+                <label>Voice and tone<input value={editCampaignForm.tone} onChange={(e) => updateEditField("tone", e.target.value)} /></label>
+                <label>Connection request note <span className="fieldHint">{editCampaignForm.connectionNote.length}/300</span><textarea value={editCampaignForm.connectionNote} maxLength={300} onChange={(e) => updateEditField("connectionNote", e.target.value)} rows={3} /></label>
+                <div className="placeholderRow"><span>Insert placeholder</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("connectionNote", token)}>{label}</button>)}</div>
+                <fieldset className="followUpChoice"><legend>Number of follow-ups</legend>{[1, 2, 3].map((count) => <button type="button" className={editCampaignForm.followUpCount === count ? "selected" : ""} key={count} onClick={() => setEditCampaignForm({ ...editCampaignForm, followUpCount: count })}>{count}</button>)}</fieldset>
+                {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
+                <label>Supporting context <span className="fieldHint">Optional</span><textarea value={editCampaignForm.messagingStrategy} onChange={(e) => updateEditField("messagingStrategy", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3} /></label>
+                {editCampaignError && <p className="formError" role="alert">{editCampaignError}</p>}
+                <div className="waalaxyActions">
+                  <button type="button" className="secondary" onClick={() => setEditingCampaign(false)} disabled={editCampaignSaving}>Cancel</button>
+                  <button type="button" className="primary" disabled={editCampaignSaving} onClick={saveCampaignEdits}>{editCampaignSaving ? "Saving…" : "Save changes"}</button>
+                </div>
+              </div>}
               {(clientCampaignDetail.connectionsSent > 0 || clientCampaignDetail.repliesReceived > 0) && <>
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Performance</h3>
