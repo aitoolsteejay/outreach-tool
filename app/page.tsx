@@ -159,7 +159,7 @@ export default function LandingPage() {
           <div className="navlinks">
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
-            <a href="#metrics">Results</a>
+            <a href="#who">Who it&apos;s for</a>
             <a href="#faq">FAQ</a>
             <button type="button" className="btn btn-ghost btn-small" disabled={loginChecking} onClick={goToApp}>{loginChecking ? "Checking…" : "Log in"}</button>
             <a className="btn btn-primary btn-small" href="mailto:hello@myntmore.com?subject=Starting%20a%20campaign">Start a campaign</a>
@@ -178,6 +178,13 @@ export default function LandingPage() {
               <a className="btn btn-ghost" href="#how">See how it works</a>
             </div>
             <p className="fine">Most briefs move from submitted to live within one business day.</p>
+            <div className="hero-annotation" aria-hidden="true">
+              <svg viewBox="0 0 130 60" fill="none">
+                <path d="M4 50C34 54 74 44 100 14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M78 10L100 14L96 36" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </svg>
+              <span>Just the note. We handle the rest.</span>
+            </div>
           </div>
 
           <div className="demo">
@@ -248,6 +255,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section id="compare">
+        <div className="wrap">
+          <div className="section-head mm-reveal">
+            <p className="eyebrow">The difference</p>
+            <h2>Outreach without the second job.</h2>
+            <p>Same goal, real conversations on LinkedIn, a very different amount of your own time spent getting there.</p>
+          </div>
+          <div className="compare-wrap">
+            <div className="compare-col compare-bad mm-reveal mm-r1">
+              <span className="compare-label">Doing it yourself</span>
+              <ul>
+                <li><span className="compare-mark">✕</span>Piece together a LinkedIn tool, a spreadsheet, and hours of your own time</li>
+                <li><span className="compare-mark">✕</span>Manually pace connection requests so you do not trip LinkedIn&apos;s limits</li>
+                <li><span className="compare-mark">✕</span>Remember to send your own follow ups, or lose the reply</li>
+                <li><span className="compare-mark">✕</span>Wait until month end to find out if a list or message actually worked</li>
+              </ul>
+            </div>
+            <div className="compare-col compare-good mm-reveal mm-r2">
+              <span className="compare-label">Working with Myntmore</span>
+              <ul>
+                <li><span className="compare-mark">✓</span>Send us a brief and a lead list. We configure and run the sequence</li>
+                <li><span className="compare-mark">✓</span>A person reviews your note and offer before anything sends under your name</li>
+                <li><span className="compare-mark">✓</span>Follow ups send automatically, only after someone accepts</li>
+                <li><span className="compare-mark">✓</span>Acceptance rate and replies update in your dashboard as they happen</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="features">
         <div className="wrap">
           <div className="section-head mm-reveal">
@@ -300,6 +337,33 @@ export default function LandingPage() {
               <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🛡️</div>
               <h3>Your data stays private</h3>
               <p>Lead lists, messages, and results are visible only to your account and our team, never shared or bundled with anyone else&apos;s.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="who">
+        <div className="wrap">
+          <div className="section-head mm-reveal">
+            <p className="eyebrow">Who this is for</p>
+            <h2>Built for the people who&apos;d rather be doing something else.</h2>
+            <p>If any of this sounds like your week, that is exactly the gap Myntmore fills.</p>
+          </div>
+          <div className="feature-grid">
+            <div className="feature mm-reveal mm-r1">
+              <div className="icon" style={{ background: "var(--blue-tint)", color: "#3B5BDB" }}>🎯</div>
+              <h3>Founders and solo operators</h3>
+              <p>Outreach that keeps running without becoming the thing you do instead of the rest of your job.</p>
+            </div>
+            <div className="feature mm-reveal mm-r2">
+              <div className="icon" style={{ background: "var(--violet-tint)", color: "#6D3FD1" }}>📊</div>
+              <h3>Sales and growth teams</h3>
+              <p>A steady stream of LinkedIn conversations for the pipeline, without adding another tool for the team to learn.</p>
+            </div>
+            <div className="feature mm-reveal mm-r3">
+              <div className="icon" style={{ background: "var(--green-tint)", color: "var(--green)" }}>🧩</div>
+              <h3>Agencies and consultants</h3>
+              <p>Run outreach for more than one client at once, each campaign tracked separately with its own dashboard.</p>
             </div>
           </div>
         </div>
@@ -439,6 +503,7 @@ export default function LandingPage() {
             <div className="foot-links">
               <a href="#how">How it works</a>
               <a href="#features">Features</a>
+              <a href="#who">Who it&apos;s for</a>
               <a href="#faq">FAQ</a>
               <button type="button" disabled={loginChecking} onClick={goToApp}>{loginChecking ? "Checking…" : "Log in"}</button>
               <a href="mailto:hello@myntmore.com">Contact</a>
@@ -478,6 +543,7 @@ const LANDING_CSS = `
   --serif:'Fraunces',Georgia,serif;
   --sans:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif;
   --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
+  --hand:'Caveat',cursive;
   min-height:100vh;
   background:var(--paper);
   color:var(--ink);
@@ -537,6 +603,12 @@ const LANDING_CSS = `
 .mm-landing .hero .sub{margin-top:20px;font-size:16px;line-height:1.65;color:var(--ink-soft);max-width:480px}
 .mm-landing .hero .ctas{margin-top:30px;display:flex;gap:12px;flex-wrap:wrap}
 .mm-landing .hero .fine{margin-top:16px;font-size:11.5px;color:var(--muted)}
+.mm-landing .hero-annotation{margin-top:22px;display:flex;align-items:center;gap:10px;color:var(--blue)}
+.mm-landing .hero-annotation svg{width:64px;height:auto;flex:none;transform:rotate(-4deg)}
+.mm-landing .hero-annotation svg path{stroke-dasharray:140;stroke-dashoffset:140;animation:mmDrawArrow 1s .9s cubic-bezier(.16,.84,.44,1) forwards}
+.mm-landing .hero-annotation span{font-family:var(--hand);font-size:19px;font-weight:700;color:var(--ink);transform:rotate(-1.5deg)}
+@keyframes mmDrawArrow{to{stroke-dashoffset:0}}
+@media(max-width:900px){.mm-landing .hero-annotation{display:none}}
 
 .mm-landing .demo{background:var(--raised);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;animation:mmDemoIn .8s cubic-bezier(.16,.84,.44,1) both}
 @keyframes mmDemoIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
@@ -584,6 +656,19 @@ const LANDING_CSS = `
 .mm-landing .flow-step:hover .stage{transform:scale(1.06)}
 .mm-landing .flow-step h3{font-size:16.5px;font-weight:650;margin-bottom:8px}
 .mm-landing .flow-step p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+
+.mm-landing .compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:760px){.mm-landing .compare-wrap{grid-template-columns:1fr}}
+.mm-landing .compare-col{border:1px solid var(--line);border-radius:18px;padding:30px 28px}
+.mm-landing .compare-bad{background:var(--paper)}
+.mm-landing .compare-good{background:var(--raised);box-shadow:var(--shadow);border-color:var(--blue)}
+.mm-landing .compare-label{display:inline-block;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
+.mm-landing .compare-good .compare-label{color:var(--blue)}
+.mm-landing .compare-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+.mm-landing .compare-col li{display:flex;gap:12px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+.mm-landing .compare-mark{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
+.mm-landing .compare-bad .compare-mark{background:#FBEAEA;color:#C0392B}
+.mm-landing .compare-good .compare-mark{background:var(--green-tint);color:var(--green)}
 
 .mm-landing .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
 @media(max-width:900px){.mm-landing .feature-grid{grid-template-columns:1fr 1fr}}
