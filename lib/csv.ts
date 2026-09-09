@@ -178,39 +178,64 @@ export function rowsToCsv(headers: string[], rows: (string | number)[][]): strin
 }
 
 export type WaalaxyMetricsSummary = { total: number; sent: number; accepted: number; replied: number };
+// One row's worth of what we keep from a Waalaxy contact export -- enough to
+// show a client their own leads' individual status (see outreach.lead_statuses),
+// without carrying the export's many other columns (email, phone, tags, ...)
+// into a table that isn't meant to be a full CRM record.
+export type WaalaxyContactRow = {
+  linkedinUrl: string; firstName: string; lastName: string; company: string;
+  connectionRequestDate: string; connectedAt: string; repliedAt: string;
+};
 
-// The three date columns Waalaxy's own contact export carries per lead --
-// matched by name (case-insensitively) rather than position, since export
-// column order isn't guaranteed to stay the same between Waalaxy versions.
-const WAALAXY_SENT_COLUMN = "connectionrequestdate";
-const WAALAXY_ACCEPTED_COLUMN = "connectedat";
-const WAALAXY_REPLIED_COLUMN = "lastreplydetecteddate";
+// The columns Waalaxy's own contact export carries per lead -- matched by
+// name (case-insensitively) rather than position, since export column order
+// isn't guaranteed to stay the same between Waalaxy versions.
+const WAALAXY_COLUMNS = {
+  linkedinUrl: "linkedinurl", firstName: "firstname", lastName: "lastname", company: "company_name",
+  sent: "connectionrequestdate", accepted: "connectedat", replied: "lastreplydetecteddate",
+} as const;
+// Only these three are required -- the rest (name, company) are cosmetic for
+// the client's lead list and just fall back to blank if the export is
+// missing them, rather than blocking the whole upload over a column we don't
+// strictly need.
+const WAALAXY_REQUIRED_COLUMNS: [key: keyof typeof WAALAXY_COLUMNS, label: string][] = [
+  ["sent", "connectionRequestDate"], ["accepted", "connectedAt"], ["replied", "lastReplyDetectedDate"],
+];
 
 // Turns a raw Waalaxy contact export (one row per lead currently in the
-// campaign, unrelated in shape to our own lead-upload CSV) into the three
-// counts campaign metrics are built from: a lead counts as sent once it has
-// a connection-request date, accepted once it has a connected-at date, and
-// replied once it has a last-reply-detected date. Admin re-uploads this
-// export whenever they want the campaign's metrics refreshed, rather than
-// counting by hand.
-export function summarizeWaalaxyMetricsCsv(text: string): WaalaxyMetricsSummary {
+// campaign, unrelated in shape to our own lead-upload CSV) into both the
+// aggregate counts campaign metrics are built from, and the per-lead rows
+// behind the client's individual lead-status view: a lead counts as sent
+// once it has a connection-request date, accepted once it has a
+// connected-at date, and replied once it has a last-reply-detected date.
+// Admin re-uploads this export whenever they want a campaign refreshed,
+// rather than counting -- or copying per-lead status -- by hand.
+export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetricsSummary; leads: WaalaxyContactRow[] } {
   const { headers, rows } = parseCsvHeaderAndRows(text);
   const lowerHeaders = headers.map((column) => column.trim().toLowerCase());
-  const sentIndex = lowerHeaders.indexOf(WAALAXY_SENT_COLUMN);
-  const acceptedIndex = lowerHeaders.indexOf(WAALAXY_ACCEPTED_COLUMN);
-  const repliedIndex = lowerHeaders.indexOf(WAALAXY_REPLIED_COLUMN);
-  const missing = [
-    sentIndex === -1 ? "connectionRequestDate" : null,
-    acceptedIndex === -1 ? "connectedAt" : null,
-    repliedIndex === -1 ? "lastReplyDetectedDate" : null,
-  ].filter((column): column is string => column !== null);
+  const indexOf = (key: keyof typeof WAALAXY_COLUMNS) => lowerHeaders.indexOf(WAALAXY_COLUMNS[key]);
+  const missing = WAALAXY_REQUIRED_COLUMNS.filter(([key]) => indexOf(key) === -1).map(([, label]) => label);
   if (missing.length) throw new Error(`This doesn't look like a Waalaxy contact export -- missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
   if (rows.length === 0) throw new Error("This export has no leads in it.");
+  const sentIndex = indexOf("sent"), acceptedIndex = indexOf("accepted"), repliedIndex = indexOf("replied");
+  const linkedinIndex = indexOf("linkedinUrl"), firstNameIndex = indexOf("firstName"), lastNameIndex = indexOf("lastName"), companyIndex = indexOf("company");
+  const cell = (row: string[], index: number) => (index === -1 ? "" : (row[index] || "").trim());
   let sent = 0, accepted = 0, replied = 0;
+  const leads: WaalaxyContactRow[] = [];
   for (const row of rows) {
-    if ((row[sentIndex] || "").trim()) sent += 1;
-    if ((row[acceptedIndex] || "").trim()) accepted += 1;
-    if ((row[repliedIndex] || "").trim()) replied += 1;
+    const connectionRequestDate = cell(row, sentIndex), connectedAt = cell(row, acceptedIndex), repliedAt = cell(row, repliedIndex);
+    if (connectionRequestDate) sent += 1;
+    if (connectedAt) accepted += 1;
+    if (repliedAt) replied += 1;
+    const linkedinUrl = cell(row, linkedinIndex);
+    // A row with no LinkedIn URL can't be matched back to a lead later (it's
+    // our upsert key), so it still counts toward the aggregate totals above
+    // but is left out of the per-lead list rather than stored unreachably.
+    if (linkedinUrl) leads.push({ linkedinUrl, firstName: cell(row, firstNameIndex), lastName: cell(row, lastNameIndex), company: cell(row, companyIndex), connectionRequestDate, connectedAt, repliedAt });
   }
-  return { total: rows.length, sent, accepted, replied };
+  return { summary: { total: rows.length, sent, accepted, replied }, leads };
+}
+
+export function summarizeWaalaxyMetricsCsv(text: string): WaalaxyMetricsSummary {
+  return parseWaalaxyContactsCsv(text).summary;
 }

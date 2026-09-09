@@ -333,3 +333,14 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .alertItem.resolved{opacity:.55}
 .alertItem.resolved svg{color:#23855c}
 .campaignInfo strong svg{margin-left:6px;vertical-align:-2px;color:#B42318}
+.leadStatusList{margin-top:16px;max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:13px}
+.leadStatusRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-top:1px solid var(--border)}
+.leadStatusRow:first-child{border-top:0}
+.leadStatusName{min-width:0;flex:1}
+.leadStatusName strong{display:block;font-size:11.5px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leadStatusName span{display:block;margin-top:2px;font-size:10px;color:var(--taupe);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leadStatusPill{flex:none;padding:5px 9px;border-radius:99px;font-size:9px;font-weight:800}
+.leadStatusPill.pending{color:#656c68;background:#eef0ee}
+.leadStatusPill.sent{color:#3B5BDB;background:#EEF0FF}
+.leadStatusPill.accepted{color:#1F8F5D;background:#E4F7ED}
+.leadStatusPill.replied{color:#6D3FD1;background:#F1EBFE}

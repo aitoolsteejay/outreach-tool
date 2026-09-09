@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
+import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, parseWaalaxyContactsCsv, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
 
 const header = "first_name,last_name,job_title,company,linkedin_url,email,notes";
 
@@ -131,4 +131,22 @@ test("summarizeWaalaxyMetricsCsv rejects a CSV that isn't a Waalaxy contact expo
 
 test("summarizeWaalaxyMetricsCsv rejects a Waalaxy export with the right columns but no leads", () => {
   assert.throws(() => summarizeWaalaxyMetricsCsv("connectionRequestDate,connectedAt,lastReplyDetectedDate\n"), /no leads/);
+});
+
+test("parseWaalaxyContactsCsv returns per-lead rows alongside the same summary, skipping rows with no LinkedIn URL", () => {
+  const csv = "firstName,lastName,company_name,linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
+    + "Amara,Okafor,Blume Analytics,https://linkedin.com/in/amara-o,2025-11-20,2025-11-22,2025-11-24\n"
+    + "Devon,Reyes,Northfield Labs,,2025-11-20,2025-11-23,\n"; // no linkedin url -- counted, but not listed
+  const { summary, leads } = parseWaalaxyContactsCsv(csv);
+  assert.deepEqual(summary, { total: 2, sent: 2, accepted: 2, replied: 1 });
+  assert.equal(leads.length, 1);
+  assert.deepEqual(leads[0], {
+    linkedinUrl: "https://linkedin.com/in/amara-o", firstName: "Amara", lastName: "Okafor", company: "Blume Analytics",
+    connectionRequestDate: "2025-11-20", connectedAt: "2025-11-22", repliedAt: "2025-11-24",
+  });
+});
+
+test("parseWaalaxyContactsCsv leaves name/company blank rather than failing when those columns are missing", () => {
+  const { leads } = parseWaalaxyContactsCsv("linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\nhttps://linkedin.com/in/amara-o,2025-11-20,,\n");
+  assert.deepEqual(leads[0], { linkedinUrl: "https://linkedin.com/in/amara-o", firstName: "", lastName: "", company: "", connectionRequestDate: "2025-11-20", connectedAt: "", repliedAt: "" });
 });

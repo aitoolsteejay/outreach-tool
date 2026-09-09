@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseWaalaxyContactsCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -159,6 +159,8 @@ export default function Home() {
   const [clientCampaignLoading, setClientCampaignLoading] = useState(false);
   const [clientCampaignError, setClientCampaignError] = useState("");
   const [clientCampaignDetail, setClientCampaignDetail] = useState<(CampaignBrief & { connectionsSent: number; connectionsAccepted: number; repliesReceived: number; positiveReplies: number; submittedAt?: string }) | null>(null);
+  type LeadStatus = { linkedinUrl: string; firstName: string; lastName: string; company: string; connectionRequestDate: string | null; connectedAt: string | null; repliedAt: string | null };
+  const [clientLeadStatuses, setClientLeadStatuses] = useState<LeadStatus[]>([]);
   const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
@@ -600,14 +602,32 @@ export default function Home() {
   async function chooseMetricsCsv(file: File | null) {
     if (!file || !waalaxyModal) return;
     const campaignId = waalaxyModal.id;
+    const clientId = campaigns.find((campaign) => campaign.id === campaignId)?.clientId;
     setMetricsCsvName(file.name);
     setMetricsCsvError("");
     setMetricsCsvSummary(null);
     try {
-      const summary = summarizeWaalaxyMetricsCsv(await file.text());
+      const { summary, leads } = parseWaalaxyContactsCsv(await file.text());
       if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
-      setMetricsCsvSummary(summary);
       setCampaignMetrics((current) => ({ ...current, connectionsSent: summary.sent, connectionsAccepted: summary.accepted, repliesReceived: summary.replied }));
+      // Also refreshes each lead's own status (see outreach.lead_statuses),
+      // which is what the client's per-lead view is built from -- keyed on
+      // (campaign_id, linkedin_url) so re-uploading the same export later
+      // updates these rows instead of duplicating them.
+      if (clientId && leads.length) {
+        const rows = leads.map((lead) => ({
+          campaign_id: campaignId, client_id: clientId, linkedin_url: lead.linkedinUrl,
+          first_name: lead.firstName, last_name: lead.lastName, company: lead.company,
+          connection_request_date: lead.connectionRequestDate || null,
+          connected_at: lead.connectedAt || null,
+          replied_at: lead.repliedAt || null,
+          updated_at: new Date().toISOString(),
+        }));
+        const { error: leadStatusError } = await createClient().schema("outreach").from("lead_statuses").upsert(rows, { onConflict: "campaign_id,linkedin_url" });
+        if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+        if (leadStatusError) throw new Error(leadStatusError.message);
+      }
+      setMetricsCsvSummary(summary);
     } catch (error) {
       if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
       setMetricsCsvError(error instanceof Error ? error.message : "Unable to read this file.");
@@ -713,16 +733,26 @@ export default function Home() {
     setClientCampaignModal(campaign);
     setClientCampaignError("");
     setClientCampaignDetail(null);
+    setClientLeadStatuses([]);
     setClientCampaignConfirmDelete(false);
     setClientCampaignDeleteError("");
     setClientCampaignDeleting(false);
     setClientCampaignLoading(true);
     resetAddLeadsState();
     try {
-      const { data, error } = await createClient().schema("outreach").from("campaigns")
-        .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
-        .eq("id", campaign.id).single();
+      const supabase = createClient();
+      const [campaignResult, leadStatusesResult] = await Promise.all([
+        supabase.schema("outreach").from("campaigns")
+          .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
+          .eq("id", campaign.id).single(),
+        supabase.schema("outreach").from("lead_statuses")
+          .select("linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at")
+          .eq("campaign_id", campaign.id)
+          .order("replied_at", { ascending: false, nullsFirst: false })
+          .order("connected_at", { ascending: false, nullsFirst: false }),
+      ]);
       if (activeClientCampaignIdRef.current !== campaign.id) return;
+      const { data, error } = campaignResult;
       if (error || !data) throw error || new Error("Unable to load this campaign.");
       setClientCampaignDetail({
         goal: data.goal || "", offer: data.offer || "", tone: data.tone || "", messagingStrategy: data.messaging_strategy || "",
@@ -730,6 +760,15 @@ export default function Home() {
         connectionsSent: data.connections_sent || 0, connectionsAccepted: data.connections_accepted || 0,
         repliesReceived: data.replies_received || 0, positiveReplies: data.positive_replies || 0, submittedAt: data.submitted_at,
       });
+      // Non-fatal: the per-lead list is a supplementary view inside this
+      // modal, not the thing it exists for, so a failure loading it
+      // shouldn't block the rest of the campaign detail from showing.
+      if (!leadStatusesResult.error) {
+        setClientLeadStatuses((leadStatusesResult.data || []).map((row) => ({
+          linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
+          connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at,
+        })));
+      }
     } catch (error) {
       if (activeClientCampaignIdRef.current !== campaign.id) return;
       setClientCampaignError(error instanceof Error ? error.message : "Unable to load this campaign.");
@@ -964,7 +1003,7 @@ export default function Home() {
                       <button className="secondary" disabled={linkedinSaving} style={{ width: "100%", marginTop: 4 }}>{linkedinSaving ? "Saving…" : "Submit details"}</button>
                     </form>
                   </>}
-                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted. Our team will use this to set up your outreach. We&apos;ll ask here if LinkedIn needs a verification step.</p>}
+                  {linkedinStatus?.status === "pending" && <p className="modalIntro">Submitted and encrypted. A person on our team will log in to LinkedIn using these details to set up your outreach. If LinkedIn sends a verification code or an approval request to your phone, we will ask you for it right here.</p>}
                   {linkedinStatus?.status === "awaiting_code" && <form className="loginForm" onSubmit={(e) => submitLinkedinCode(e)}>
                     <p className="formError" role="alert">LinkedIn sent a verification code. Enter it below so we can finish signing in.</p>
                     <label>Verification code<input value={linkedinCode} onChange={(e) => setLinkedinCode(e.target.value)} required /></label>
@@ -1072,7 +1111,7 @@ export default function Home() {
             </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Upload Waalaxy&apos;s contact export for this campaign and we will count connections sent, accepted, and replied to for you from each lead&apos;s own dates. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
+            <p className="modalIntro">Upload Waalaxy&apos;s contact export for this campaign and we will count connections sent, accepted, and replied to from each lead&apos;s own dates, and update every lead&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
             <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
               <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseMetricsCsv(e.target.files?.[0] || null)} />
               <span>{metricsCsvName ? "✓" : "↑"}</span>
@@ -1080,7 +1119,7 @@ export default function Home() {
               <small>{metricsCsvName ? "Parsed -- review the numbers below" : "or click to choose a file"}</small>
             </label>
             {metricsCsvError && <p className="formError" role="alert">{metricsCsvError}</p>}
-            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} lead{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Filled in below -- set positive replies, then save.</p>}
+            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} lead{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Each lead&apos;s status is already updated for the client -- set positive replies below, then save these totals.</p>}
             <div className="metricsGrid">
               <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
               <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
@@ -1138,6 +1177,24 @@ export default function Home() {
                 <div className="metricRates">
                   <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent ? Math.round((clientCampaignDetail.connectionsAccepted / clientCampaignDetail.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
                   <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived ? Math.round((clientCampaignDetail.positiveReplies / clientCampaignDetail.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
+                </div>
+              </>}
+              {clientLeadStatuses.length > 0 && <>
+                <div className="waalaxyDivider" />
+                <h3 className="modalSectionTitle">Leads</h3>
+                <p className="modalIntro">Status for each lead in this campaign, current as of your last metrics update.</p>
+                <div className="leadStatusList">
+                  {clientLeadStatuses.map((lead) => {
+                    const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
+                    const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
+                    const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                    return (
+                      <div className="leadStatusRow" key={lead.linkedinUrl}>
+                        <div className="leadStatusName"><strong>{name}</strong>{lead.company && <span>{lead.company}</span>}</div>
+                        <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </>}
               {clientCampaignAlerts.length > 0 && <>
