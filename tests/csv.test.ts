@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, rowsToCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
+import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
 
 const header = "first_name,last_name,job_title,company,linkedin_url,email,notes";
 
@@ -108,4 +108,27 @@ test("does not open quote mode for a stray quote in the middle of a field", () =
   assert.equal(rows.length, 2);
   assert.equal(rows[0].lastName, 'O"Brien');
   assert.equal(rows[1].firstName, "John");
+});
+
+test("summarizeWaalaxyMetricsCsv counts sent/accepted/replied from their respective date columns, ignoring blanks", () => {
+  const csv = "firstName,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
+    + "Amara,2025-11-20,2025-11-22,2025-11-24\n" // sent, accepted, replied
+    + "Devon,2025-11-20,2025-11-23,\n" // sent, accepted, not replied
+    + "Priya,2025-11-20,,\n" // sent only
+    + "Noor,,,\n"; // never sent (blank throughout)
+  const summary = summarizeWaalaxyMetricsCsv(csv);
+  assert.deepEqual(summary, { total: 4, sent: 3, accepted: 2, replied: 1 });
+});
+
+test("summarizeWaalaxyMetricsCsv matches the expected columns case-insensitively and ignores column order", () => {
+  const summary = summarizeWaalaxyMetricsCsv("LASTREPLYDETECTEDDATE,firstName,CONNECTEDAT,connectionrequestdate\n2025-12-01,Amara,2025-11-22,2025-11-20\n");
+  assert.deepEqual(summary, { total: 1, sent: 1, accepted: 1, replied: 1 });
+});
+
+test("summarizeWaalaxyMetricsCsv rejects a CSV that isn't a Waalaxy contact export", () => {
+  assert.throws(() => summarizeWaalaxyMetricsCsv("first_name,last_name,linkedin_url\nJane,Doe,https://linkedin.com/in/jane\n"), /missing columns?/);
+});
+
+test("summarizeWaalaxyMetricsCsv rejects a Waalaxy export with the right columns but no leads", () => {
+  assert.throws(() => summarizeWaalaxyMetricsCsv("connectionRequestDate,connectedAt,lastReplyDetectedDate\n"), /no leads/);
 });

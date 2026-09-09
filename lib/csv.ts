@@ -176,3 +176,41 @@ export function rowsToCsv(headers: string[], rows: (string | number)[][]): strin
   for (const row of rows) lines.push(row.map((value) => csvEscape(String(value))).join(","));
   return `${lines.join("\r\n")}\r\n`;
 }
+
+export type WaalaxyMetricsSummary = { total: number; sent: number; accepted: number; replied: number };
+
+// The three date columns Waalaxy's own contact export carries per lead --
+// matched by name (case-insensitively) rather than position, since export
+// column order isn't guaranteed to stay the same between Waalaxy versions.
+const WAALAXY_SENT_COLUMN = "connectionrequestdate";
+const WAALAXY_ACCEPTED_COLUMN = "connectedat";
+const WAALAXY_REPLIED_COLUMN = "lastreplydetecteddate";
+
+// Turns a raw Waalaxy contact export (one row per lead currently in the
+// campaign, unrelated in shape to our own lead-upload CSV) into the three
+// counts campaign metrics are built from: a lead counts as sent once it has
+// a connection-request date, accepted once it has a connected-at date, and
+// replied once it has a last-reply-detected date. Admin re-uploads this
+// export whenever they want the campaign's metrics refreshed, rather than
+// counting by hand.
+export function summarizeWaalaxyMetricsCsv(text: string): WaalaxyMetricsSummary {
+  const { headers, rows } = parseCsvHeaderAndRows(text);
+  const lowerHeaders = headers.map((column) => column.trim().toLowerCase());
+  const sentIndex = lowerHeaders.indexOf(WAALAXY_SENT_COLUMN);
+  const acceptedIndex = lowerHeaders.indexOf(WAALAXY_ACCEPTED_COLUMN);
+  const repliedIndex = lowerHeaders.indexOf(WAALAXY_REPLIED_COLUMN);
+  const missing = [
+    sentIndex === -1 ? "connectionRequestDate" : null,
+    acceptedIndex === -1 ? "connectedAt" : null,
+    repliedIndex === -1 ? "lastReplyDetectedDate" : null,
+  ].filter((column): column is string => column !== null);
+  if (missing.length) throw new Error(`This doesn't look like a Waalaxy contact export -- missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
+  if (rows.length === 0) throw new Error("This export has no leads in it.");
+  let sent = 0, accepted = 0, replied = 0;
+  for (const row of rows) {
+    if ((row[sentIndex] || "").trim()) sent += 1;
+    if ((row[acceptedIndex] || "").trim()) accepted += 1;
+    if ((row[repliedIndex] || "").trim()) replied += 1;
+  }
+  return { total: rows.length, sent, accepted, replied };
+}

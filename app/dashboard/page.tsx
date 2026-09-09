@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
@@ -146,6 +146,9 @@ export default function Home() {
   const [campaignMetrics, setCampaignMetrics] = useState({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
   const [metricsSaving, setMetricsSaving] = useState(false);
   const [metricsError, setMetricsError] = useState("");
+  const [metricsCsvName, setMetricsCsvName] = useState("");
+  const [metricsCsvError, setMetricsCsvError] = useState("");
+  const [metricsCsvSummary, setMetricsCsvSummary] = useState<{ total: number; sent: number; accepted: number; replied: number } | null>(null);
   const [leadsDownloading, setLeadsDownloading] = useState(false);
   const [leadsDownloadError, setLeadsDownloadError] = useState("");
   const [campaignsExportLoading, setCampaignsExportLoading] = useState(false);
@@ -543,6 +546,9 @@ export default function Home() {
     setCampaignMetrics({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
     setMetricsError("");
     setMetricsSaving(false);
+    setMetricsCsvName("");
+    setMetricsCsvError("");
+    setMetricsCsvSummary(null);
     setLeadsDownloadError("");
     setLeadsDownloading(false);
     try {
@@ -585,6 +591,27 @@ export default function Home() {
       if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
       setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy.");
     } finally { if (activeWaalaxyCampaignIdRef.current === campaign.id) setWaalaxyLoading(false); }
+  }
+  // Lets the admin refresh a campaign's sent/accepted/replied counts by
+  // uploading Waalaxy's own contact export instead of counting by hand --
+  // this only fills the number fields below, it doesn't save on its own, so
+  // the admin still reviews (and sets positive replies, which the export
+  // doesn't cleanly encode) before clicking "Save metrics".
+  async function chooseMetricsCsv(file: File | null) {
+    if (!file || !waalaxyModal) return;
+    const campaignId = waalaxyModal.id;
+    setMetricsCsvName(file.name);
+    setMetricsCsvError("");
+    setMetricsCsvSummary(null);
+    try {
+      const summary = summarizeWaalaxyMetricsCsv(await file.text());
+      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+      setMetricsCsvSummary(summary);
+      setCampaignMetrics((current) => ({ ...current, connectionsSent: summary.sent, connectionsAccepted: summary.accepted, repliesReceived: summary.replied }));
+    } catch (error) {
+      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+      setMetricsCsvError(error instanceof Error ? error.message : "Unable to read this file.");
+    }
   }
   async function saveCampaignMetrics() {
     if (!waalaxyModal) return;
@@ -1045,7 +1072,15 @@ export default function Home() {
             </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Update these as outreach runs in Waalaxy. Acceptance and positive reply rates are calculated for you.</p>
+            <p className="modalIntro">Upload Waalaxy&apos;s contact export for this campaign and we will count connections sent, accepted, and replied to for you from each lead&apos;s own dates. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
+            <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
+              <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseMetricsCsv(e.target.files?.[0] || null)} />
+              <span>{metricsCsvName ? "✓" : "↑"}</span>
+              <strong>{metricsCsvName || "Drop a Waalaxy contact export here"}</strong>
+              <small>{metricsCsvName ? "Parsed -- review the numbers below" : "or click to choose a file"}</small>
+            </label>
+            {metricsCsvError && <p className="formError" role="alert">{metricsCsvError}</p>}
+            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} lead{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Filled in below -- set positive replies, then save.</p>}
             <div className="metricsGrid">
               <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
               <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
