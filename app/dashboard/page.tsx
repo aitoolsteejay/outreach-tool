@@ -8,7 +8,7 @@ import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string; connectionsSent: number; connectionsAccepted: number; repliesReceived: number };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
-type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string };
+type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string; createdBy: string | null };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
 
@@ -338,7 +338,7 @@ export default function Home() {
         setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
         const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id,submitted_at,connections_sent,connections_accepted,replies_received").order("created_at", { ascending: false });
         const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").is("access_revoked_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
-        const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
+        const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at,created_by").order("created_at", { ascending: false });
         const categoriesPromise = profileRow.role === "client" ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", data.user.id).order("position", { ascending: true }) : Promise.resolve({ data: [], error: null });
         const [campaignsResult, profilesResult, alertsResult, categoriesResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise, categoriesPromise]);
         const loadError = campaignsResult.error || profilesResult.error || alertsResult.error || categoriesResult.error;
@@ -348,7 +348,7 @@ export default function Home() {
         setClientCount(allProfiles.filter((account) => account.role === "client").length);
         const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
         setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at, connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0, repliesReceived: row.replies_received || 0 })));
-        setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
+        setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at, createdBy: alert.created_by })));
         if (profileRow.role === "client") {
           if (categoriesResult.data && categoriesResult.data.length > 0) {
             setLeadCategories(categoriesResult.data.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
@@ -500,14 +500,14 @@ export default function Home() {
       if (!response.ok) throw new Error(data?.error || "Unable to update this record.");
       const { data: alertRow, error: alertError } = await createClient().schema("outreach").from("campaign_alerts").insert({
         client_id: clientId, campaign_id: null, severity: "warning", message: reason, created_by: userId,
-      }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").single();
+      }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at,created_by").single();
       if (activeLinkedinClientIdRef.current !== clientId) return;
       setAdminLinkedinStatus(data);
       setAdminLinkedinFailReason("");
       setAdminLinkedinReveal(null);
       setAdminLinkedinCodeReveal(null);
       if (alertRow) {
-        setAlerts((current) => [{ id: alertRow.id, clientId: alertRow.client_id, campaignId: alertRow.campaign_id, leadReference: alertRow.lead_reference, severity: alertRow.severity, message: alertRow.message, resolved: alertRow.resolved, createdAt: alertRow.created_at }, ...current]);
+        setAlerts((current) => [{ id: alertRow.id, clientId: alertRow.client_id, campaignId: alertRow.campaign_id, leadReference: alertRow.lead_reference, severity: alertRow.severity, message: alertRow.message, resolved: alertRow.resolved, createdAt: alertRow.created_at, createdBy: alertRow.created_by }, ...current]);
       } else {
         // The credential status update above already went through, so don't
         // pretend it didn't -- but the client won't see an alert explaining
@@ -991,9 +991,9 @@ export default function Home() {
       severity: alertForm.severity,
       message: alertForm.message.trim(),
       created_by: userId,
-    }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").single();
+    }).select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at,created_by").single();
     if (error || !data) { setAlertError(error?.message || "Unable to post this alert."); setAlertPosting(false); return; }
-    setAlerts((current) => [{ id: data.id, clientId: data.client_id, campaignId: data.campaign_id, leadReference: data.lead_reference, severity: data.severity, message: data.message, resolved: data.resolved, createdAt: data.created_at }, ...current]);
+    setAlerts((current) => [{ id: data.id, clientId: data.client_id, campaignId: data.campaign_id, leadReference: data.lead_reference, severity: data.severity, message: data.message, resolved: data.resolved, createdAt: data.created_at, createdBy: data.created_by }, ...current]);
     setAlertForm({ severity: "error", leadReference: "", message: "" });
     setAlertPosting(false);
   }
@@ -1119,8 +1119,14 @@ export default function Home() {
   const heroReplyRate = heroConnectionsSent ? Math.round((heroRepliesReceived / heroConnectionsSent) * 100) : 0;
   const campaignAlerts = waalaxyModal ? alerts.filter((alert) => alert.campaignId === waalaxyModal.id) : [];
   const accountAlerts = accountModal ? alerts.filter((alert) => alert.campaignId === null && alert.clientId === accountModal.id) : [];
-  const clientCampaignAlerts = clientCampaignModal ? alerts.filter((alert) => alert.campaignId === clientCampaignModal.id) : [];
-  const activeAlerts = alerts.filter((alert) => !alert.resolved);
+  // Alerts a client authored about their own action (e.g. the automatic
+  // "client updated this campaign's brief" note posted alongside every
+  // brief edit) are for admins reviewing the change, not the client who
+  // just made it -- exclude anything created_by this same client from
+  // what shows up in their own dashboard. Admin views above intentionally
+  // keep everything, self-authored or not.
+  const clientCampaignAlerts = clientCampaignModal ? alerts.filter((alert) => alert.campaignId === clientCampaignModal.id && alert.createdBy !== userId) : [];
+  const activeAlerts = alerts.filter((alert) => !alert.resolved && alert.createdBy !== userId);
   return (
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
