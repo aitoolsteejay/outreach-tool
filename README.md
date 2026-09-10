@@ -4,11 +4,10 @@ A LinkedIn outreach service, run for clients rather than sold as self-serve soft
 
 ## What's here
 
-The app has three routes:
+The app has two routes:
 
-- **`/`** — the public marketing/sales page (`app/page.tsx`). Static content plus a session-aware "Log in" link.
+- **`/login`** — email/password sign-in, plus one-time admin bootstrap. `/` redirects here (`app/page.tsx`) -- there's no public marketing page, since this app is only ever reached by an existing client or admin.
 - **`/dashboard`** — the actual tool (`app/dashboard/page.tsx`), a single component that renders either the client or the admin view depending on the signed-in user's role.
-- **`/login`** — email/password sign-in, plus one-time admin bootstrap.
 
 ### Client side
 
@@ -33,7 +32,7 @@ The app has three routes:
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**, deployed on Vercel.
 - **Supabase**: Postgres (schema `outreach`, row-level security throughout), Auth, and private Storage for lead-list CSVs.
-- **Tailwind v4** for utility classes; the dashboard, login, and landing page each also carry their own plain CSS (`app/globals.css`, and a scoped block inside `app/page.tsx`) for anything Tailwind doesn't cover well.
+- **Tailwind v4** for utility classes; the dashboard and login page each also carry their own plain CSS (`app/globals.css`) for anything Tailwind doesn't cover well.
 - No ORM — Supabase's JS client, called directly from both client components (subject to RLS) and server API routes (via a service-role client for anything RLS can't or shouldn't gate on its own).
 
 ## Getting started
