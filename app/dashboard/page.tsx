@@ -1339,9 +1339,9 @@ export default function Home() {
           </div>
         </section>
       </div>}
-      {clientCampaignModal && <div className="modalBackdrop">
+      {clientCampaignModal && <div className="modalBackdrop campaignPageBackdrop">
         <button className="modalDismiss" onClick={closeClientCampaignModal} aria-label="Close campaign details" />
-        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="client-campaign-title">
+        <section className="modal campaignPageModal" role="dialog" aria-modal="true" aria-labelledby="client-campaign-title">
           <button className="close" onClick={closeClientCampaignModal} aria-label="Close campaign details">×</button>
           <div className="modalBody">
             <p className="eyebrow">CAMPAIGN DETAILS</p>
