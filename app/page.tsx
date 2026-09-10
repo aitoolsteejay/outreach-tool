@@ -22,7 +22,7 @@ const CSV_MAP_PAIRS: [string, string][] = [["Surname", "last_name"], ["Employer"
 // substitution the real sequence does per lead -- used by the "Try it
 // yourself" note builder so what a visitor types renders as an actual
 // message instead of staying an abstract template.
-const TRY_IT_LEAD = { first_name: "Priya", last_name: "Nair", company: "Solace Health" };
+const TRY_IT_LEAD = { first_name: "Sarah", last_name: "Bennett", company: "Solace Health" };
 function renderWithSampleLead(note: string): string {
   const filled = note.replaceAll("{{first_name}}", TRY_IT_LEAD.first_name).replaceAll("{{last_name}}", TRY_IT_LEAD.last_name).replaceAll("{{company}}", TRY_IT_LEAD.company);
   return filled.trim() ? filled : "Start typing to see how it would read.";
@@ -428,9 +428,9 @@ export default function LandingPage() {
                         <button type="button" onClick={() => setCsvMapIndex(CSV_MAP_PAIRS.findIndex(([from]) => from === header))}>{header}</button>
                       </th>
                     ))}</tr>
-                    <tr><td>Amara</td><td>Okafor</td><td>Blume Analytics</td><td>linkedin.com/in/amara-o</td></tr>
-                    <tr><td>Devon</td><td>Reyes</td><td>Northfield Labs</td><td>linkedin.com/in/devon-r</td></tr>
-                    <tr><td>Priya</td><td>Nair</td><td>Solace Health</td><td>linkedin.com/in/priya-nair</td></tr>
+                    <tr><td>Emily</td><td>Parker</td><td>Blume Analytics</td><td>linkedin.com/in/emily-parker</td></tr>
+                    <tr><td>James</td><td>Wilson</td><td>Northfield Labs</td><td>linkedin.com/in/james-wilson</td></tr>
+                    <tr><td>Sarah</td><td>Bennett</td><td>Solace Health</td><td>linkedin.com/in/sarah-bennett</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -463,7 +463,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="try-preview">
-              <div className="demo-field-label"><span>What Priya Nair would see</span></div>
+              <div className="demo-field-label"><span>What Sarah Bennett would see</span></div>
               <p className="try-preview-text">{renderWithSampleLead(tryNote)}</p>
             </div>
           </div>
