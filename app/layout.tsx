@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const image = `${protocol}://${host}/og.png`;
   const title = "Myntmore Outreach";
   const description = "Turn lead lists into real conversations.";
-  return { title, description, icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" }, openGraph: { title, description, images: [image] }, twitter: { card: "summary_large_image", title, description, images: [image] } };
+  return { title, description, icons: { icon: { url: "/myntmore-logo.png", type: "image/png" }, shortcut: "/myntmore-logo.png" }, openGraph: { title, description, images: [image] }, twitter: { card: "summary_large_image", title, description, images: [image] } };
 }
 
 export default function RootLayout({
