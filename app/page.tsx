@@ -279,7 +279,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section>
+      <section id="guidance">
         <div className="wrap">
           <div className="guidedWrap">
             <div className="mm-reveal">
@@ -410,7 +410,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section>
+      <section id="lead-list">
         <div className="wrap">
           <div className="section-head mm-reveal">
             <p className="eyebrow">Your lead list</p>
@@ -445,7 +445,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section>
+      <section id="try-it">
         <div className="wrap">
           <div className="section-head mm-reveal">
             <p className="eyebrow">Try it yourself</p>
@@ -455,7 +455,7 @@ export default function LandingPage() {
           <div className="try-wrap mm-reveal mm-r1">
             <div className="try-card">
               <div className="demo-field-label"><span>Your connection note</span><span>{tryNote.length}/300</span></div>
-              <textarea className="try-input" value={tryNote} maxLength={300} onChange={(e) => setTryNote(e.target.value)} rows={4} placeholder="Hi {{first_name}}, ..." />
+              <textarea aria-label="Your connection note" className="try-input" value={tryNote} maxLength={300} onChange={(e) => setTryNote(e.target.value)} rows={4} placeholder="Hi {{first_name}}, ..." />
               <div className="tokens">
                 <button type="button" className="token token-btn" onClick={() => setTryNote((current) => `${current}${current ? " " : ""}{{first_name}}`)}>{"{{first_name}}"}</button>
                 <button type="button" className="token token-btn" onClick={() => setTryNote((current) => `${current}${current ? " " : ""}{{last_name}}`)}>{"{{last_name}}"}</button>
@@ -845,6 +845,108 @@ const LANDING_CSS = `
 .mm-landing .foot-links a:hover,.mm-landing .foot-links button:hover{color:var(--ink)}
 .mm-landing .foot-links button{font-size:12px}
 .mm-landing .foot-copy{font-size:11px;color:var(--muted);margin-top:20px}
+
+
+/* Lower-page presentation only: keep the established hero and shared tokens intact. */
+.mm-landing section .section-head{max-width:680px;margin:0 auto 52px;text-align:center}
+.mm-landing section .section-head h2{font-size:clamp(30px,3.6vw,44px);line-height:1.15}
+.mm-landing section .section-head .eyebrow{color:var(--blue);font-size:11px}
+.mm-landing .stats-strip .wrap{gap:0;padding-top:48px;padding-bottom:48px}
+.mm-landing .stat{border:0;border-radius:0;background:transparent;padding:12px 32px}
+.mm-landing .stat + .stat{border-left:1px solid var(--line)}
+.mm-landing .stat strong{font-size:42px;line-height:1.1}
+.mm-landing .stat span{max-width:260px;color:var(--ink-soft)}
+.mm-landing #how{background:#fff;border-radius:48px 48px 0 0;padding-top:96px}
+.mm-landing .flow{gap:22px}
+.mm-landing .flow-step{padding:30px 24px;border:0;border-radius:24px;background:#F1F3FF}
+.mm-landing .flow-step:nth-child(even){background:#F5F0FC}
+.mm-landing .flow-num{width:48px;height:48px;border-radius:50%;font-size:23px;margin-bottom:28px;box-shadow:0 6px 0 #fff}
+.mm-landing .flow-step:not(:last-child):after{content:"→";position:absolute;right:-20px;top:40px;z-index:1;color:var(--ink);font-size:24px}
+.mm-landing .flow-step h3{font-size:20px}
+.mm-landing .flow-step p{font-size:13px;line-height:1.75}
+.mm-landing #guidance{background:#fff;padding-top:24px}
+.mm-landing .guidedWrap{padding:48px;border:1px solid #DFE3F1;border-radius:28px;background:linear-gradient(120deg,#F6F7FF,#fff);gap:48px;align-items:center}
+.mm-landing .guidedList{gap:22px}
+.mm-landing .guidedList li + li{border-top:1px solid #E5E7F1;padding-top:22px}
+.mm-landing #compare{padding:96px 0}
+.mm-landing .compare-wrap{gap:24px}
+.mm-landing .compare-col{border-radius:28px;padding:38px}
+.mm-landing .compare-bad{background:#EDEAE3;border-color:transparent}
+.mm-landing .compare-good{background:linear-gradient(135deg,#496DEA,#334CC0);box-shadow:0 16px 40px -24px #344FBF}
+.mm-landing .compare-label{font-family:var(--serif);font-size:23px;letter-spacing:-.02em;text-transform:none;color:var(--ink)}
+.mm-landing .compare-good .compare-label{opacity:1}
+.mm-landing .compare-col ul{gap:0}
+.mm-landing .compare-col li{padding:16px 0;border-top:1px solid #DCD8CF}
+.mm-landing .compare-good li{border-color:rgba(255,255,255,.2)}
+.mm-landing #features{background:#fff}
+.mm-landing .feature-grid{gap:22px}
+.mm-landing .feature{padding:32px;border-radius:24px;border-color:#E6E7ED;box-shadow:0 4px 0 #F1F1F6}
+.mm-landing #features .feature:nth-child(3n + 2){background:#F8F6FD}
+.mm-landing .feature .icon{width:48px;height:48px;border-radius:15px;background:#EEF0FF;color:#465AC2;margin-bottom:26px}
+.mm-landing .feature h3{font-size:19px;line-height:1.25;margin-bottom:12px}
+.mm-landing .feature p{font-size:13px;line-height:1.75;overflow-wrap:anywhere}
+.mm-landing #who > .wrap{display:grid;grid-template-columns:.85fr 1.15fr;gap:64px;align-items:center}
+.mm-landing #who .section-head{text-align:left;margin:0}
+.mm-landing #who .feature-grid{grid-template-columns:1fr;gap:16px}
+.mm-landing #who .feature{display:grid;grid-template-columns:48px 1fr;column-gap:22px;padding:26px;box-shadow:none}
+.mm-landing #who .feature .icon{grid-row:span 2;margin:0}
+.mm-landing #who .feature h3{margin-bottom:6px}
+.mm-landing #lead-list{background:#fff}
+.mm-landing .csv-wrap{grid-template-columns:1.3fr .7fr;gap:40px;padding:36px;background:#F0F2FC;border:1px solid #E3E7F4;border-radius:28px}
+.mm-landing .csv-wrap > *{min-width:0}
+.mm-landing .csv-card{border-radius:18px;background:#fff}
+.mm-landing .csv-map{flex-wrap:wrap}
+.mm-landing #try-it{background:#fff;padding-top:24px}
+.mm-landing .try-wrap{padding:30px;border-radius:28px;background:#F2EDFB;gap:24px;position:relative}
+.mm-landing .try-card,.mm-landing .try-preview{min-width:0;border:1px solid #DDD8EB;box-shadow:none;border-radius:20px;padding:26px}
+.mm-landing .try-preview{background:#FAF8FF}
+.mm-landing .try-preview-text{overflow-wrap:anywhere;background:#fff;border-radius:4px 16px 16px 16px}
+.mm-landing #metrics .metrics-card{border-radius:26px;border-color:#DADDED;box-shadow:0 20px 70px -40px #5364A8}
+.mm-landing .metrics-head{padding:26px 30px;background:#fff}
+.mm-landing .metric-tile{padding:30px 24px;background:#F9FAFF}
+.mm-landing .metric-tile strong{font-size:40px;color:#3F56C8}
+.mm-landing .metrics-foot{padding:18px 30px;line-height:1.7}
+.mm-landing #faq{background:#fff}
+.mm-landing #faq > .wrap{display:grid;grid-template-columns:.7fr 1.3fr;gap:64px;align-items:start}
+.mm-landing #faq .section-head{text-align:left;margin:0;position:sticky;top:140px}
+.mm-landing .faq{min-width:0;display:grid;gap:12px}
+.mm-landing .faq-item,.mm-landing .faq-item:last-child{border:1px solid #E4E5EF;border-radius:16px;padding:22px 24px;background:#FAFAFC}
+.mm-landing .faq-item[open]{background:#F2F3FF;border-color:#D9DDF6}
+.mm-landing .faq-item summary{font-size:17px}
+.mm-landing .faq-item summary .plus{width:28px;height:28px;background:#fff}
+.mm-landing .cta-band{border-radius:32px;padding:76px 52px}
+.mm-landing .cta-inner{max-width:680px;margin:auto;text-align:center}
+.mm-landing .cta-band h2{font-size:clamp(30px,3.6vw,44px)}
+.mm-landing .cta-band .ctas{justify-content:center}
+.mm-landing .foot-links{flex-wrap:wrap}
+@media(max-width:900px){
+ .mm-landing .flow-step:nth-child(2):after{display:none}
+ .mm-landing #who > .wrap,.mm-landing #faq > .wrap{grid-template-columns:1fr;gap:36px}
+ .mm-landing #who .section-head,.mm-landing #faq .section-head{position:static;text-align:center;margin:0 auto}
+ .mm-landing .csv-wrap{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .mm-landing .stat{padding:22px 0}
+ .mm-landing .stat + .stat{border-left:0;border-top:1px solid var(--line)}
+ .mm-landing .stat span{max-width:none}
+ .mm-landing .stats-strip .wrap{padding-top:24px;padding-bottom:32px}
+ .mm-landing #how{border-radius:28px 28px 0 0;padding-top:64px}
+ .mm-landing #compare{padding:64px 0}
+ .mm-landing section .section-head{margin-bottom:32px}
+ .mm-landing .guidedWrap{padding:28px 24px;gap:28px}
+ .mm-landing .compare-col{padding:28px}
+ .mm-landing .csv-wrap,.mm-landing .try-wrap{padding:16px;border-radius:22px}
+ .mm-landing .try-card,.mm-landing .try-preview{padding:20px 16px}
+ .mm-landing .cta-band{padding:48px 24px}
+ .mm-landing .metrics-head{padding:22px 20px;gap:16px}
+ .mm-landing .metric-tile{padding:24px 16px}
+}
+@media(max-width:560px){
+ .mm-landing .flow-step:not(:last-child):after{display:none}
+ .mm-landing .flow-step{padding:26px}
+ .mm-landing .flow-num{margin-bottom:20px}
+ .mm-landing #who .feature{padding:22px;column-gap:16px}
+}
 
 @media (prefers-reduced-motion: reduce){
   .mm-landing *{animation:none!important;transition:none!important}
