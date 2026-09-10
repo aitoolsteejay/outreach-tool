@@ -644,8 +644,11 @@ const LANDING_CSS = `
   --band-bg:#0A0A0A;
   --band-fg:#FFFFFF;
   --band-muted:#B7B6C6;
-  --serif:'Fraunces',Georgia,serif;
-  --sans:'Manrope',-apple-system,'Segoe UI',Arial,sans-serif;
+  /* One typeface for the whole site (headings and body alike) -- --serif
+     and --sans both resolve to it so the dozens of rules below that
+     already reference one or the other don't need to change individually. */
+  --serif:var(--font-inter),-apple-system,'Segoe UI',Arial,sans-serif;
+  --sans:var(--font-inter),-apple-system,'Segoe UI',Arial,sans-serif;
   --mono:'IBM Plex Mono','SF Mono',Menlo,monospace;
   min-height:100vh;
   background:var(--paper);
