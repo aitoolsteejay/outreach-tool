@@ -1389,6 +1389,12 @@ export default function Home() {
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Performance</h3>
                 <div className="metricRates">
+                  <div className="metricRate"><strong>{clientLeadStatuses.length}</strong><span>Leads</span></div>
+                  <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent}</strong><span>Requests sent</span></div>
+                  <div className="metricRate"><strong>{clientCampaignDetail.connectionsAccepted}</strong><span>Accepted</span></div>
+                  <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived}</strong><span>Replied</span></div>
+                </div>
+                <div className="metricRates">
                   <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent ? Math.round((clientCampaignDetail.connectionsAccepted / clientCampaignDetail.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
                   <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived ? Math.round((clientCampaignDetail.positiveReplies / clientCampaignDetail.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
                 </div>
