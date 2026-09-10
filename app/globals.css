@@ -200,7 +200,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .ringCenter b{font-size:19px;font-weight:900;letter-spacing:-.4px}
 .ringCardInk .ringCenter b{color:#fff}
 .ringCaption{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:.8;white-space:nowrap}
-.actionTiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px}
+.actionTiles{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:16px}
 .actionTiles>div{position:relative;background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
 .actionTiles>div:hover{transform:translateY(-2px);box-shadow:0 10px 24px #4e39200f;border-color:#DCD4C8}
 .actionTiles span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%}
@@ -211,6 +211,8 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .tilePurple span{background:#F1EBFE;color:#8B5CF6}
 .tileGold span{background:#EEF0FF;color:#4C6EF5}
 .tileAmber span{background:#FDE7F1;color:#EC4899}
+.tileTeal span{background:#E0F2F1;color:#0F766E}
+.tileViolet span{background:#F1EBFE;color:#6D3FD1}
 .clientSidebar{display:flex;flex-direction:column;gap:16px}
 .sidebarProfileCard{background:#fff;border:1px solid var(--border);border-radius:17px;padding:24px}
 .sidebarProfileTop{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -222,7 +224,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .sidebarProfileStats div{text-align:center}
 .sidebarProfileStats b{display:block;font-size:16px;letter-spacing:-.5px}
 .sidebarProfileStats small{display:block;margin-top:3px;color:var(--taupe);font-size:9px;text-transform:uppercase;letter-spacing:.06em}
-@media(max-width:1120px){.ringCards{grid-template-columns:1fr}.actionTiles{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1120px){.ringCards{grid-template-columns:1fr}.actionTiles{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:760px){.clientHero{flex-direction:column;align-items:flex-start;gap:14px}.ringCard{padding:22px}.actionTiles{grid-template-columns:repeat(2,1fr)}}
 
 /* Icon alignment for the new SVG icon set */
@@ -349,3 +351,18 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .leadStatusPill.sent{color:#3B5BDB;background:#EEF0FF}
 .leadStatusPill.accepted{color:#1F8F5D;background:#E4F7ED}
 .leadStatusPill.replied{color:#6D3FD1;background:#F1EBFE}
+.leadCategorySelect{display:inline-block!important;width:auto!important;flex:none;max-width:104px;margin-top:0!important;border:1px solid var(--border)!important;border-radius:99px!important;background-color:#fff!important;padding:5px 22px 5px 10px!important;font-size:9px!important;font-weight:800;color:var(--taupe);cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23969d98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+.leadCategorySelect:disabled{opacity:.5;cursor:wait}
+.inlineLink{display:inline;padding:0;border:0;background:none;color:var(--gold);font-size:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.categoryList{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.categoryRow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:12px}
+.categoryRow input{margin:0!important;flex:1;border:0!important;background:transparent!important;padding:4px!important;font-size:12px!important;font-weight:700}
+.categoryRow input:focus{box-shadow:none!important}
+.categorySwatches{display:flex;gap:6px;flex-wrap:wrap}
+.categorySwatch{width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;flex:none}
+.categorySwatch.selected{border-color:var(--ink)}
+.categoryDelete{flex:none;width:26px;height:26px;border-radius:8px;border:1px solid var(--border);background:#fff;color:#969d98;font-size:15px;line-height:1}
+.categoryDelete:hover{border-color:#f3b4ab;color:#b42318}
+.categoryAddRow{display:flex;gap:8px;margin-top:12px}
+.categoryAddRow input{margin:0!important;flex:1}
+.categoryAddRow button{flex:none}

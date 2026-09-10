@@ -6,11 +6,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseWaalaxyContactsCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
-type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string };
+type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string; connectionsSent: number; connectionsAccepted: number; repliesReceived: number };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
 type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
+
+// Preset swatches for lead categories (Hot/Cold/etc) -- a fixed palette
+// rather than a free-form color picker, so every client's labels stay
+// visually consistent with the rest of the app instead of introducing
+// arbitrary colors.
+const LEAD_CATEGORY_COLORS = ["#C2410C", "#3B5BDB", "#1F8F5D", "#6D3FD1", "#B42318", "#0F766E", "#A16207", "#656c68"];
 
 function defaultCampaignForm() {
   return { name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] };
@@ -66,7 +72,7 @@ function Ring({ percent, track, indicator, size = 96 }: { percent: number; track
   );
 }
 
-type IconName = "grid" | "users" | "file" | "help" | "logout" | "arrowUpRight" | "chevronDown" | "trendUp" | "eye" | "percent" | "dots" | "send" | "plus" | "alertTriangle" | "checkCircle";
+type IconName = "grid" | "users" | "file" | "help" | "logout" | "arrowUpRight" | "chevronDown" | "trendUp" | "eye" | "percent" | "dots" | "send" | "plus" | "alertTriangle" | "checkCircle" | "tag";
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -86,6 +92,7 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     case "plus": return <svg {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
     case "alertTriangle": return <svg {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
     case "checkCircle": return <svg {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
+    case "tag": return <svg {...p}><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.29-8.29a1 1 0 0 0 0-1.42L12 2Z" /><circle cx="6.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" /></svg>;
     default: return null;
   }
 }
@@ -159,9 +166,21 @@ export default function Home() {
   const [clientCampaignLoading, setClientCampaignLoading] = useState(false);
   const [clientCampaignError, setClientCampaignError] = useState("");
   const [clientCampaignDetail, setClientCampaignDetail] = useState<(CampaignBrief & { connectionsSent: number; connectionsAccepted: number; repliesReceived: number; positiveReplies: number; submittedAt?: string }) | null>(null);
-  type LeadStatus = { linkedinUrl: string; firstName: string; lastName: string; company: string; connectionRequestDate: string | null; connectedAt: string | null; repliedAt: string | null };
+  type LeadStatus = { id: string; linkedinUrl: string; firstName: string; lastName: string; company: string; connectionRequestDate: string | null; connectedAt: string | null; repliedAt: string | null; categoryId: string | null };
   const [clientLeadStatuses, setClientLeadStatuses] = useState<LeadStatus[]>([]);
   const [leadStatusExpanded, setLeadStatusExpanded] = useState(false);
+  // Client-defined lead categories (Hot/Cold/etc, managed from "Lead
+  // labels" in the sidebar) -- separate from the date-derived pipeline
+  // stage above (Sent/Accepted/Replied), which stays admin-authoritative.
+  type LeadCategory = { id: string; name: string; color: string; position: number };
+  const [leadCategories, setLeadCategories] = useState<LeadCategory[]>([]);
+  const [leadCategorySavingId, setLeadCategorySavingId] = useState<string | null>(null);
+  const [leadCategoryError, setLeadCategoryError] = useState("");
+  const [showLeadCategorySettings, setShowLeadCategorySettings] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#C2410C");
+  const [categorySettingsError, setCategorySettingsError] = useState("");
+  const [categorySettingsSaving, setCategorySettingsSaving] = useState(false);
   const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
@@ -317,18 +336,32 @@ export default function Home() {
         const { data: profileRow, error: profileError } = await supabase.schema("outreach").from("profiles").select("full_name,email,role").eq("id", data.user.id).is("access_revoked_at", null).single();
         if (profileError || !profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
         setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
-        const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id,submitted_at").order("created_at", { ascending: false });
+        const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id,submitted_at,connections_sent,connections_accepted,replies_received").order("created_at", { ascending: false });
         const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").is("access_revoked_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
         const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at").order("created_at", { ascending: false });
-        const [campaignsResult, profilesResult, alertsResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise]);
-        const loadError = campaignsResult.error || profilesResult.error || alertsResult.error;
+        const categoriesPromise = profileRow.role === "client" ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", data.user.id).order("position", { ascending: true }) : Promise.resolve({ data: [], error: null });
+        const [campaignsResult, profilesResult, alertsResult, categoriesResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise, categoriesPromise]);
+        const loadError = campaignsResult.error || profilesResult.error || alertsResult.error || categoriesResult.error;
         if (loadError) throw loadError;
         const allProfiles = profilesResult.data || [];
         setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
         setClientCount(allProfiles.filter((account) => account.role === "client").length);
         const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
-        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at })));
+        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at, connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0, repliesReceived: row.replies_received || 0 })));
         setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at })));
+        if (profileRow.role === "client") {
+          if (categoriesResult.data && categoriesResult.data.length > 0) {
+            setLeadCategories(categoriesResult.data.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
+          } else {
+            // First time this client has ever loaded the workspace with the
+            // feature live -- the migration backfilled existing clients,
+            // but this covers anyone created after it ran.
+            const { data: seeded } = await supabase.schema("outreach").from("lead_categories")
+              .insert([{ client_id: data.user.id, name: "Hot", color: "#C2410C", position: 0 }, { client_id: data.user.id, name: "Cold", color: "#3B5BDB", position: 1 }])
+              .select("id,name,color,position");
+            if (seeded) setLeadCategories(seeded.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
+          }
+        }
       } catch (error) { setWorkspaceError(error instanceof Error ? error.message : "Unable to load the workspace."); }
       finally { setWorkspaceLoading(false); }
     })();
@@ -363,7 +396,7 @@ export default function Home() {
         const { error } = await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaignId, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
         if (error) throw error;
       }
-      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15, submittedAt: new Date().toISOString() }, ...current]);
+      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15, submittedAt: new Date().toISOString(), connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0 }, ...current]);
       setSubmitted(true);
     } catch (error) {
       if (campaignId) await supabase.schema("outreach").from("campaigns").delete().eq("id", campaignId);
@@ -744,6 +777,7 @@ export default function Home() {
     setClientCampaignDetail(null);
     setClientLeadStatuses([]);
     setLeadStatusExpanded(false);
+    setLeadCategoryError("");
     setEditingCampaign(false);
     setEditCampaignError("");
     setEditCampaignSaving(false);
@@ -759,7 +793,7 @@ export default function Home() {
           .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
           .eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
-          .select("linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id")
           .eq("campaign_id", campaign.id)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false }),
@@ -778,8 +812,8 @@ export default function Home() {
       // shouldn't block the rest of the campaign detail from showing.
       if (!leadStatusesResult.error) {
         setClientLeadStatuses((leadStatusesResult.data || []).map((row) => ({
-          linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
-          connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at,
+          id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
+          connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
         })));
       }
     } catch (error) {
@@ -840,6 +874,89 @@ export default function Home() {
       if (activeClientCampaignIdRef.current !== campaignId) return;
       setEditCampaignError(error instanceof Error ? error.message : "Unable to save these changes.");
     } finally { if (activeClientCampaignIdRef.current === campaignId) setEditCampaignSaving(false); }
+  }
+  // Sets (or clears, via categoryId=null) which category a lead is tagged
+  // with. Applied optimistically -- the dropdown updates immediately -- and
+  // rolled back if the PATCH fails, since this is a small enough change
+  // that waiting on the network before showing it would feel laggy for
+  // something this lightweight.
+  async function chooseLeadCategory(leadStatusId: string, categoryId: string | null) {
+    const previous = clientLeadStatuses.find((lead) => lead.id === leadStatusId)?.categoryId ?? null;
+    setLeadCategorySavingId(leadStatusId);
+    setLeadCategoryError("");
+    setClientLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId } : lead));
+    try {
+      const headers = await authHeader();
+      const response = await fetch(`/api/client/lead-statuses/${leadStatusId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ categoryId }) });
+      const data = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Unable to save this category.");
+    } catch (error) {
+      setClientLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId: previous } : lead));
+      setLeadCategoryError(error instanceof Error ? error.message : "Unable to save this category.");
+    } finally { setLeadCategorySavingId(null); }
+  }
+  function openLeadCategorySettings() {
+    setNewCategoryName("");
+    setNewCategoryColor(LEAD_CATEGORY_COLORS[0]);
+    setCategorySettingsError("");
+    setShowLeadCategorySettings(true);
+  }
+  async function addLeadCategory() {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) { setCategorySettingsError("Give this category a name."); return; }
+    if (leadCategories.some((category) => category.name.toLowerCase() === trimmedName.toLowerCase())) {
+      setCategorySettingsError("You already have a category with this name.");
+      return;
+    }
+    setCategorySettingsSaving(true);
+    setCategorySettingsError("");
+    try {
+      const { data, error } = await createClient().schema("outreach").from("lead_categories").insert({
+        client_id: userId, name: trimmedName, color: newCategoryColor, position: leadCategories.length,
+      }).select("id,name,color,position").single();
+      if (error || !data) throw new Error(error?.message || "Unable to add this category.");
+      setLeadCategories((current) => [...current, data]);
+      setNewCategoryName("");
+    } catch (error) {
+      setCategorySettingsError(error instanceof Error ? error.message : "Unable to add this category.");
+    } finally { setCategorySettingsSaving(false); }
+  }
+  function updateLeadCategoryField(id: string, field: "name" | "color", value: string) {
+    setLeadCategories((current) => current.map((category) => category.id === id ? { ...category, [field]: value } : category));
+  }
+  async function commitLeadCategoryUpdate(id: string) {
+    const category = leadCategories.find((current) => current.id === id);
+    if (!category) return;
+    const trimmedName = category.name.trim();
+    if (!trimmedName) { setCategorySettingsError("A category needs a name."); return; }
+    if (leadCategories.some((other) => other.id !== id && other.name.toLowerCase() === trimmedName.toLowerCase())) {
+      setCategorySettingsError("You already have a category with this name.");
+      return;
+    }
+    setCategorySettingsSaving(true);
+    setCategorySettingsError("");
+    try {
+      const { error } = await createClient().schema("outreach").from("lead_categories").update({ name: trimmedName, color: category.color }).eq("id", id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      setCategorySettingsError(error instanceof Error ? error.message : "Unable to save this category.");
+    } finally { setCategorySettingsSaving(false); }
+  }
+  async function deleteLeadCategory(id: string) {
+    setCategorySettingsSaving(true);
+    setCategorySettingsError("");
+    try {
+      const { error } = await createClient().schema("outreach").from("lead_categories").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      setLeadCategories((current) => current.filter((category) => category.id !== id));
+      // The FK's own "on delete set null" already cleared category_id in
+      // the database for any lead that had this category -- mirror that
+      // here too so an open campaign modal's Leads list doesn't keep
+      // showing a category that no longer exists until it's reopened.
+      setClientLeadStatuses((current) => current.map((lead) => lead.categoryId === id ? { ...lead, categoryId: null } : lead));
+    } catch (error) {
+      setCategorySettingsError(error instanceof Error ? error.message : "Unable to delete this category.");
+    } finally { setCategorySettingsSaving(false); }
   }
   async function deleteClientCampaign() {
     if (!clientCampaignModal) return;
@@ -995,6 +1112,11 @@ export default function Home() {
   const heroActiveRate = heroCampaigns.length ? Math.round((heroActiveCampaigns / heroCampaigns.length) * 100) : 0;
   const heroLiveCount = heroCampaigns.filter((campaign) => campaign.status === "Live").length;
   const heroInReviewCount = heroCampaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length;
+  const heroConnectionsSent = heroCampaigns.reduce((sum, campaign) => sum + campaign.connectionsSent, 0);
+  const heroConnectionsAccepted = heroCampaigns.reduce((sum, campaign) => sum + campaign.connectionsAccepted, 0);
+  const heroRepliesReceived = heroCampaigns.reduce((sum, campaign) => sum + campaign.repliesReceived, 0);
+  const heroAcceptanceRate = heroConnectionsSent ? Math.round((heroConnectionsAccepted / heroConnectionsSent) * 100) : 0;
+  const heroReplyRate = heroConnectionsSent ? Math.round((heroRepliesReceived / heroConnectionsSent) * 100) : 0;
   const campaignAlerts = waalaxyModal ? alerts.filter((alert) => alert.campaignId === waalaxyModal.id) : [];
   const accountAlerts = accountModal ? alerts.filter((alert) => alert.campaignId === null && alert.clientId === accountModal.id) : [];
   const clientCampaignAlerts = clientCampaignModal ? alerts.filter((alert) => alert.campaignId === clientCampaignModal.id) : [];
@@ -1003,7 +1125,7 @@ export default function Home() {
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload leads</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button></>}</nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload leads</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button><button className="navItem navButton" onClick={openLeadCategorySettings}><span><Icon name="tag" /></span> Lead labels</button></>}</nav>
         <div className="sidebarInsight">
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
@@ -1049,6 +1171,8 @@ export default function Home() {
             <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "-" : heroInReviewCount}</strong><small>In review</small></div>
             <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><small>Leads reached</small></div>
             <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroAvgProgress}%`}</strong><small>Avg. progress</small></div>
+            <div className="tileTeal"><span><Icon name="checkCircle" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroAcceptanceRate}%`}</strong><small>Acceptance rate</small></div>
+            <div className="tileViolet"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroReplyRate}%`}</strong><small>Reply rate</small></div>
           </div>
           <div className="clientGrid">
             <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Open ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openClientCampaignModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
@@ -1266,16 +1390,22 @@ export default function Home() {
               {clientLeadStatuses.length > 0 && <>
                 <div className="waalaxyDivider" />
                 <div className="sectionHeadRow"><h3 className="modalSectionTitle">Leads ({clientLeadStatuses.length})</h3>{clientLeadStatuses.length > 5 && <button type="button" className="expandToggle" onClick={() => setLeadStatusExpanded((current) => !current)}>{leadStatusExpanded ? "Show less" : "Expand"}</button>}</div>
-                <p className="modalIntro">Status for each lead in this campaign, current as of your last metrics update.</p>
+                <p className="modalIntro">Status for each lead in this campaign, current as of your last metrics update. Tag a lead with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Lead labels</button> in the sidebar.</p>
+                {leadCategoryError && <p className="formError" role="alert">{leadCategoryError}</p>}
                 <div className={`leadStatusList ${leadStatusExpanded ? "expanded" : ""}`}>
                   {clientLeadStatuses.map((lead) => {
                     const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
                     const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
                     const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                    const category = leadCategories.find((current) => current.id === lead.categoryId);
                     return (
                       <div className="leadStatusRow" key={lead.linkedinUrl}>
                         <div className="leadStatusName"><strong>{name}</strong>{lead.company && <span>{lead.company}</span>}</div>
                         <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
+                        <select className="leadCategorySelect" value={lead.categoryId || ""} disabled={leadCategorySavingId === lead.id} style={category ? { color: category.color, borderColor: category.color } : undefined} aria-label={`Label for ${name}`} onChange={(e) => chooseLeadCategory(lead.id, e.target.value || null)}>
+                          <option value="">Unlabeled</option>
+                          {leadCategories.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
                       </div>
                     );
                   })}
@@ -1396,6 +1526,43 @@ export default function Home() {
               ))}
             </div>
             <div className="faqContact"><span>Still stuck?</span><a href="mailto:hello@myntmore.com">Email hello@myntmore.com <Icon name="arrowUpRight" size={13} /></a></div>
+          </div>
+        </section>
+      </div>}
+      {showLeadCategorySettings && <div className="modalBackdrop">
+        <button className="modalDismiss" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close lead labels" />
+        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="lead-categories-title">
+          <button className="close" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close lead labels">×</button>
+          <div className="modalBody">
+            <p className="eyebrow">YOUR SETTINGS</p>
+            <h2 id="lead-categories-title">Lead labels.</h2>
+            <p className="modalIntro">Tag leads across every campaign as Hot, Cold, or however you want to track them. Rename, recolor, or remove a label any time -- leads using it just go back to unlabeled.</p>
+            <div className="categoryList">
+              {leadCategories.map((category) => (
+                <div className="categoryRow" key={category.id}>
+                  <div className="categorySwatches">
+                    {LEAD_CATEGORY_COLORS.map((color) => (
+                      <button type="button" key={color} className={`categorySwatch ${category.color === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Set ${category.name} to this color`} onClick={() => { updateLeadCategoryField(category.id, "color", color); void commitLeadCategoryUpdate(category.id); }} />
+                    ))}
+                  </div>
+                  <input value={category.name} onChange={(e) => updateLeadCategoryField(category.id, "name", e.target.value)} onBlur={() => commitLeadCategoryUpdate(category.id)} aria-label="Label name" />
+                  <button type="button" className="categoryDelete" aria-label={`Delete ${category.name}`} disabled={categorySettingsSaving} onClick={() => deleteLeadCategory(category.id)}>×</button>
+                </div>
+              ))}
+              {leadCategories.length === 0 && <p className="modalIntro">No labels yet -- add your first one below.</p>}
+            </div>
+            <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Add a label</h3>
+            <div className="categorySwatches" style={{ marginTop: 12 }}>
+              {LEAD_CATEGORY_COLORS.map((color) => (
+                <button type="button" key={color} className={`categorySwatch ${newCategoryColor === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Choose color ${color}`} onClick={() => setNewCategoryColor(color)} />
+              ))}
+            </div>
+            <div className="categoryAddRow">
+              <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="e.g. Warm, Not now, VIP" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void addLeadCategory(); } }} />
+              <button type="button" className="secondary" disabled={categorySettingsSaving} onClick={addLeadCategory}>{categorySettingsSaving ? "Saving…" : "Add"}</button>
+            </div>
+            {categorySettingsError && <p className="formError" role="alert">{categorySettingsError}</p>}
           </div>
         </section>
       </div>}
