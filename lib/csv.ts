@@ -233,7 +233,15 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
     // but is left out of the per-lead list rather than stored unreachably.
     if (linkedinUrl) leads.push({ linkedinUrl, firstName: cell(row, firstNameIndex), lastName: cell(row, lastNameIndex), company: cell(row, companyIndex), connectionRequestDate, connectedAt, repliedAt });
   }
-  return { summary: { total: rows.length, sent, accepted, replied }, leads };
+  // De-duplicated by linkedin_url (case/whitespace-insensitively) rather
+  // than returned as-is: this feeds a single multi-row upsert keyed on
+  // linkedin_url (see chooseMetricsCsv), and Postgres rejects a multi-row
+  // upsert that touches the same conflict key twice in one statement. The
+  // same profile can legitimately appear more than once in a Waalaxy
+  // export (e.g. touched by more than one sequence); keeping the last
+  // occurrence means the most recently listed state for that lead wins.
+  const dedupedLeads = [...new Map(leads.map((lead) => [lead.linkedinUrl.trim().toLowerCase(), lead])).values()];
+  return { summary: { total: rows.length, sent, accepted, replied }, leads: dedupedLeads };
 }
 
 export function summarizeWaalaxyMetricsCsv(text: string): WaalaxyMetricsSummary {

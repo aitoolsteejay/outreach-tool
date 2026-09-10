@@ -150,3 +150,18 @@ test("parseWaalaxyContactsCsv leaves name/company blank rather than failing when
   const { leads } = parseWaalaxyContactsCsv("linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\nhttps://linkedin.com/in/amara-o,2025-11-20,,\n");
   assert.deepEqual(leads[0], { linkedinUrl: "https://linkedin.com/in/amara-o", firstName: "", lastName: "", company: "", connectionRequestDate: "2025-11-20", connectedAt: "", repliedAt: "" });
 });
+
+test("parseWaalaxyContactsCsv de-dupes leads by linkedin_url (case/whitespace-insensitively), keeping the last occurrence", () => {
+  const csv = "firstName,linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
+    + "Amara,https://linkedin.com/in/Amara-O,2025-11-20,,\n" // first sighting, not yet accepted
+    + "Devon,https://linkedin.com/in/devon-r,2025-11-20,2025-11-22,\n"
+    + "Amara,  https://linkedin.com/in/amara-o  ,2025-11-20,2025-11-22,2025-11-24\n"; // same lead as row 1, later state
+  const { leads } = parseWaalaxyContactsCsv(csv);
+  // A naive pass-through here would hand a multi-row upsert two rows with
+  // the same (campaign_id, linkedin_url) conflict key, which Postgres
+  // rejects outright -- this is the exact shape that bug takes.
+  assert.equal(leads.length, 2);
+  const amara = leads.find((lead) => lead.linkedinUrl.toLowerCase().includes("amara"));
+  assert.equal(amara?.connectedAt, "2025-11-22");
+  assert.equal(amara?.repliedAt, "2025-11-24");
+});

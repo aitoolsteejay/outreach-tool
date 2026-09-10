@@ -1252,7 +1252,7 @@ export default function Home() {
                 {editCampaignError && <p className="formError" role="alert">{editCampaignError}</p>}
                 <div className="waalaxyActions">
                   <button type="button" className="secondary" onClick={() => setEditingCampaign(false)} disabled={editCampaignSaving}>Cancel</button>
-                  <button type="button" className="primary" disabled={editCampaignSaving} onClick={saveCampaignEdits}>{editCampaignSaving ? "Saving…" : "Save changes"}</button>
+                  <button type="button" className="primary" disabled={editCampaignSaving || !editCampaignForm.connectionNote.trim() || editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).some((message) => !message.trim())} onClick={saveCampaignEdits}>{editCampaignSaving ? "Saving…" : "Save changes"}</button>
                 </div>
               </div>}
               {(clientCampaignDetail.connectionsSent > 0 || clientCampaignDetail.repliesReceived > 0) && <>

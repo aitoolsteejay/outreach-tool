@@ -146,12 +146,27 @@ export default function LandingPage() {
   // rather than direct DOM writes, so a visitor can also click a column
   // header to jump straight to it -- see the #lead-list section), so the "we
   // match your columns" claim reads as something actually happening rather
-  // than a static screenshot.
-  useEffect(() => {
+  // than a static screenshot. The interval is tracked in a ref (not just
+  // started once in the effect) so a click can restart it from a full 2.2s --
+  // otherwise a click could land right before the next scheduled tick and
+  // get silently overwritten a moment later, which reads as the click having
+  // not worked at all.
+  const csvCycleRef = useRef<number | null>(null);
+  const startCsvCycle = () => {
+    if (csvCycleRef.current !== null) window.clearInterval(csvCycleRef.current);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const intervalId = window.setInterval(() => { setCsvMapIndex((index) => (index + 1) % CSV_MAP_PAIRS.length); }, 2200);
-    return () => window.clearInterval(intervalId);
+    csvCycleRef.current = window.setInterval(() => { setCsvMapIndex((index) => (index + 1) % CSV_MAP_PAIRS.length); }, 2200);
+  };
+  useEffect(() => {
+    startCsvCycle();
+    return () => { if (csvCycleRef.current !== null) window.clearInterval(csvCycleRef.current); };
   }, []);
+  function selectCsvColumn(header: string) {
+    const index = CSV_MAP_PAIRS.findIndex(([from]) => from === header);
+    if (index === -1) return;
+    setCsvMapIndex(index);
+    startCsvCycle();
+  }
 
   async function goToApp() {
     setLoginChecking(true);
@@ -425,7 +440,7 @@ export default function LandingPage() {
                   <tbody>
                     <tr>{["First Name", "Surname", "Employer", "LinkedIn Profile"].map((header) => (
                       <th key={header} className={CSV_MAP_PAIRS[csvMapIndex][0] === header ? "mm-mapping" : ""}>
-                        <button type="button" onClick={() => setCsvMapIndex(CSV_MAP_PAIRS.findIndex(([from]) => from === header))}>{header}</button>
+                        <button type="button" onClick={() => selectCsvColumn(header)}>{header}</button>
                       </th>
                     ))}</tr>
                     <tr><td>Amara</td><td>Okafor</td><td>Blume Analytics</td><td>linkedin.com/in/amara-o</td></tr>
