@@ -233,10 +233,34 @@ export default function Home() {
   // resolves) -- every setState below checks this still matches before firing.
   const activeLinkedinClientIdRef = useRef<string | null>(null);
   const activeWaalaxyCampaignIdRef = useRef<string | null>(null);
+  // Every connection-note/follow-up textarea registers itself here (keyed
+  // by field name, or "followUp-<index>") so a placeholder button can find
+  // the right box's current cursor position rather than always appending
+  // to the end of the message.
+  const noteRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  // Splices token in at the textarea's current selection (replacing any
+  // selected text), and once the resulting value has actually rendered,
+  // puts the cursor right after the inserted token so typing continues
+  // naturally instead of the field losing focus.
+  function insertTokenAtCursor(key: string, currentValue: string, token: string): string {
+    const textarea = noteRefs.current[key];
+    const start = textarea?.selectionStart ?? currentValue.length;
+    const end = textarea?.selectionEnd ?? currentValue.length;
+    const value = `${currentValue.slice(0, start)}${token}${currentValue.slice(end)}`;
+    const cursor = start + token.length;
+    if (textarea) requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(cursor, cursor); });
+    return value;
+  }
 
   function update(field: string, value: string) { setForm((current) => ({ ...current, [field]: value })); }
   function addPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
-    setForm((current) => field === "connectionNote" ? { ...current, connectionNote: `${current.connectionNote}${current.connectionNote ? " " : ""}${token}` } : { ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? `${message}${message ? " " : ""}${token}` : message) });
+    if (field === "connectionNote") {
+      const value = insertTokenAtCursor("connectionNote", form.connectionNote, token);
+      setForm((current) => ({ ...current, connectionNote: value }));
+    } else {
+      const value = insertTokenAtCursor(`followUp-${index}`, form.followUps[index], token);
+      setForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) }));
+    }
   }
   function updateFollowUp(index: number, value: string) { setForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) })); }
   function updateFollowUpDelay(index: number, value: string) {
@@ -857,9 +881,13 @@ export default function Home() {
     setEditCampaignForm((current) => ({ ...current, followUpDelays: current.followUpDelays.map((delay, delayIndex) => delayIndex === index ? days : delay) }));
   }
   function addEditPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
-    setEditCampaignForm((current) => field === "connectionNote"
-      ? { ...current, connectionNote: `${current.connectionNote}${current.connectionNote ? " " : ""}${token}` }
-      : { ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? `${message}${message ? " " : ""}${token}` : message) });
+    if (field === "connectionNote") {
+      const value = insertTokenAtCursor("editConnectionNote", editCampaignForm.connectionNote, token);
+      setEditCampaignForm((current) => ({ ...current, connectionNote: value }));
+    } else {
+      const value = insertTokenAtCursor(`editFollowUp-${index}`, editCampaignForm.followUps[index], token);
+      setEditCampaignForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) }));
+    }
   }
   async function saveCampaignEdits() {
     if (!clientCampaignModal) return;
@@ -1270,10 +1298,10 @@ export default function Home() {
             </div>}
             {step === 3 && <div className="modalBody sequenceBuilder"><p className="eyebrow">STEP 3 OF 3 · SEQUENCE</p><h2 id="wizard-title">Build the conversation.</h2><p className="modalIntro">Add the exact connection note and follow-ups you want us to configure for your outreach.</p>
               <label>Voice and tone<input value={form.tone} onChange={(e) => update("tone", e.target.value)}/></label>
-              <label>Connection request note <span className="fieldHint">{form.connectionNote.length}/300</span><textarea value={form.connectionNote} maxLength={300} onChange={(e) => update("connectionNote", e.target.value)} placeholder="Hi {{first_name}}, I came across your work at {{company}} and would love to connect." rows={3}/></label>
+              <label>Connection request note <span className="fieldHint">{form.connectionNote.length}/300</span><textarea ref={(el) => { noteRefs.current.connectionNote = el; }} value={form.connectionNote} maxLength={300} onChange={(e) => update("connectionNote", e.target.value)} placeholder="Hi {{first_name}}, I came across your work at {{company}} and would love to connect." rows={3}/></label>
               <div className="placeholderRow"><span>Insert placeholder</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("connectionNote",token)}>{label}</button>)}</div>
               <fieldset className="followUpChoice"><legend>Number of follow-ups</legend>{[1,2,3].map((count) => <button type="button" className={form.followUpCount === count ? "selected" : ""} key={count} onClick={() => setForm({...form,followUpCount:count})}>{count}</button>)}</fieldset>
-              {form.followUps.slice(0,form.followUpCount).map((followUp,index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(event) => updateFollowUp(index,event.target.value)} placeholder={index === 0 ? "Thanks for connecting, {{first_name}}. I wanted to share…" : "A short, useful follow-up with a clear next step."} rows={3}/></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={form.followUpDelays[index]} onChange={(event) => updateFollowUpDelay(index,event.target.value)} /> day{form.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("followUp",token,index)}>{label}</button>)}</div></div>)}
+              {form.followUps.slice(0,form.followUpCount).map((followUp,index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea ref={(el) => { noteRefs.current[`followUp-${index}`] = el; }} value={followUp} onChange={(event) => updateFollowUp(index,event.target.value)} placeholder={index === 0 ? "Thanks for connecting, {{first_name}}. I wanted to share…" : "A short, useful follow-up with a clear next step."} rows={3}/></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={form.followUpDelays[index]} onChange={(event) => updateFollowUpDelay(index,event.target.value)} /> day{form.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("followUp",token,index)}>{label}</button>)}</div></div>)}
               <label>Supporting context <span className="fieldHint">Optional</span><textarea value={form.message} onChange={(e) => update("message", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3}/></label>
               <div className="reviewStrip"><span>Campaign</span><strong>{form.name || "Untitled campaign"}</strong><span>Sequence</span><strong>Connection note + {form.followUpCount} follow-up{form.followUpCount > 1 ? "s" : ""}</strong></div>
               {step === 3 && submitError && <p className="formError" role="alert">{submitError}</p>}
@@ -1393,10 +1421,10 @@ export default function Home() {
                 <label>Primary goal<select value={editCampaignForm.goal} onChange={(e) => updateEditField("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
                 <label>Your offer or value proposition<textarea value={editCampaignForm.offer} onChange={(e) => updateEditField("offer", e.target.value)} placeholder="What makes this conversation valuable for the recipient?" rows={3} /></label>
                 <label>Voice and tone<input value={editCampaignForm.tone} onChange={(e) => updateEditField("tone", e.target.value)} /></label>
-                <label>Connection request note <span className="fieldHint">{editCampaignForm.connectionNote.length}/300</span><textarea value={editCampaignForm.connectionNote} maxLength={300} onChange={(e) => updateEditField("connectionNote", e.target.value)} rows={3} /></label>
+                <label>Connection request note <span className="fieldHint">{editCampaignForm.connectionNote.length}/300</span><textarea ref={(el) => { noteRefs.current.editConnectionNote = el; }} value={editCampaignForm.connectionNote} maxLength={300} onChange={(e) => updateEditField("connectionNote", e.target.value)} rows={3} /></label>
                 <div className="placeholderRow"><span>Insert placeholder</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("connectionNote", token)}>{label}</button>)}</div>
                 <fieldset className="followUpChoice"><legend>Number of follow-ups</legend>{[1, 2, 3].map((count) => <button type="button" className={editCampaignForm.followUpCount === count ? "selected" : ""} key={count} onClick={() => setEditCampaignForm({ ...editCampaignForm, followUpCount: count })}>{count}</button>)}</fieldset>
-                {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={editCampaignForm.followUpDelays[index]} onChange={(e) => updateEditFollowUpDelay(index, e.target.value)} /> day{editCampaignForm.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
+                {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea ref={(el) => { noteRefs.current[`editFollowUp-${index}`] = el; }} value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={editCampaignForm.followUpDelays[index]} onChange={(e) => updateEditFollowUpDelay(index, e.target.value)} /> day{editCampaignForm.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
                 <label>Supporting context <span className="fieldHint">Optional</span><textarea value={editCampaignForm.messagingStrategy} onChange={(e) => updateEditField("messagingStrategy", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3} /></label>
                 {editCampaignError && <p className="formError" role="alert">{editCampaignError}</p>}
                 <div className="waalaxyActions">
