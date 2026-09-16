@@ -18,8 +18,14 @@ const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed
 // arbitrary colors.
 const LEAD_CATEGORY_COLORS = ["#C2410C", "#3B5BDB", "#1F8F5D", "#6D3FD1", "#B42318", "#0F766E", "#A16207", "#656c68"];
 
+// Default gap (in days) before each follow-up goes out -- a reasonable
+// cold-outreach cadence to start from, not a constraint on what a client
+// can choose. Follow-up 1's delay counts from the connection request being
+// accepted; every later follow-up's delay counts from the one before it.
+const DEFAULT_FOLLOW_UP_DELAYS = [3, 3, 3];
+
 function defaultCampaignForm() {
-  return { name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] };
+  return { name: "", goal: "Book qualified discovery calls", offer: "", tone: "Warm, credible, and concise", message: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""], followUpDelays: [...DEFAULT_FOLLOW_UP_DELAYS] };
 }
 
 const CLIENT_FAQS = [
@@ -148,7 +154,7 @@ export default function Home() {
   const [waalaxySyncInfo, setWaalaxySyncInfo] = useState<{ status: string; error?: string | null; imported?: number; syncedAt?: string | null } | null>(null);
   const [waalaxySaving, setWaalaxySaving] = useState(false);
   const [waalaxyPushing, setWaalaxyPushing] = useState(false);
-  type CampaignBrief = { goal: string; offer: string; tone: string; messagingStrategy: string; connectionNote: string; followUps: string[] };
+  type CampaignBrief = { goal: string; offer: string; tone: string; messagingStrategy: string; connectionNote: string; followUps: string[]; followUpDelays: number[] };
   const [campaignBrief, setCampaignBrief] = useState<CampaignBrief | null>(null);
   const [campaignMetrics, setCampaignMetrics] = useState({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
   const [metricsSaving, setMetricsSaving] = useState(false);
@@ -189,7 +195,7 @@ export default function Home() {
   // never open at once, but keeping them independent avoids either leaking
   // stale data into the other).
   const [editingCampaign, setEditingCampaign] = useState(false);
-  const [editCampaignForm, setEditCampaignForm] = useState<CampaignBrief & { followUpCount: number }>({ goal: "", offer: "", tone: "", messagingStrategy: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""] });
+  const [editCampaignForm, setEditCampaignForm] = useState<CampaignBrief & { followUpCount: number }>({ goal: "", offer: "", tone: "", messagingStrategy: "", connectionNote: "", followUpCount: 1, followUps: ["", "", ""], followUpDelays: [...DEFAULT_FOLLOW_UP_DELAYS] });
   const [editCampaignSaving, setEditCampaignSaving] = useState(false);
   const [editCampaignError, setEditCampaignError] = useState("");
   const activeClientCampaignIdRef = useRef<string | null>(null);
@@ -233,6 +239,10 @@ export default function Home() {
     setForm((current) => field === "connectionNote" ? { ...current, connectionNote: `${current.connectionNote}${current.connectionNote ? " " : ""}${token}` } : { ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? `${message}${message ? " " : ""}${token}` : message) });
   }
   function updateFollowUp(index: number, value: string) { setForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) })); }
+  function updateFollowUpDelay(index: number, value: string) {
+    const days = Math.max(1, Math.min(60, Number(value) || 1));
+    setForm((current) => ({ ...current, followUpDelays: current.followUpDelays.map((delay, delayIndex) => delayIndex === index ? days : delay) }));
+  }
   async function chooseLeadFile(file: File | null) {
     setSubmitError("");
     setColumnMapping(null);
@@ -389,7 +399,7 @@ export default function Home() {
         const { error } = await supabase.storage.from("outreach-leads").upload(storagePath, leadFile);
         if (error) throw error;
       }
-      const { data: campaign, error } = await supabase.schema("outreach").from("campaigns").insert({ client_id: userId, name: form.name || "Untitled campaign", goal: form.goal, offer: form.offer, tone: form.tone, messaging_strategy: form.message, connection_note: form.connectionNote, follow_up_count: form.followUpCount, follow_up_messages: form.followUps.slice(0, form.followUpCount), lead_count: leads.length, status: "submitted", progress: 15, submitted_at: new Date().toISOString() }).select("id").single();
+      const { data: campaign, error } = await supabase.schema("outreach").from("campaigns").insert({ client_id: userId, name: form.name || "Untitled campaign", goal: form.goal, offer: form.offer, tone: form.tone, messaging_strategy: form.message, connection_note: form.connectionNote, follow_up_count: form.followUpCount, follow_up_messages: form.followUps.slice(0, form.followUpCount), follow_up_delay_days: form.followUpDelays.slice(0, form.followUpCount), lead_count: leads.length, status: "submitted", progress: 15, submitted_at: new Date().toISOString() }).select("id").single();
       if (error || !campaign) throw error || new Error("Unable to create the campaign.");
       campaignId = campaign.id;
       if (leadFile) {
@@ -602,7 +612,7 @@ export default function Home() {
       fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
       fetch("/api/admin/waalaxy/campaigns", { headers }),
       fetch("/api/admin/waalaxy/lists", { headers }),
-      supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
+      supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
     ]);
       const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
     if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
@@ -625,6 +635,7 @@ export default function Home() {
       setCampaignBrief({
         goal: row.goal || "", offer: row.offer || "", tone: row.tone || "", messagingStrategy: row.messaging_strategy || "",
         connectionNote: row.connection_note || "", followUps: (row.follow_up_messages || []).slice(0, row.follow_up_count || 1),
+        followUpDelays: (row.follow_up_delay_days && row.follow_up_delay_days.length ? row.follow_up_delay_days : DEFAULT_FOLLOW_UP_DELAYS).slice(0, row.follow_up_count || 1),
       });
       setCampaignMetrics({
         connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0,
@@ -790,7 +801,7 @@ export default function Home() {
       const supabase = createClient();
       const [campaignResult, leadStatusesResult] = await Promise.all([
         supabase.schema("outreach").from("campaigns")
-          .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
+          .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
           .eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
           .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id")
@@ -804,6 +815,7 @@ export default function Home() {
       setClientCampaignDetail({
         goal: data.goal || "", offer: data.offer || "", tone: data.tone || "", messagingStrategy: data.messaging_strategy || "",
         connectionNote: data.connection_note || "", followUps: (data.follow_up_messages || []).slice(0, data.follow_up_count || 1),
+        followUpDelays: (data.follow_up_delay_days && data.follow_up_delay_days.length ? data.follow_up_delay_days : DEFAULT_FOLLOW_UP_DELAYS).slice(0, data.follow_up_count || 1),
         connectionsSent: data.connections_sent || 0, connectionsAccepted: data.connections_accepted || 0,
         repliesReceived: data.replies_received || 0, positiveReplies: data.positive_replies || 0, submittedAt: data.submitted_at,
       });
@@ -829,15 +841,20 @@ export default function Home() {
     if (!clientCampaignDetail) return;
     const followUpCount = Math.max(1, Math.min(3, clientCampaignDetail.followUps.length || 1));
     const followUps = [...clientCampaignDetail.followUps, "", "", ""].slice(0, 3);
-    setEditCampaignForm({ goal: clientCampaignDetail.goal, offer: clientCampaignDetail.offer, tone: clientCampaignDetail.tone, messagingStrategy: clientCampaignDetail.messagingStrategy, connectionNote: clientCampaignDetail.connectionNote, followUpCount, followUps });
+    const followUpDelays = [...clientCampaignDetail.followUpDelays, ...DEFAULT_FOLLOW_UP_DELAYS].slice(0, 3);
+    setEditCampaignForm({ goal: clientCampaignDetail.goal, offer: clientCampaignDetail.offer, tone: clientCampaignDetail.tone, messagingStrategy: clientCampaignDetail.messagingStrategy, connectionNote: clientCampaignDetail.connectionNote, followUpCount, followUps, followUpDelays });
     setEditCampaignError("");
     setEditingCampaign(true);
   }
-  function updateEditField(field: keyof Omit<CampaignBrief, "followUps">, value: string) {
+  function updateEditField(field: keyof Omit<CampaignBrief, "followUps" | "followUpDelays">, value: string) {
     setEditCampaignForm((current) => ({ ...current, [field]: value }));
   }
   function updateEditFollowUp(index: number, value: string) {
     setEditCampaignForm((current) => ({ ...current, followUps: current.followUps.map((message, messageIndex) => messageIndex === index ? value : message) }));
+  }
+  function updateEditFollowUpDelay(index: number, value: string) {
+    const days = Math.max(1, Math.min(60, Number(value) || 1));
+    setEditCampaignForm((current) => ({ ...current, followUpDelays: current.followUpDelays.map((delay, delayIndex) => delayIndex === index ? days : delay) }));
   }
   function addEditPlaceholder(field: "connectionNote" | "followUp", token: string, index = 0) {
     setEditCampaignForm((current) => field === "connectionNote"
@@ -860,6 +877,7 @@ export default function Home() {
         body: JSON.stringify({
           goal: editCampaignForm.goal, offer: editCampaignForm.offer, tone: editCampaignForm.tone, messagingStrategy: editCampaignForm.messagingStrategy,
           connectionNote: editCampaignForm.connectionNote, followUpCount: editCampaignForm.followUpCount, followUps: editCampaignForm.followUps,
+          followUpDelays: editCampaignForm.followUpDelays,
         }),
       });
       const data = await readJson<{ error?: string }>(response);
@@ -868,6 +886,7 @@ export default function Home() {
       setClientCampaignDetail((current) => current && ({
         ...current, goal: editCampaignForm.goal, offer: editCampaignForm.offer, tone: editCampaignForm.tone, messagingStrategy: editCampaignForm.messagingStrategy,
         connectionNote: editCampaignForm.connectionNote, followUps: editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount),
+        followUpDelays: editCampaignForm.followUpDelays.slice(0, editCampaignForm.followUpCount),
       }));
       setEditingCampaign(false);
     } catch (error) {
@@ -1254,7 +1273,7 @@ export default function Home() {
               <label>Connection request note <span className="fieldHint">{form.connectionNote.length}/300</span><textarea value={form.connectionNote} maxLength={300} onChange={(e) => update("connectionNote", e.target.value)} placeholder="Hi {{first_name}}, I came across your work at {{company}} and would love to connect." rows={3}/></label>
               <div className="placeholderRow"><span>Insert placeholder</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("connectionNote",token)}>{label}</button>)}</div>
               <fieldset className="followUpChoice"><legend>Number of follow-ups</legend>{[1,2,3].map((count) => <button type="button" className={form.followUpCount === count ? "selected" : ""} key={count} onClick={() => setForm({...form,followUpCount:count})}>{count}</button>)}</fieldset>
-              {form.followUps.slice(0,form.followUpCount).map((followUp,index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(event) => updateFollowUp(index,event.target.value)} placeholder={index === 0 ? "Thanks for connecting, {{first_name}}. I wanted to share…" : "A short, useful follow-up with a clear next step."} rows={3}/></label><div className="placeholderRow"><span>Personalize</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("followUp",token,index)}>{label}</button>)}</div></div>)}
+              {form.followUps.slice(0,form.followUpCount).map((followUp,index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(event) => updateFollowUp(index,event.target.value)} placeholder={index === 0 ? "Thanks for connecting, {{first_name}}. I wanted to share…" : "A short, useful follow-up with a clear next step."} rows={3}/></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={form.followUpDelays[index]} onChange={(event) => updateFollowUpDelay(index,event.target.value)} /> day{form.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name","{{first_name}}"],["Last name","{{last_name}}"],["Company","{{company}}"]].map(([label,token]) => <button type="button" key={token} onClick={() => addPlaceholder("followUp",token,index)}>{label}</button>)}</div></div>)}
               <label>Supporting context <span className="fieldHint">Optional</span><textarea value={form.message} onChange={(e) => update("message", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3}/></label>
               <div className="reviewStrip"><span>Campaign</span><strong>{form.name || "Untitled campaign"}</strong><span>Sequence</span><strong>Connection note + {form.followUpCount} follow-up{form.followUpCount > 1 ? "s" : ""}</strong></div>
               {step === 3 && submitError && <p className="formError" role="alert">{submitError}</p>}
@@ -1298,7 +1317,7 @@ export default function Home() {
               </div>
               {campaignBrief.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{campaignBrief.messagingStrategy}</p></div>}
               <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "-"}</p></div>
-              {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
+              {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1} <em className="briefDelay">· {campaignBrief.followUpDelays[index] ?? 3} day{(campaignBrief.followUpDelays[index] ?? 3) === 1 ? "" : "s"} after {index === 0 ? "connecting" : `follow-up ${index}`}</em></span><p>{message || "-"}</p></div>)}
               {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
               <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(waalaxyModal.id, waalaxyModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
             </>}
@@ -1368,7 +1387,7 @@ export default function Home() {
                 </div>
                 {clientCampaignDetail.messagingStrategy && <div className="briefField"><span className="briefLabel">Messaging strategy</span><p>{clientCampaignDetail.messagingStrategy}</p></div>}
                 <div className="briefField"><span className="briefLabel">Connection request note</span><p>{clientCampaignDetail.connectionNote || "-"}</p></div>
-                {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1}</span><p>{message || "-"}</p></div>)}
+                {clientCampaignDetail.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1} <em className="briefDelay">· {clientCampaignDetail.followUpDelays[index] ?? 3} day{(clientCampaignDetail.followUpDelays[index] ?? 3) === 1 ? "" : "s"} after {index === 0 ? "connecting" : `follow-up ${index}`}</em></span><p>{message || "-"}</p></div>)}
               </> : <div className="sequenceBuilder">
                 <p className="modalIntro">Editing this campaign flags it for our team to review before we continue outreach with the new messaging.</p>
                 <label>Primary goal<select value={editCampaignForm.goal} onChange={(e) => updateEditField("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
@@ -1377,7 +1396,7 @@ export default function Home() {
                 <label>Connection request note <span className="fieldHint">{editCampaignForm.connectionNote.length}/300</span><textarea value={editCampaignForm.connectionNote} maxLength={300} onChange={(e) => updateEditField("connectionNote", e.target.value)} rows={3} /></label>
                 <div className="placeholderRow"><span>Insert placeholder</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("connectionNote", token)}>{label}</button>)}</div>
                 <fieldset className="followUpChoice"><legend>Number of follow-ups</legend>{[1, 2, 3].map((count) => <button type="button" className={editCampaignForm.followUpCount === count ? "selected" : ""} key={count} onClick={() => setEditCampaignForm({ ...editCampaignForm, followUpCount: count })}>{count}</button>)}</fieldset>
-                {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
+                {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={editCampaignForm.followUpDelays[index]} onChange={(e) => updateEditFollowUpDelay(index, e.target.value)} /> day{editCampaignForm.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
                 <label>Supporting context <span className="fieldHint">Optional</span><textarea value={editCampaignForm.messagingStrategy} onChange={(e) => updateEditField("messagingStrategy", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3} /></label>
                 {editCampaignError && <p className="formError" role="alert">{editCampaignError}</p>}
                 <div className="waalaxyActions">

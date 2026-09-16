@@ -11,7 +11,7 @@ The app has two routes:
 
 ### Client side
 
-- Submit a campaign: goal, offer, tone, connection note, up to 3 follow-ups, and a lead list CSV (with column mapping if the file's headers don't match our template).
+- Submit a campaign: goal, offer, tone, connection note, up to 3 follow-ups (each with its own wait time in days before it sends), and a lead list CSV (with column mapping if the file's headers don't match our template).
 - Track every campaign's status (Submitted → In review → In setup → Live → Completed), acceptance rate, reply rate, and — per lead — whether they've been sent a request, accepted, or replied.
 - Add another batch of leads to a campaign that's already running; duplicates (by LinkedIn URL) are skipped automatically.
 - Edit a campaign's brief and messaging after submission. Doing so posts an alert so the admin team knows to review it before continuing outreach.

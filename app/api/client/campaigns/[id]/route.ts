@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/supabase/require-user";
 
 // Lets a client edit their own campaign's brief and messaging after
 // submission (goal, offer, tone, messaging strategy, connection note,
-// follow-ups) -- previously the FAQ's honest answer was "not directly from
+// follow-ups, and each follow-up's own "wait N days" delay) -- previously
+// the FAQ's honest answer was "not directly from
 // your dashboard yet, reach out to your Myntmore contact." Clients have no
 // direct table UPDATE grant on outreach.campaigns (see the "Admins update
 // campaigns" RLS policy), so this goes through the service-role client with
@@ -24,12 +25,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id: campaignId } = await params;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  const { goal, offer, tone, messagingStrategy, connectionNote, followUpCount, followUps } = body as Record<string, unknown>;
+  const { goal, offer, tone, messagingStrategy, connectionNote, followUpCount, followUps, followUpDelays } = body as Record<string, unknown>;
   if (typeof connectionNote !== "string" || !connectionNote.trim()) return NextResponse.json({ error: "The connection request note can't be empty." }, { status: 400 });
   if (connectionNote.length > 300) return NextResponse.json({ error: "The connection request note must be 300 characters or fewer." }, { status: 400 });
   if (typeof followUpCount !== "number" || !Number.isInteger(followUpCount) || followUpCount < 1 || followUpCount > 3) return NextResponse.json({ error: "Choose 1 to 3 follow-ups." }, { status: 400 });
   if (!Array.isArray(followUps) || followUps.slice(0, followUpCount).some((message) => typeof message !== "string" || !message.trim())) {
     return NextResponse.json({ error: "Every follow-up needs a message." }, { status: 400 });
+  }
+  if (!Array.isArray(followUpDelays) || followUpDelays.slice(0, followUpCount).some((days) => typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 60)) {
+    return NextResponse.json({ error: "Each follow-up's wait time must be between 1 and 60 days." }, { status: 400 });
   }
 
   const { data: campaign, error: campaignError } = await auth.admin.schema("outreach").from("campaigns").select("id,client_id,status").eq("id", campaignId).single();
@@ -45,6 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     connection_note: connectionNote,
     follow_up_count: followUpCount,
     follow_up_messages: followUps.slice(0, followUpCount),
+    follow_up_delay_days: followUpDelays.slice(0, followUpCount),
   }).eq("id", campaignId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 

@@ -378,3 +378,8 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .campaignPageModal .close{top:24px;right:28px}
 @media(max-width:900px){.campaignPageBackdrop{left:76px}}
 @media(max-width:640px){.campaignPageBackdrop{left:0;top:66px}.campaignPageModal .modalBody{padding:70px 20px 40px}}
+/* Per-follow-up "wait N days" control, shown under each follow-up's own
+   textarea in both the new-campaign wizard and the edit-brief form. */
+.followUpDelayLabel{display:block;margin-top:10px!important;font-size:11px;font-weight:500;color:var(--taupe)}
+.followUpDelayInput{display:inline-block!important;width:48px!important;margin:0 4px!important;padding:4px 6px!important;border:1px solid var(--border)!important;border-radius:7px!important;background:#fff!important;font-size:11px!important;font-weight:700;color:var(--ink);text-align:center}
+.briefDelay{font-weight:500;font-style:normal;text-transform:none;color:var(--taupe);font-size:10px}
