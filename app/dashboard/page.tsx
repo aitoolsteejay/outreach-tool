@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseWaalaxyContactsCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string; connectionsSent: number; connectionsAccepted: number; repliesReceived: number };
-type Account = { id: string; fullName: string; email: string; role: string; createdAt: string };
+type Account = { id: string; fullName: string; email: string; role: string; createdAt: string; accessRevokedAt: string | null };
 type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string; createdBy: string | null };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
@@ -371,16 +371,19 @@ export default function Home() {
         if (profileError || !profileRow) { await supabase.auth.signOut(); window.location.replace("/login"); return; }
         setProfile({ fullName: profileRow.full_name, email: profileRow.email, role: profileRow.role });
         const campaignsPromise = supabase.schema("outreach").from("campaigns").select("id,name,lead_count,status,progress,client_id,submitted_at,connections_sent,connections_accepted,replies_received").order("created_at", { ascending: false });
-        const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at").is("access_revoked_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
+        // Deliberately not filtered to active accounts -- a revoked account
+        // needs to stay visible and selectable here, or there'd be no way to
+        // reach "Restore access" for it again (see the account modal below).
+        const profilesPromise = profileRow.role === "admin" ? supabase.schema("outreach").from("profiles").select("id,full_name,email,role,created_at,access_revoked_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null });
         const alertsPromise = supabase.schema("outreach").from("campaign_alerts").select("id,client_id,campaign_id,lead_reference,severity,message,resolved,created_at,created_by").order("created_at", { ascending: false });
         const categoriesPromise = profileRow.role === "client" ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", data.user.id).order("position", { ascending: true }) : Promise.resolve({ data: [], error: null });
         const [campaignsResult, profilesResult, alertsResult, categoriesResult] = await Promise.all([campaignsPromise, profilesPromise, alertsPromise, categoriesPromise]);
         const loadError = campaignsResult.error || profilesResult.error || alertsResult.error || categoriesResult.error;
         if (loadError) throw loadError;
         const allProfiles = profilesResult.data || [];
-        setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at })));
-        setClientCount(allProfiles.filter((account) => account.role === "client").length);
-        const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, account.full_name || account.email]));
+        setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at, accessRevokedAt: account.access_revoked_at })));
+        setClientCount(allProfiles.filter((account) => account.role === "client" && !account.access_revoked_at).length);
+        const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, `${account.full_name || account.email}${account.access_revoked_at ? " (access revoked)" : ""}`]));
         setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at, connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0, repliesReceived: row.replies_received || 0 })));
         setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at, createdBy: alert.created_by })));
         if (profileRow.role === "client") {
@@ -971,10 +974,19 @@ export default function Home() {
   function updateLeadCategoryField(id: string, field: "name" | "color", value: string) {
     setLeadCategories((current) => current.map((category) => category.id === id ? { ...category, [field]: value } : category));
   }
-  async function commitLeadCategoryUpdate(id: string) {
+  // `overrides` lets a caller that just fired an optimistic
+  // updateLeadCategoryField pass the new value straight through, instead of
+  // this function re-reading `leadCategories` -- React batches that state
+  // update, so a color-swatch click (which calls updateLeadCategoryField and
+  // this function back to back in the same synchronous handler) would
+  // otherwise still see the PREVIOUS color here and commit that to the
+  // database, silently reverting on the next reload despite the UI already
+  // showing the new one.
+  async function commitLeadCategoryUpdate(id: string, overrides?: Partial<Pick<LeadCategory, "name" | "color">>) {
     const category = leadCategories.find((current) => current.id === id);
     if (!category) return;
-    const trimmedName = category.name.trim();
+    const trimmedName = (overrides?.name ?? category.name).trim();
+    const color = overrides?.color ?? category.color;
     if (!trimmedName) { setCategorySettingsError("A category needs a name."); return; }
     if (leadCategories.some((other) => other.id !== id && other.name.toLowerCase() === trimmedName.toLowerCase())) {
       setCategorySettingsError("You already have a category with this name.");
@@ -983,7 +995,7 @@ export default function Home() {
     setCategorySettingsSaving(true);
     setCategorySettingsError("");
     try {
-      const { error } = await createClient().schema("outreach").from("lead_categories").update({ name: trimmedName, color: category.color }).eq("id", id);
+      const { error } = await createClient().schema("outreach").from("lead_categories").update({ name: trimmedName, color }).eq("id", id);
       if (error) throw new Error(error.message);
     } catch (error) {
       setCategorySettingsError(error instanceof Error ? error.message : "Unable to save this category.");
@@ -1071,8 +1083,15 @@ export default function Home() {
     activeWaalaxyCampaignIdRef.current = null;
     setWaalaxyModal(null);
   }
+  // Also the mechanism behind "Restore access" (see the button below) --
+  // the server always clears access_revoked_at on any successful role
+  // change (see set_member_access), so re-submitting the account's current
+  // role is enough to restore a revoked account. That's why this only
+  // short-circuits on an unchanged role when the account isn't revoked --
+  // for a revoked one, even a "no-op" role click still needs to go through.
   async function changeAccountRole(newRole: string) {
-    if (!accountModal || newRole === accountModal.role) return;
+    if (!accountModal) return;
+    if (newRole === accountModal.role && !accountModal.accessRevokedAt) return;
     setAccountSaving(true);
     setAccountError("");
     try {
@@ -1080,8 +1099,8 @@ export default function Home() {
       const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ role: newRole }) });
       const result = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "Unable to update this account.");
-      setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, role: newRole } : account));
-      setAccountModal((current) => current ? { ...current, role: newRole } : current);
+      setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, role: newRole, accessRevokedAt: null } : account));
+      setAccountModal((current) => current ? { ...current, role: newRole, accessRevokedAt: null } : current);
     } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to update this account."); }
     finally { setAccountSaving(false); }
   }
@@ -1095,8 +1114,14 @@ export default function Home() {
       const response = await fetch(`/api/admin/users/${accountModal.id}`, { method: "DELETE", headers });
       const result = await readJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "Unable to remove this account.");
-      setAccounts((current) => current.filter((account) => account.id !== accountModal.id));
-      closeAccountModal();
+      // Kept in the list (not filtered out) and the modal stays open, showing
+      // the now-revoked state -- otherwise a revoked account becomes
+      // permanently unreachable from the UI, with no way back to "Restore
+      // access" short of editing the database directly.
+      const revokedAt = new Date().toISOString();
+      setAccounts((current) => current.map((account) => account.id === accountModal.id ? { ...account, accessRevokedAt: revokedAt } : account));
+      setAccountModal((current) => current ? { ...current, accessRevokedAt: revokedAt } : current);
+      setAccountConfirmRemove(false);
     } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to remove this account."); }
     finally { setAccountSaving(false); }
   }
@@ -1203,7 +1228,7 @@ export default function Home() {
         <header className="topbar"><div><p className="eyebrow">{isAdmin ? "ADMIN WORKSPACE" : "OUTREACH WORKSPACE"}</p><h1>{isAdmin ? (adminView === "users" ? "User accounts" : "Operations") : "Campaigns"}</h1></div><button className="primary" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "＋ Create client account" : "＋ New campaign"}</button></header>
         {workspaceError && <p className="formError workspaceError" role="alert">We couldn&apos;t load your workspace: {workspaceError} <button type="button" onClick={() => window.location.reload()}>Retry</button></p>}
         {isAdmin ? adminView === "users" ? <div className="adminDashboard">
-          <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <div className="accountRow" key={account.id} role="button" tabIndex={0} aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountModal(account); } }}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
+          <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <div className="accountRow" key={account.id} role="button" tabIndex={0} aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountModal(account); } }}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><div className="accountRoleGroup"><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span>{account.accessRevokedAt && <span className="accountRole revoked">Revoked</span>}</div><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
           <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select><button type="button" className="secondary" disabled={campaignsExportLoading} onClick={downloadAllCampaigns}>{campaignsExportLoading ? "Preparing…" : "Download all campaigns"}</button></div></div>{campaignsExportError && <p className="formError" role="alert" style={{ margin: "0 25px 14px" }}>{campaignsExportError}</p>}<div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWaalaxyModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
@@ -1523,6 +1548,7 @@ export default function Home() {
             <p className="eyebrow">MANAGE ACCOUNT</p>
             <h2 id="account-title">{accountModal.fullName}</h2>
             <p className="modalIntro">{accountModal.email} · Joined {new Date(accountModal.createdAt).toLocaleDateString()}</p>
+            {accountModal.accessRevokedAt && <div className="alertItem warning"><Icon name="alertTriangle" size={15} /><div><strong>Access revoked</strong><span>Revoked {new Date(accountModal.accessRevokedAt).toLocaleDateString()}. Their historical campaigns are preserved.</span></div><button className="secondary" disabled={accountSaving} onClick={() => changeAccountRole(accountModal.role)}>{accountSaving ? "Restoring…" : "Restore access"}</button></div>}
             <h3 className="modalSectionTitle">Account type</h3>
             <fieldset className="accountType"><legend className="srOnly">Account type</legend>
               <button type="button" className={accountModal.role === "client" ? "selected" : ""} disabled={accountSaving} onClick={() => changeAccountRole("client")}><b>Client</b><span>Submit and track campaigns</span></button>
@@ -1562,10 +1588,12 @@ export default function Home() {
               <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(accountModal.id, null)}>{alertPosting ? "Posting…" : "Post alert"}</button>
               {accountAlerts.length > 0 && <div className="alertList">{accountAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>Account-wide</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
             </>}
-            <div className="waalaxyDivider" />
-            <h3 className="modalSectionTitle">Remove access</h3>
-            <p className="modalIntro">Revokes this person&apos;s access to Outreach only. Their Myntmore login for other tools is unaffected.</p>
-            <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
+            {!accountModal.accessRevokedAt && <>
+              <div className="waalaxyDivider" />
+              <h3 className="modalSectionTitle">Remove access</h3>
+              <p className="modalIntro">Revokes this person&apos;s access to Outreach only. Their Myntmore login for other tools is unaffected.</p>
+              <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
+            </>}
           </div>
         </section>
       </div>}
@@ -1601,7 +1629,7 @@ export default function Home() {
                 <div className="categoryRow" key={category.id}>
                   <div className="categorySwatches">
                     {LEAD_CATEGORY_COLORS.map((color) => (
-                      <button type="button" key={color} className={`categorySwatch ${category.color === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Set ${category.name} to this color`} onClick={() => { updateLeadCategoryField(category.id, "color", color); void commitLeadCategoryUpdate(category.id); }} />
+                      <button type="button" key={color} className={`categorySwatch ${category.color === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Set ${category.name} to this color`} onClick={() => { updateLeadCategoryField(category.id, "color", color); void commitLeadCategoryUpdate(category.id, { color }); }} />
                     ))}
                   </div>
                   <input value={category.name} onChange={(e) => updateLeadCategoryField(category.id, "name", e.target.value)} onBlur={() => commitLeadCategoryUpdate(category.id)} aria-label="Label name" />

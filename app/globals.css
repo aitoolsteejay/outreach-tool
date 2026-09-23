@@ -383,3 +383,9 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .followUpDelayLabel{display:block;margin-top:10px!important;font-size:11px;font-weight:500;color:var(--taupe)}
 .followUpDelayInput{display:inline-block!important;width:48px!important;margin:0 4px!important;padding:4px 6px!important;border:1px solid var(--border)!important;border-radius:7px!important;background:#fff!important;font-size:11px!important;font-weight:700;color:var(--ink);text-align:center}
 .briefDelay{font-weight:500;font-style:normal;text-transform:none;color:var(--taupe);font-size:10px}
+/* Wraps the role badge (+ a "Revoked" badge alongside it, for a revoked
+   account) as one flex group so it still occupies .accountRow's existing
+   fixed grid column, instead of an extra grid item shifting every column
+   after it. */
+.accountRoleGroup{display:flex;flex-direction:column;gap:4px;justify-self:start}
+.accountRole.revoked{color:#B42318;background:#FDE7F1}
