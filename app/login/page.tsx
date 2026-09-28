@@ -22,9 +22,8 @@ export default function LoginPage() {
     supabase.schema("outreach").rpc("has_admin").then(({ data, error: lookupError }) => {
       if (!lookupError) setCanCreateAdmin(!data);
     });
-    // Already signed in (e.g. followed an old bookmark, or landed here from
-    // the marketing site's "Log in" before that check finished) -- skip
-    // straight to the dashboard instead of asking for credentials again.
+    // Already signed in (e.g. followed an old bookmark) -- skip straight to
+    // the dashboard instead of asking for credentials again.
     // The dashboard itself re-validates the session/profile on mount, so
     // this is just avoiding an unnecessary extra step, not the source of
     // truth for access.

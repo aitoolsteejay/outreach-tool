@@ -3,12 +3,11 @@ import { Inter } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
-// The single typeface for the whole site -- the landing page (app/page.tsx)
-// and the dashboard/login tool (app/globals.css) both resolve their heading
-// and body font tokens to this same variable, so the two feel like one
-// product. Self-hosted via next/font (no external request, no layout
-// shift) rather than a Google Fonts <link> tag. IBM Plex Mono stays on its
-// own <link> below -- it's used for genuinely monospaced/data display
+// The single typeface for the whole site -- the login page and dashboard
+// tool (both styled via app/globals.css) resolve their heading and body
+// font tokens to this same variable. Self-hosted via next/font (no external
+// request, no layout shift) rather than a Google Fonts <link> tag. IBM Plex
+// Mono stays on its own <link> below -- it's used for genuinely monospaced/data display
 // (the CSV mockup, connection-note token pills), a different job than the
 // site's general typeface.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
