@@ -185,6 +185,8 @@ export type WaalaxyMetricsSummary = { total: number; sent: number; accepted: num
 export type WaalaxyContactRow = {
   linkedinUrl: string; firstName: string; lastName: string; company: string;
   connectionRequestDate: string; connectedAt: string; repliedAt: string;
+  replyText?: string; conversationUrl?: string; jobTitle?: string;
+  email?: string; phone?: string; location?: string;
 };
 
 // The columns Waalaxy's own contact export carries per lead -- matched by
@@ -193,11 +195,13 @@ export type WaalaxyContactRow = {
 const WAALAXY_COLUMNS = {
   linkedinUrl: "linkedinurl", firstName: "firstname", lastName: "lastname", company: "company_name",
   sent: "connectionrequestdate", accepted: "connectedat", replied: "lastreplydetecteddate",
+  reply: "lastreplydetected", conversationUrl: "linkedinconversationlink",
+  jobTitle: "job_title", occupation: "occupation",
+  linkedinEmail: "linkedinemail", proEmail: "proemail",
+  phone: "phonenumbers", location: "location",
 } as const;
-// Only these three are required -- the rest (name, company) are cosmetic for
-// the client's lead list and just fall back to blank if the export is
-// missing them, rather than blocking the whole upload over a column we don't
-// strictly need.
+// Only these three are required -- the rest (name, company, reply, etc.)
+// are cosmetic or contextual and just fall back to blank if missing.
 const WAALAXY_REQUIRED_COLUMNS: [key: keyof typeof WAALAXY_COLUMNS, label: string][] = [
   ["sent", "connectionRequestDate"], ["accepted", "connectedAt"], ["replied", "lastReplyDetectedDate"],
 ];
@@ -205,9 +209,11 @@ const WAALAXY_REQUIRED_COLUMNS: [key: keyof typeof WAALAXY_COLUMNS, label: strin
 // Turns a raw Waalaxy contact export (one row per lead currently in the
 // campaign, unrelated in shape to our own lead-upload CSV) into both the
 // aggregate counts campaign metrics are built from, and the per-lead rows
-// behind the client's individual lead-status view: a lead counts as sent
+// behind the campaign's individual lead-status and replies view: a lead counts as sent
 // once it has a connection-request date, accepted once it has a
 // connected-at date, and replied once it has a last-reply-detected date.
+// Captures reply messages, direct conversation links, and contact info so
+// both admins and clients can see and act on replies directly.
 // Admin re-uploads this export whenever they want a campaign refreshed,
 // rather than counting -- or copying per-lead status -- by hand.
 export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetricsSummary; leads: WaalaxyContactRow[] } {
@@ -219,6 +225,10 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
   if (rows.length === 0) throw new Error("This export has no leads in it.");
   const sentIndex = indexOf("sent"), acceptedIndex = indexOf("accepted"), repliedIndex = indexOf("replied");
   const linkedinIndex = indexOf("linkedinUrl"), firstNameIndex = indexOf("firstName"), lastNameIndex = indexOf("lastName"), companyIndex = indexOf("company");
+  const replyIndex = indexOf("reply"), conversationIndex = indexOf("conversationUrl");
+  const jobTitleIndex = indexOf("jobTitle"), occupationIndex = indexOf("occupation");
+  const linkedinEmailIndex = indexOf("linkedinEmail"), proEmailIndex = indexOf("proEmail");
+  const phoneIndex = indexOf("phone"), locationIndex = indexOf("location");
   const cell = (row: string[], index: number) => (index === -1 ? "" : (row[index] || "").trim());
   let sent = 0, accepted = 0, replied = 0;
   const leads: WaalaxyContactRow[] = [];
@@ -231,7 +241,29 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
     // A row with no LinkedIn URL can't be matched back to a lead later (it's
     // our upsert key), so it still counts toward the aggregate totals above
     // but is left out of the per-lead list rather than stored unreachably.
-    if (linkedinUrl) leads.push({ linkedinUrl, firstName: cell(row, firstNameIndex), lastName: cell(row, lastNameIndex), company: cell(row, companyIndex), connectionRequestDate, connectedAt, repliedAt });
+    if (linkedinUrl) {
+      const replyText = cell(row, replyIndex);
+      const conversationUrl = cell(row, conversationIndex);
+      const jobTitle = cell(row, jobTitleIndex) || cell(row, occupationIndex);
+      const email = cell(row, linkedinEmailIndex) || cell(row, proEmailIndex);
+      const phone = cell(row, phoneIndex);
+      const location = cell(row, locationIndex);
+      leads.push({
+        linkedinUrl,
+        firstName: cell(row, firstNameIndex),
+        lastName: cell(row, lastNameIndex),
+        company: cell(row, companyIndex),
+        connectionRequestDate,
+        connectedAt,
+        repliedAt,
+        ...(replyText ? { replyText } : {}),
+        ...(conversationUrl ? { conversationUrl } : {}),
+        ...(jobTitle ? { jobTitle } : {}),
+        ...(email ? { email } : {}),
+        ...(phone ? { phone } : {}),
+        ...(location ? { location } : {}),
+      });
+    }
   }
   // De-duplicated by linkedin_url (case/whitespace-insensitively) rather
   // than returned as-is: this feeds a single multi-row upsert keyed on

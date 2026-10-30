@@ -165,3 +165,16 @@ test("parseWaalaxyContactsCsv de-dupes leads by linkedin_url (case/whitespace-in
   assert.equal(amara?.connectedAt, "2025-11-22");
   assert.equal(amara?.repliedAt, "2025-11-24");
 });
+
+test("parseWaalaxyContactsCsv extracts reply text, conversation link, job title, and contact details", () => {
+  const csv = "firstName,lastName,company_name,linkedinUrl,occupation,location,linkedinEmail,phoneNumbers,connectedAt,connectionRequestDate,lastReplyDetectedDate,lastReplyDetected,linkedInConversationLink\n"
+    + "Udaya Kumar,V.,Mac-N-Hom,https://linkedin.com/in/udaya,CMD,Kochi India,udaya@example.com,+919846121973,2026-10-23,2026-10-22,2026-10-23,\"Glad to connect, here is our catalog\",https://app.waalaxy.com/inbox/conversations/123\n";
+  const { summary, leads } = parseWaalaxyContactsCsv(csv);
+  assert.deepEqual(summary, { total: 1, sent: 1, accepted: 1, replied: 1 });
+  assert.equal(leads[0].replyText, "Glad to connect, here is our catalog");
+  assert.equal(leads[0].conversationUrl, "https://app.waalaxy.com/inbox/conversations/123");
+  assert.equal(leads[0].jobTitle, "CMD");
+  assert.equal(leads[0].email, "udaya@example.com");
+  assert.equal(leads[0].phone, "+919846121973");
+  assert.equal(leads[0].location, "Kochi India");
+});

@@ -19,12 +19,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: lead, error: leadError } = await auth.admin.schema("outreach").from("lead_statuses").select("id,client_id").eq("id", leadStatusId).single();
   if (leadError || !lead) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
-  if (lead.client_id !== auth.userId) return NextResponse.json({ error: "This lead doesn't belong to you." }, { status: 403 });
+  if (auth.role !== "admin" && lead.client_id !== auth.userId) return NextResponse.json({ error: "This lead doesn't belong to you." }, { status: 403 });
 
   if (categoryId !== null) {
     const { data: category, error: categoryError } = await auth.admin.schema("outreach").from("lead_categories").select("id,client_id").eq("id", categoryId).single();
     if (categoryError || !category) return NextResponse.json({ error: "Category not found." }, { status: 404 });
-    if (category.client_id !== auth.userId) return NextResponse.json({ error: "This category doesn't belong to you." }, { status: 403 });
+    if (auth.role !== "admin" && category.client_id !== auth.userId) return NextResponse.json({ error: "This category doesn't belong to you." }, { status: 403 });
+    if (auth.role === "admin" && category.client_id !== lead.client_id) return NextResponse.json({ error: "This category doesn't belong to this client." }, { status: 403 });
   }
 
   const { error: updateError } = await auth.admin.schema("outreach").from("lead_statuses").update({ category_id: categoryId }).eq("id", leadStatusId);

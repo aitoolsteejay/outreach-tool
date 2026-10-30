@@ -172,9 +172,37 @@ export default function Home() {
   const [clientCampaignLoading, setClientCampaignLoading] = useState(false);
   const [clientCampaignError, setClientCampaignError] = useState("");
   const [clientCampaignDetail, setClientCampaignDetail] = useState<(CampaignBrief & { connectionsSent: number; connectionsAccepted: number; repliesReceived: number; positiveReplies: number; submittedAt?: string }) | null>(null);
-  type LeadStatus = { id: string; linkedinUrl: string; firstName: string; lastName: string; company: string; connectionRequestDate: string | null; connectedAt: string | null; repliedAt: string | null; categoryId: string | null };
+  type LeadStatus = {
+    id: string;
+    linkedinUrl: string;
+    firstName: string;
+    lastName: string;
+    company: string;
+    connectionRequestDate: string | null;
+    connectedAt: string | null;
+    repliedAt: string | null;
+    categoryId: string | null;
+    replyText?: string | null;
+    conversationUrl?: string | null;
+    jobTitle?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    location?: string | null;
+  };
   const [clientLeadStatuses, setClientLeadStatuses] = useState<LeadStatus[]>([]);
   const [leadStatusExpanded, setLeadStatusExpanded] = useState(false);
+  const [clientLeadStageFilter, setClientLeadStageFilter] = useState("all");
+  const [clientLeadCategoryFilter, setClientLeadCategoryFilter] = useState("all");
+  const [clientLeadSearch, setClientLeadSearch] = useState("");
+  // Admin-facing lead statuses and filter state
+  const [adminLeadStatuses, setAdminLeadStatuses] = useState<LeadStatus[]>([]);
+  const [adminLeadStatusExpanded, setAdminLeadStatusExpanded] = useState(false);
+  const [adminLeadCategories, setAdminLeadCategories] = useState<LeadCategory[]>([]);
+  const [adminLeadCategorySavingId, setAdminLeadCategorySavingId] = useState<string | null>(null);
+  const [adminLeadCategoryError, setAdminLeadCategoryError] = useState("");
+  const [adminLeadStageFilter, setAdminLeadStageFilter] = useState("all");
+  const [adminLeadCategoryFilter, setAdminLeadCategoryFilter] = useState("all");
+  const [adminLeadSearch, setAdminLeadSearch] = useState("");
   // Client-defined lead categories (Hot/Cold/etc, managed from "Lead
   // labels" in the sidebar) -- separate from the date-derived pipeline
   // stage above (Sent/Accepted/Replied), which stays admin-authoritative.
@@ -632,43 +660,76 @@ export default function Home() {
     setMetricsCsvSummary(null);
     setLeadsDownloadError("");
     setLeadsDownloading(false);
+    setAdminLeadStatuses([]);
+    setAdminLeadStatusExpanded(false);
+    setAdminLeadCategories([]);
+    setAdminLeadCategorySavingId(null);
+    setAdminLeadCategoryError("");
+    setAdminLeadStageFilter("all");
+    setAdminLeadCategoryFilter("all");
+    setAdminLeadSearch("");
     try {
       const headers = await authHeader();
       const supabase = createClient();
-      const [linkRes, campaignsRes, listsRes, briefResult] = await Promise.all([
-      fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
-      fetch("/api/admin/waalaxy/campaigns", { headers }),
-      fetch("/api/admin/waalaxy/lists", { headers }),
-      supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
-    ]);
+      const clientId = campaign.clientId || campaigns.find((c) => c.id === campaign.id)?.clientId;
+      const [linkRes, campaignsRes, listsRes, briefResult, leadStatusesResult, categoriesResult] = await Promise.all([
+        fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
+        fetch("/api/admin/waalaxy/campaigns", { headers }),
+        fetch("/api/admin/waalaxy/lists", { headers }),
+        supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
+        supabase.schema("outreach").from("lead_statuses")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
+          .eq("campaign_id", campaign.id)
+          .order("replied_at", { ascending: false, nullsFirst: false })
+          .order("connected_at", { ascending: false, nullsFirst: false }),
+        clientId ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", clientId).order("position") : Promise.resolve({ data: [], error: null }),
+      ]);
       const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
-    if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
-    if (linkRes.ok) {
-      setWaalaxyLink({ waalaxyCampaignId: String(linkData.waalaxy_campaign_id || ""), waalaxyListId: String(linkData.waalaxy_list_id || "") });
-      setWaalaxySyncInfo({ status: String(linkData.waalaxy_sync_status || "not_linked"), error: linkData.waalaxy_sync_error as string | null, imported: linkData.waalaxy_prospects_imported as number, syncedAt: linkData.waalaxy_synced_at as string | null });
-    }
-    if (campaignsRes.status === 501 || listsRes.status === 501) {
-      setWaalaxyNotConfigured(true);
-    } else if (!campaignsRes.ok) {
-      setWaalaxyError(String(campaignsData.error || "Unable to load Waalaxy campaigns."));
-    } else if (!listsRes.ok) {
-      setWaalaxyError(String(listsData.error || "Unable to load Waalaxy prospect lists."));
-    } else {
-      setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
-      setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
-    }
-    if (!briefResult.error && briefResult.data) {
-      const row = briefResult.data;
-      setCampaignBrief({
-        goal: row.goal || "", offer: row.offer || "", tone: row.tone || "", messagingStrategy: row.messaging_strategy || "",
-        connectionNote: row.connection_note || "", followUps: (row.follow_up_messages || []).slice(0, row.follow_up_count || 1),
-        followUpDelays: (row.follow_up_delay_days && row.follow_up_delay_days.length ? row.follow_up_delay_days : DEFAULT_FOLLOW_UP_DELAYS).slice(0, row.follow_up_count || 1),
-      });
-      setCampaignMetrics({
-        connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0,
-        repliesReceived: row.replies_received || 0, positiveReplies: row.positive_replies || 0,
-      });
-    }
+      if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+      if (linkRes.ok) {
+        setWaalaxyLink({ waalaxyCampaignId: String(linkData.waalaxy_campaign_id || ""), waalaxyListId: String(linkData.waalaxy_list_id || "") });
+        setWaalaxySyncInfo({ status: String(linkData.waalaxy_sync_status || "not_linked"), error: linkData.waalaxy_sync_error as string | null, imported: linkData.waalaxy_prospects_imported as number, syncedAt: linkData.waalaxy_synced_at as string | null });
+      }
+      if (campaignsRes.status === 501 || listsRes.status === 501) {
+        setWaalaxyNotConfigured(true);
+      } else if (!campaignsRes.ok) {
+        setWaalaxyError(String(campaignsData.error || "Unable to load Waalaxy campaigns."));
+      } else if (!listsRes.ok) {
+        setWaalaxyError(String(listsData.error || "Unable to load Waalaxy prospect lists."));
+      } else {
+        setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
+        setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
+      }
+      if (!briefResult.error && briefResult.data) {
+        const row = briefResult.data;
+        setCampaignBrief({
+          goal: row.goal || "", offer: row.offer || "", tone: row.tone || "", messagingStrategy: row.messaging_strategy || "",
+          connectionNote: row.connection_note || "", followUps: (row.follow_up_messages || []).slice(0, row.follow_up_count || 1),
+          followUpDelays: (row.follow_up_delay_days && row.follow_up_delay_days.length ? row.follow_up_delay_days : DEFAULT_FOLLOW_UP_DELAYS).slice(0, row.follow_up_count || 1),
+        });
+        setCampaignMetrics({
+          connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0,
+          repliesReceived: row.replies_received || 0, positiveReplies: row.positive_replies || 0,
+        });
+      }
+      if (!leadStatusesResult.error && leadStatusesResult.data) {
+        setAdminLeadStatuses(leadStatusesResult.data.map((row) => ({
+          id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
+          connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
+          replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
+        })));
+      }
+      if (!categoriesResult.error && categoriesResult.data) {
+        if (categoriesResult.data.length > 0) {
+          setAdminLeadCategories((categoriesResult.data as LeadCategory[]).map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
+        } else if (clientId) {
+          const { data: seeded } = await supabase.schema("outreach").from("lead_categories")
+            .insert([{ client_id: clientId, name: "Hot", color: "#C2410C", position: 0 }, { client_id: clientId, name: "Cold", color: "#3B5BDB", position: 1 }])
+            .select("id,name,color,position");
+          if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+          if (seeded) setAdminLeadCategories(seeded.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
+        }
+      }
     } catch (error) {
       if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
       setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy.");
@@ -701,17 +762,51 @@ export default function Home() {
           connection_request_date: lead.connectionRequestDate || null,
           connected_at: lead.connectedAt || null,
           replied_at: lead.repliedAt || null,
+          reply_text: lead.replyText || null,
+          conversation_url: lead.conversationUrl || null,
+          job_title: lead.jobTitle || null,
+          email: lead.email || null,
+          phone: lead.phone || null,
+          location: lead.location || null,
           updated_at: new Date().toISOString(),
         }));
         const { error: leadStatusError } = await createClient().schema("outreach").from("lead_statuses").upsert(rows, { onConflict: "campaign_id,linkedin_url" });
         if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
         if (leadStatusError) throw new Error(leadStatusError.message);
+
+        // Immediately refresh the admin's lead list view so they can see the replies and contacts right away
+        const { data: refreshedLeads, error: refreshError } = await createClient().schema("outreach").from("lead_statuses")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
+          .eq("campaign_id", campaignId)
+          .order("replied_at", { ascending: false, nullsFirst: false })
+          .order("connected_at", { ascending: false, nullsFirst: false });
+        if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+        if (!refreshError && refreshedLeads) {
+          setAdminLeadStatuses(refreshedLeads.map((row) => ({
+            id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
+            connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
+            replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
+          })));
+        }
       }
       setMetricsCsvSummary(summary);
     } catch (error) {
       if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
       setMetricsCsvError(error instanceof Error ? error.message : "Unable to read this file.");
     }
+  }
+  async function chooseAdminLeadCategory(leadStatusId: string, categoryId: string | null) {
+    const previous = adminLeadStatuses.find((lead) => lead.id === leadStatusId)?.categoryId ?? null;
+    setAdminLeadCategorySavingId(leadStatusId);
+    setAdminLeadCategoryError("");
+    setAdminLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId } : lead));
+    try {
+      const { error } = await createClient().schema("outreach").from("lead_statuses").update({ category_id: categoryId }).eq("id", leadStatusId);
+      if (error) throw error;
+    } catch (error) {
+      setAdminLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId: previous } : lead));
+      setAdminLeadCategoryError(error instanceof Error ? error.message : "Unable to save this category.");
+    } finally { setAdminLeadCategorySavingId(null); }
   }
   async function saveCampaignMetrics() {
     if (!waalaxyModal) return;
@@ -815,6 +910,9 @@ export default function Home() {
     setClientCampaignDetail(null);
     setClientLeadStatuses([]);
     setLeadStatusExpanded(false);
+    setClientLeadStageFilter("all");
+    setClientLeadCategoryFilter("all");
+    setClientLeadSearch("");
     setLeadCategoryError("");
     setEditingCampaign(false);
     setEditCampaignError("");
@@ -831,7 +929,7 @@ export default function Home() {
           .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
           .eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
-          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
           .eq("campaign_id", campaign.id)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false }),
@@ -853,6 +951,7 @@ export default function Home() {
         setClientLeadStatuses((leadStatusesResult.data || []).map((row) => ({
           id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
           connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
+          replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
         })));
       }
     } catch (error) {
@@ -1336,9 +1435,9 @@ export default function Home() {
         </section>
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
-      {waalaxyModal && <div className="modalBackdrop">
+      {waalaxyModal && <div className="modalBackdrop campaignPageBackdrop">
         <button className="modalDismiss" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign" />
-        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="waalaxy-title">
+        <section className="modal campaignPageModal" role="dialog" aria-modal="true" aria-labelledby="waalaxy-title">
           <button className="close" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign">×</button>
           <div className="modalBody">
             <p className="eyebrow">MANAGE CAMPAIGN</p>
@@ -1397,6 +1496,150 @@ export default function Home() {
             </div>
             {metricsError && <p className="formError" role="alert">{metricsError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
+            <div className="waalaxyDivider" />
+            <h3 className="modalSectionTitle">Leads &amp; Conversations</h3>
+            {adminLeadStatuses.length === 0 ? (
+              <p className="modalIntro">Upload a Waalaxy contact export above to view lead replies, contact details, and conversation links here.</p>
+            ) : (() => {
+              const query = adminLeadSearch.trim().toLowerCase();
+              const filtered = adminLeadStatuses.filter((lead) => {
+                const stage = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                if (adminLeadStageFilter !== "all" && stage !== adminLeadStageFilter) return false;
+                if (adminLeadCategoryFilter === "unlabeled") {
+                  if (lead.categoryId) return false;
+                } else if (adminLeadCategoryFilter !== "all") {
+                  if (lead.categoryId !== adminLeadCategoryFilter) return false;
+                }
+                if (query) {
+                  const match = `${lead.firstName} ${lead.lastName} ${lead.company} ${lead.jobTitle || ""} ${lead.replyText || ""} ${lead.email || ""} ${lead.phone || ""} ${lead.location || ""}`.toLowerCase();
+                  if (!match.includes(query)) return false;
+                }
+                return true;
+              });
+
+              const allCount = adminLeadStatuses.length;
+              const repliedCount = adminLeadStatuses.filter((l) => Boolean(l.repliedAt)).length;
+              const acceptedCount = adminLeadStatuses.filter((l) => Boolean(l.connectedAt) && !l.repliedAt).length;
+              const sentCount = adminLeadStatuses.filter((l) => Boolean(l.connectionRequestDate) && !l.connectedAt && !l.repliedAt).length;
+              const pendingCount = adminLeadStatuses.filter((l) => !l.connectionRequestDate && !l.connectedAt && !l.repliedAt).length;
+
+              return (
+                <>
+                  <div className="sectionHeadRow" style={{ marginTop: 0 }}>
+                    <p className="modalIntro" style={{ margin: 0 }}>
+                      Showing {filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""} leads. Categorize leads or inspect their replies below.
+                    </p>
+                    {filtered.length > 5 && (
+                      <button type="button" className="expandToggle" onClick={() => setAdminLeadStatusExpanded((c) => !c)}>
+                        {adminLeadStatusExpanded ? "Show less" : "Expand all"}
+                      </button>
+                    )}
+                  </div>
+                  {adminLeadCategoryError && <p className="formError" role="alert">{adminLeadCategoryError}</p>}
+
+                  <div className="leadFilterBar">
+                    <div className="leadFilterRow">
+                      <div className="leadFilterTabs">
+                        <button type="button" className={`leadFilterTab ${adminLeadStageFilter === "all" ? "active" : ""}`} onClick={() => setAdminLeadStageFilter("all")}>All ({allCount})</button>
+                        <button type="button" className={`leadFilterTab ${adminLeadStageFilter === "replied" ? "active" : ""}`} onClick={() => setAdminLeadStageFilter("replied")}>💬 Replied ({repliedCount})</button>
+                        <button type="button" className={`leadFilterTab ${adminLeadStageFilter === "accepted" ? "active" : ""}`} onClick={() => setAdminLeadStageFilter("accepted")}>✓ Accepted ({acceptedCount})</button>
+                        <button type="button" className={`leadFilterTab ${adminLeadStageFilter === "sent" ? "active" : ""}`} onClick={() => setAdminLeadStageFilter("sent")}>Sent ({sentCount})</button>
+                        {pendingCount > 0 && <button type="button" className={`leadFilterTab ${adminLeadStageFilter === "pending" ? "active" : ""}`} onClick={() => setAdminLeadStageFilter("pending")}>Not yet sent ({pendingCount})</button>}
+                      </div>
+                      <select
+                        className="leadCategorySelect"
+                        value={adminLeadCategoryFilter}
+                        onChange={(e) => setAdminLeadCategoryFilter(e.target.value)}
+                        style={{ maxWidth: 140 }}
+                        aria-label="Filter by label"
+                      >
+                        <option value="all">All labels</option>
+                        <option value="unlabeled">Unlabeled</option>
+                        {adminLeadCategories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <input
+                      type="search"
+                      className="leadSearchInput"
+                      placeholder="Search by name, company, job title, reply text, email..."
+                      value={adminLeadSearch}
+                      onChange={(e) => setAdminLeadSearch(e.target.value)}
+                    />
+                  </div>
+
+                  {filtered.length === 0 ? (
+                    <p className="modalIntro" style={{ marginTop: 16 }}>No leads match the selected filters or search.</p>
+                  ) : (
+                    <div className={`leadStatusList ${adminLeadStatusExpanded ? "expanded" : ""}`}>
+                      {filtered.map((lead) => {
+                        const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
+                        const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
+                        const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                        const category = adminLeadCategories.find((current) => current.id === lead.categoryId);
+                        return (
+                          <div className="leadStatusRow" key={lead.id || lead.linkedinUrl}>
+                            <div className="leadStatusHeader">
+                              <div className="leadStatusName">
+                                {lead.linkedinUrl ? (
+                                  <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadNameLink">
+                                    <strong>{name}</strong>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                  </a>
+                                ) : (
+                                  <strong>{name}</strong>
+                                )}
+                              </div>
+                              <div className="leadStatusActions">
+                                <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
+                                <select
+                                  className="leadCategorySelect"
+                                  value={lead.categoryId || ""}
+                                  disabled={adminLeadCategorySavingId === lead.id}
+                                  style={category ? { color: category.color, borderColor: category.color } : undefined}
+                                  aria-label={`Label for ${name}`}
+                                  onChange={(e) => chooseAdminLeadCategory(lead.id, e.target.value || null)}
+                                >
+                                  <option value="">Unlabeled</option>
+                                  {adminLeadCategories.map((option) => (
+                                    <option key={option.id} value={option.id}>{option.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {(lead.company || lead.jobTitle || lead.location || lead.email || lead.phone) && (
+                              <div className="leadMetaDetails">
+                                {lead.jobTitle && <span className="leadMetaChip"><strong>Title:</strong> {lead.jobTitle}</span>}
+                                {lead.company && <span className="leadMetaChip"><strong>Company:</strong> {lead.company}</span>}
+                                {lead.location && <span className="leadMetaChip"><strong>Location:</strong> {lead.location}</span>}
+                                {lead.email && <span className="leadMetaChip contactInfo">✉ {lead.email}</span>}
+                                {lead.phone && <span className="leadMetaChip contactInfo">📞 {lead.phone}</span>}
+                              </div>
+                            )}
+
+                            {(lead.replyText || lead.conversationUrl) && (
+                              <div className="leadReplyBox">
+                                <div className="leadReplyHeader">
+                                  <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
+                                  {lead.conversationUrl && (
+                                    <a href={lead.conversationUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                      View on LinkedIn / Waalaxy ↗
+                                    </a>
+                                  )}
+                                </div>
+                                {lead.replyText && <p className="leadReplyText">{lead.replyText}</p>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Waalaxy sync</h3>
             <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in. No manual CSV upload into Waalaxy.</p>
@@ -1471,30 +1714,148 @@ export default function Home() {
                   <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived ? Math.round((clientCampaignDetail.positiveReplies / clientCampaignDetail.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
                 </div>
               </>}
-              {clientLeadStatuses.length > 0 && <>
-                <div className="waalaxyDivider" />
-                <div className="sectionHeadRow"><h3 className="modalSectionTitle">Leads ({clientLeadStatuses.length})</h3>{clientLeadStatuses.length > 5 && <button type="button" className="expandToggle" onClick={() => setLeadStatusExpanded((current) => !current)}>{leadStatusExpanded ? "Show less" : "Expand"}</button>}</div>
-                <p className="modalIntro">Status for each lead in this campaign, current as of your last metrics update. Tag a lead with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Lead labels</button> in the sidebar.</p>
-                {leadCategoryError && <p className="formError" role="alert">{leadCategoryError}</p>}
-                <div className={`leadStatusList ${leadStatusExpanded ? "expanded" : ""}`}>
-                  {clientLeadStatuses.map((lead) => {
-                    const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
-                    const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
-                    const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
-                    const category = leadCategories.find((current) => current.id === lead.categoryId);
-                    return (
-                      <div className="leadStatusRow" key={lead.linkedinUrl}>
-                        <div className="leadStatusName"><strong>{name}</strong>{lead.company && <span>{lead.company}</span>}</div>
-                        <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
-                        <select className="leadCategorySelect" value={lead.categoryId || ""} disabled={leadCategorySavingId === lead.id} style={category ? { color: category.color, borderColor: category.color } : undefined} aria-label={`Label for ${name}`} onChange={(e) => chooseLeadCategory(lead.id, e.target.value || null)}>
-                          <option value="">Unlabeled</option>
-                          {leadCategories.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+              {clientLeadStatuses.length > 0 && (() => {
+                const query = clientLeadSearch.trim().toLowerCase();
+                const filtered = clientLeadStatuses.filter((lead) => {
+                  const stage = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                  if (clientLeadStageFilter !== "all" && stage !== clientLeadStageFilter) return false;
+                  if (clientLeadCategoryFilter === "unlabeled") {
+                    if (lead.categoryId) return false;
+                  } else if (clientLeadCategoryFilter !== "all") {
+                    if (lead.categoryId !== clientLeadCategoryFilter) return false;
+                  }
+                  if (query) {
+                    const match = `${lead.firstName} ${lead.lastName} ${lead.company} ${lead.jobTitle || ""} ${lead.replyText || ""} ${lead.email || ""} ${lead.phone || ""} ${lead.location || ""}`.toLowerCase();
+                    if (!match.includes(query)) return false;
+                  }
+                  return true;
+                });
+
+                const allCount = clientLeadStatuses.length;
+                const repliedCount = clientLeadStatuses.filter((l) => Boolean(l.repliedAt)).length;
+                const acceptedCount = clientLeadStatuses.filter((l) => Boolean(l.connectedAt) && !l.repliedAt).length;
+                const sentCount = clientLeadStatuses.filter((l) => Boolean(l.connectionRequestDate) && !l.connectedAt && !l.repliedAt).length;
+                const pendingCount = clientLeadStatuses.filter((l) => !l.connectionRequestDate && !l.connectedAt && !l.repliedAt).length;
+
+                return (
+                  <>
+                    <div className="waalaxyDivider" />
+                    <div className="sectionHeadRow">
+                      <h3 className="modalSectionTitle">Leads ({filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""})</h3>
+                      {filtered.length > 5 && (
+                        <button type="button" className="expandToggle" onClick={() => setLeadStatusExpanded((current) => !current)}>
+                          {leadStatusExpanded ? "Show less" : "Expand all"}
+                        </button>
+                      )}
+                    </div>
+                    <p className="modalIntro">
+                      Status for each lead in this campaign, current as of your last metrics update. Tag a lead with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Lead labels</button> in the sidebar.
+                    </p>
+                    {leadCategoryError && <p className="formError" role="alert">{leadCategoryError}</p>}
+
+                    <div className="leadFilterBar">
+                      <div className="leadFilterRow">
+                        <div className="leadFilterTabs">
+                          <button type="button" className={`leadFilterTab ${clientLeadStageFilter === "all" ? "active" : ""}`} onClick={() => setClientLeadStageFilter("all")}>All ({allCount})</button>
+                          <button type="button" className={`leadFilterTab ${clientLeadStageFilter === "replied" ? "active" : ""}`} onClick={() => setClientLeadStageFilter("replied")}>💬 Replied ({repliedCount})</button>
+                          <button type="button" className={`leadFilterTab ${clientLeadStageFilter === "accepted" ? "active" : ""}`} onClick={() => setClientLeadStageFilter("accepted")}>✓ Connected ({acceptedCount})</button>
+                          <button type="button" className={`leadFilterTab ${clientLeadStageFilter === "sent" ? "active" : ""}`} onClick={() => setClientLeadStageFilter("sent")}>Sent ({sentCount})</button>
+                          {pendingCount > 0 && <button type="button" className={`leadFilterTab ${clientLeadStageFilter === "pending" ? "active" : ""}`} onClick={() => setClientLeadStageFilter("pending")}>Not yet sent ({pendingCount})</button>}
+                        </div>
+                        <select
+                          className="leadCategorySelect"
+                          value={clientLeadCategoryFilter}
+                          onChange={(e) => setClientLeadCategoryFilter(e.target.value)}
+                          style={{ maxWidth: 140 }}
+                          aria-label="Filter by label"
+                        >
+                          <option value="all">All labels</option>
+                          <option value="unlabeled">Unlabeled</option>
+                          {leadCategories.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
                         </select>
                       </div>
-                    );
-                  })}
-                </div>
-              </>}
+                      <input
+                        type="search"
+                        className="leadSearchInput"
+                        placeholder="Search by name, company, job title, reply text, email..."
+                        value={clientLeadSearch}
+                        onChange={(e) => setClientLeadSearch(e.target.value)}
+                      />
+                    </div>
+
+                    {filtered.length === 0 ? (
+                      <p className="modalIntro" style={{ marginTop: 16 }}>No leads match the selected filters or search.</p>
+                    ) : (
+                      <div className={`leadStatusList ${leadStatusExpanded ? "expanded" : ""}`}>
+                        {filtered.map((lead) => {
+                          const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
+                          const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
+                          const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
+                          const category = leadCategories.find((current) => current.id === lead.categoryId);
+                          return (
+                            <div className="leadStatusRow" key={lead.id || lead.linkedinUrl}>
+                              <div className="leadStatusHeader">
+                                <div className="leadStatusName">
+                                  {lead.linkedinUrl ? (
+                                    <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadNameLink">
+                                      <strong>{name}</strong>
+                                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    </a>
+                                  ) : (
+                                    <strong>{name}</strong>
+                                  )}
+                                </div>
+                                <div className="leadStatusActions">
+                                  <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
+                                  <select
+                                    className="leadCategorySelect"
+                                    value={lead.categoryId || ""}
+                                    disabled={leadCategorySavingId === lead.id}
+                                    style={category ? { color: category.color, borderColor: category.color } : undefined}
+                                    aria-label={`Label for ${name}`}
+                                    onChange={(e) => chooseLeadCategory(lead.id, e.target.value || null)}
+                                  >
+                                    <option value="">Unlabeled</option>
+                                    {leadCategories.map((option) => (
+                                      <option key={option.id} value={option.id}>{option.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {(lead.company || lead.jobTitle || lead.location || lead.email || lead.phone) && (
+                                <div className="leadMetaDetails">
+                                  {lead.jobTitle && <span className="leadMetaChip"><strong>Title:</strong> {lead.jobTitle}</span>}
+                                  {lead.company && <span className="leadMetaChip"><strong>Company:</strong> {lead.company}</span>}
+                                  {lead.location && <span className="leadMetaChip"><strong>Location:</strong> {lead.location}</span>}
+                                  {lead.email && <span className="leadMetaChip contactInfo">✉ {lead.email}</span>}
+                                  {lead.phone && <span className="leadMetaChip contactInfo">📞 {lead.phone}</span>}
+                                </div>
+                              )}
+
+                              {(lead.replyText || lead.conversationUrl) && (
+                                <div className="leadReplyBox">
+                                  <div className="leadReplyHeader">
+                                    <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
+                                    {lead.conversationUrl && (
+                                      <a href={lead.conversationUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                        View on LinkedIn / Waalaxy ↗
+                                      </a>
+                                    )}
+                                  </div>
+                                  {lead.replyText && <p className="leadReplyText">{lead.replyText}</p>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {clientCampaignAlerts.length > 0 && <>
                 <div className="waalaxyDivider" />
                 <h3 className="modalSectionTitle">Alerts</h3>
