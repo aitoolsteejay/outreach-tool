@@ -51,7 +51,7 @@ const CLIENT_FAQS = [
 
 const ADMIN_FAQS = [
   { q: "How do I move a campaign through statuses?", a: "Open the “⋯” menu on any campaign row in the work queue. The Manage campaign panel has a status dropdown and a progress slider." },
-  { q: "How do I sync a client's leads to Waalaxy?", a: "Same “⋯” menu, in the Waalaxy sync section. Create the campaign and message sequence in Waalaxy first, then link it here and push the client's uploaded leads in." },
+  { q: "How do I update campaign metrics?", a: "Open any campaign row in the work queue. Under Performance metrics, drop in the contact export CSV to automatically refresh sent, accepted, and replied metrics and per-lead status." },
   { q: "How do I manage client accounts?", a: "Use “User accounts” in the sidebar to see every account, change roles, or revoke Outreach access." },
 ];
 
@@ -146,14 +146,6 @@ export default function Home() {
   const [accountConfirmRemove, setAccountConfirmRemove] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [waalaxyLoading, setWaalaxyLoading] = useState(false);
-  const [waalaxyNotConfigured, setWaalaxyNotConfigured] = useState(false);
-  const [waalaxyError, setWaalaxyError] = useState("");
-  const [waalaxyCampaignsList, setWaalaxyCampaignsList] = useState<{ id: string; name: string }[]>([]);
-  const [waalaxyListsList, setWaalaxyListsList] = useState<{ id: string; name: string }[]>([]);
-  const [waalaxyLink, setWaalaxyLink] = useState({ waalaxyCampaignId: "", waalaxyListId: "" });
-  const [waalaxySyncInfo, setWaalaxySyncInfo] = useState<{ status: string; error?: string | null; imported?: number; syncedAt?: string | null } | null>(null);
-  const [waalaxySaving, setWaalaxySaving] = useState(false);
-  const [waalaxyPushing, setWaalaxyPushing] = useState(false);
   type CampaignBrief = { goal: string; offer: string; tone: string; messagingStrategy: string; connectionNote: string; followUps: string[]; followUpDelays: number[] };
   const [campaignBrief, setCampaignBrief] = useState<CampaignBrief | null>(null);
   const [campaignMetrics, setCampaignMetrics] = useState({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
@@ -644,12 +636,6 @@ export default function Home() {
     setStatusError("");
     setAlertForm({ severity: "error", leadReference: "", message: "" });
     setAlertError("");
-    setWaalaxyError("");
-    setWaalaxyNotConfigured(false);
-    setWaalaxySyncInfo(null);
-    setWaalaxyLink({ waalaxyCampaignId: "", waalaxyListId: "" });
-    setWaalaxyCampaignsList([]);
-    setWaalaxyListsList([]);
     setWaalaxyLoading(true);
     setCampaignBrief(null);
     setCampaignMetrics({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
@@ -669,13 +655,9 @@ export default function Home() {
     setAdminLeadCategoryFilter("all");
     setAdminLeadSearch("");
     try {
-      const headers = await authHeader();
       const supabase = createClient();
       const clientId = campaign.clientId || campaigns.find((c) => c.id === campaign.id)?.clientId;
-      const [linkRes, campaignsRes, listsRes, briefResult, leadStatusesResult, categoriesResult] = await Promise.all([
-        fetch(`/api/admin/campaigns/${campaign.id}/waalaxy`, { headers }),
-        fetch("/api/admin/waalaxy/campaigns", { headers }),
-        fetch("/api/admin/waalaxy/lists", { headers }),
+      const [briefResult, leadStatusesResult, categoriesResult] = await Promise.all([
         supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
           .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
@@ -684,22 +666,7 @@ export default function Home() {
           .order("connected_at", { ascending: false, nullsFirst: false }),
         clientId ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", clientId).order("position") : Promise.resolve({ data: [], error: null }),
       ]);
-      const [linkData, campaignsData, listsData] = await Promise.all([readJson<Record<string, unknown>>(linkRes), readJson<Record<string, unknown>>(campaignsRes), readJson<Record<string, unknown>>(listsRes)]);
       if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
-      if (linkRes.ok) {
-        setWaalaxyLink({ waalaxyCampaignId: String(linkData.waalaxy_campaign_id || ""), waalaxyListId: String(linkData.waalaxy_list_id || "") });
-        setWaalaxySyncInfo({ status: String(linkData.waalaxy_sync_status || "not_linked"), error: linkData.waalaxy_sync_error as string | null, imported: linkData.waalaxy_prospects_imported as number, syncedAt: linkData.waalaxy_synced_at as string | null });
-      }
-      if (campaignsRes.status === 501 || listsRes.status === 501) {
-        setWaalaxyNotConfigured(true);
-      } else if (!campaignsRes.ok) {
-        setWaalaxyError(String(campaignsData.error || "Unable to load Waalaxy campaigns."));
-      } else if (!listsRes.ok) {
-        setWaalaxyError(String(listsData.error || "Unable to load Waalaxy prospect lists."));
-      } else {
-        setWaalaxyCampaignsList((campaignsData.campaigns || []) as { id: string; name: string }[]);
-        setWaalaxyListsList((listsData.lists || []) as { id: string; name: string }[]);
-      }
       if (!briefResult.error && briefResult.data) {
         const row = briefResult.data;
         setCampaignBrief({
@@ -732,7 +699,7 @@ export default function Home() {
       }
     } catch (error) {
       if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
-      setWaalaxyError(error instanceof Error ? error.message : "Unable to load Waalaxy.");
+      setStatusError(error instanceof Error ? error.message : "Unable to load campaign details.");
     } finally { if (activeWaalaxyCampaignIdRef.current === campaign.id) setWaalaxyLoading(false); }
   }
   // Lets the admin refresh a campaign's sent/accepted/replied counts by
@@ -1224,32 +1191,6 @@ export default function Home() {
     } catch (error) { setAccountError(error instanceof Error ? error.message : "Unable to remove this account."); }
     finally { setAccountSaving(false); }
   }
-  async function saveWaalaxyLink() {
-    if (!waalaxyModal) return;
-    setWaalaxySaving(true);
-    setWaalaxyError("");
-    try {
-      const headers = await authHeader();
-      const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/waalaxy`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(waalaxyLink) });
-      const result = await readJson<{ error?: string; waalaxy_sync_status: string; waalaxy_sync_error?: string | null; waalaxy_prospects_imported?: number; waalaxy_synced_at?: string | null }>(response);
-      if (!response.ok) throw new Error(result.error || "Unable to link this campaign.");
-      setWaalaxySyncInfo({ status: result.waalaxy_sync_status, error: result.waalaxy_sync_error, imported: result.waalaxy_prospects_imported, syncedAt: result.waalaxy_synced_at });
-    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to link this campaign."); }
-    finally { setWaalaxySaving(false); }
-  }
-  async function pushLeadsToWaalaxy() {
-    if (!waalaxyModal) return;
-    setWaalaxyPushing(true);
-    setWaalaxyError("");
-    try {
-      const headers = await authHeader();
-      const response = await fetch(`/api/admin/campaigns/${waalaxyModal.id}/push-to-waalaxy`, { method: "POST", headers });
-      const result = await readJson<{ error?: string; imported?: number; status?: string }>(response);
-      if (!response.ok) throw new Error(result.error || "Unable to push leads to Waalaxy.");
-      setWaalaxySyncInfo({ status: result.status || "synced", error: result.error, imported: result.imported, syncedAt: new Date().toISOString() });
-    } catch (error) { setWaalaxyError(error instanceof Error ? error.message : "Unable to push leads to Waalaxy."); }
-    finally { setWaalaxyPushing(false); }
-  }
   if (workspaceLoading) return <main className="workspaceGate" aria-busy="true"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /><p>Loading your workspace…</p></main>;
   const isAdmin = profile.role === "admin";
   const activeCampaigns = campaigns.filter((campaign) => ["Live", "In setup", "Submitted", "In review"].includes(campaign.status)).length;
@@ -1437,11 +1378,11 @@ export default function Home() {
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
       {waalaxyModal && <div className="modalBackdrop campaignPageBackdrop">
         <button className="modalDismiss" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign" />
-        <section className="modal campaignPageModal" role="dialog" aria-modal="true" aria-labelledby="waalaxy-title">
+        <section className="modal campaignPageModal" role="dialog" aria-modal="true" aria-labelledby="manage-campaign-title">
           <button className="close" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign">×</button>
           <div className="modalBody">
             <p className="eyebrow">MANAGE CAMPAIGN</p>
-            <h2 id="waalaxy-title">{waalaxyModal.name}</h2>
+            <h2 id="manage-campaign-title">{waalaxyModal.name}</h2>
             <h3 className="modalSectionTitle">Delivery status</h3>
             <label>Status<select value={campaignStatus} onChange={(e) => setCampaignStatus(e.target.value)}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
             <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} style={{ "--range-progress": `${campaignProgress}%` } as React.CSSProperties} /></label>
@@ -1458,7 +1399,7 @@ export default function Home() {
             {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Brief, messages &amp; leads</h3>
-            <p className="modalIntro">Everything needed to configure this campaign in Waalaxy by hand.</p>
+            <p className="modalIntro">Everything needed to configure this campaign sequence.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
               <p className="formError" role="alert">Unable to load this campaign&apos;s brief.</p>
             ) : <>
@@ -1475,11 +1416,11 @@ export default function Home() {
             </>}
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Upload Waalaxy&apos;s contact export for this campaign and we will count connections sent, accepted, and replied to from each lead&apos;s own dates, and update every lead&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
+            <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each lead&apos;s own dates, and update every lead&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
             <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
               <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseMetricsCsv(e.target.files?.[0] || null)} />
               <span>{metricsCsvName ? "✓" : "↑"}</span>
-              <strong>{metricsCsvName || "Drop a Waalaxy contact export here"}</strong>
+              <strong>{metricsCsvName || "Drop a contact export CSV here"}</strong>
               <small>{metricsCsvName ? "Parsed -- review the numbers below" : "or click to choose a file"}</small>
             </label>
             {metricsCsvError && <p className="formError" role="alert">{metricsCsvError}</p>}
@@ -1499,7 +1440,7 @@ export default function Home() {
             <div className="waalaxyDivider" />
             <h3 className="modalSectionTitle">Leads &amp; Conversations</h3>
             {adminLeadStatuses.length === 0 ? (
-              <p className="modalIntro">Upload a Waalaxy contact export above to view lead replies, contact details, and conversation links here.</p>
+              <p className="modalIntro">Upload a contact export above to view lead replies, contact details, and conversation links here.</p>
             ) : (() => {
               const query = adminLeadSearch.trim().toLowerCase();
               const filtered = adminLeadStatuses.filter((lead) => {
@@ -1623,11 +1564,15 @@ export default function Home() {
                               <div className="leadReplyBox">
                                 <div className="leadReplyHeader">
                                   <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
-                                  {lead.conversationUrl && (
+                                  {lead.conversationUrl ? (
                                     <a href={lead.conversationUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
-                                      View on LinkedIn / Waalaxy ↗
+                                      Open conversation ↗
                                     </a>
-                                  )}
+                                  ) : lead.linkedinUrl ? (
+                                    <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                      View on LinkedIn ↗
+                                    </a>
+                                  ) : null}
                                 </div>
                                 {lead.replyText && <p className="leadReplyText">{lead.replyText}</p>}
                               </div>
@@ -1640,23 +1585,6 @@ export default function Home() {
                 </>
               );
             })()}
-            <div className="waalaxyDivider" />
-            <h3 className="modalSectionTitle">Waalaxy sync</h3>
-            <p className="modalIntro">Link this campaign to the Waalaxy campaign your team already created for it, then push the client&apos;s uploaded leads straight in. No manual CSV upload into Waalaxy.</p>
-            {waalaxyLoading ? <p className="modalIntro">Loading…</p> : waalaxyNotConfigured ? (
-              <p className="formError" role="alert">Waalaxy integration isn&apos;t configured yet. Set WAALAXY_API_KEY on the server, then reopen this.</p>
-            ) : <>
-              <label>Waalaxy campaign<select value={waalaxyLink.waalaxyCampaignId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyCampaignId: e.target.value })}><option value="">Select a campaign…</option>{waalaxyCampaignsList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-              <label>Waalaxy prospect list<select value={waalaxyLink.waalaxyListId} onChange={(e) => setWaalaxyLink({ ...waalaxyLink, waalaxyListId: e.target.value })}><option value="">Select a list…</option>{waalaxyListsList.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
-              {waalaxyError && <p className="formError" role="alert">{waalaxyError}</p>}
-              {waalaxySyncInfo?.status === "synced" && <p className="formSuccess" role="status">Synced {waalaxySyncInfo.imported ?? 0} lead{waalaxySyncInfo.imported === 1 ? "" : "s"} to Waalaxy{waalaxySyncInfo.syncedAt ? ` on ${new Date(waalaxySyncInfo.syncedAt).toLocaleString()}` : ""}.{waalaxySyncInfo.error ? ` ${waalaxySyncInfo.error}` : ""}</p>}
-              {waalaxySyncInfo?.status === "partial" && <p className="formError" role="alert">Partially synced: {waalaxySyncInfo.imported ?? 0} leads imported. {waalaxySyncInfo.error}</p>}
-              {waalaxySyncInfo?.status === "failed" && waalaxySyncInfo.error && <p className="formError" role="alert">Last sync attempt failed: {waalaxySyncInfo.error}</p>}
-              <div className="waalaxyActions">
-                <button className="secondary" onClick={saveWaalaxyLink} disabled={waalaxySaving || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxySaving ? "Saving…" : "Save link"}</button>
-                <button className="primary" onClick={pushLeadsToWaalaxy} disabled={waalaxyPushing || !waalaxyLink.waalaxyCampaignId || !waalaxyLink.waalaxyListId}>{waalaxyPushing ? "Pushing leads…" : "Push leads to Waalaxy"}</button>
-              </div>
-            </>}
           </div>
         </section>
       </div>}
@@ -1839,9 +1767,9 @@ export default function Home() {
                                 <div className="leadReplyBox">
                                   <div className="leadReplyHeader">
                                     <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
-                                    {lead.conversationUrl && (
-                                      <a href={lead.conversationUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
-                                        View on LinkedIn / Waalaxy ↗
+                                    {lead.linkedinUrl && (
+                                      <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                        View on LinkedIn ↗
                                       </a>
                                     )}
                                   </div>
