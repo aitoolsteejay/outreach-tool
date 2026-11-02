@@ -184,7 +184,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .ringCard:after{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:-100px;bottom:-120px;pointer-events:none}
 .ringCardGold{background:linear-gradient(135deg,#2DB5A5,#0B7A70);color:#fff}
 .ringCardGold:after{background:radial-gradient(circle,#ffffff40,transparent 70%)}
-.ringCardInk{background:linear-gradient(135deg,#3F3F46,#131316);color:#fff}
+.ringCardInk{background:linear-gradient(135deg,#E8920F,#B45309);color:#fff}
 .ringCardInk:after{background:radial-gradient(circle,#ffffff33,transparent 70%)}
 .ringCardHead{position:relative;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:850;letter-spacing:.01em;flex:none}
 .ringCardHead span{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;flex:none}
