@@ -158,7 +158,7 @@ function csvEscape(value: string): string {
 }
 
 // Serializes mapped rows back into a CSV with our exact expected headers, so
-// the rest of the pipeline (storage upload, admin download, Waalaxy push)
+// the rest of the pipeline (storage upload, admin download, the automation tool push)
 // never needs to know a client's original column names.
 export function leadRowsToCsv(rows: LeadRow[]): string {
   const lines = [LEAD_CSV_HEADERS.join(",")];
@@ -177,22 +177,22 @@ export function rowsToCsv(headers: string[], rows: (string | number)[][]): strin
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export type WaalaxyMetricsSummary = { total: number; sent: number; accepted: number; replied: number };
-// One row's worth of what we keep from a Waalaxy contact export -- enough to
+export type ContactExportSummary = { total: number; sent: number; accepted: number; replied: number };
+// One row's worth of what we keep from an automation tool contact export -- enough to
 // show a client their own leads' individual status (see outreach.lead_statuses),
 // without carrying the export's many other columns (email, phone, tags, ...)
 // into a table that isn't meant to be a full CRM record.
-export type WaalaxyContactRow = {
+export type ContactExportRow = {
   linkedinUrl: string; firstName: string; lastName: string; company: string;
   connectionRequestDate: string; connectedAt: string; repliedAt: string;
   replyText?: string; conversationUrl?: string; jobTitle?: string;
   email?: string; phone?: string; location?: string;
 };
 
-// The columns Waalaxy's own contact export carries per lead -- matched by
+// The columns the automation tool's own contact export carries per lead -- matched by
 // name (case-insensitively) rather than position, since export column order
-// isn't guaranteed to stay the same between Waalaxy versions.
-const WAALAXY_COLUMNS = {
+// isn't guaranteed to stay the same between the automation tool versions.
+const EXPORT_COLUMNS = {
   linkedinUrl: "linkedinurl", firstName: "firstname", lastName: "lastname", company: "company_name",
   sent: "connectionrequestdate", accepted: "connectedat", replied: "lastreplydetecteddate",
   reply: "lastreplydetected", conversationUrl: "linkedinconversationlink",
@@ -202,11 +202,11 @@ const WAALAXY_COLUMNS = {
 } as const;
 // Only these three are required -- the rest (name, company, reply, etc.)
 // are cosmetic or contextual and just fall back to blank if missing.
-const WAALAXY_REQUIRED_COLUMNS: [key: keyof typeof WAALAXY_COLUMNS, label: string][] = [
+const EXPORT_REQUIRED_COLUMNS: [key: keyof typeof EXPORT_COLUMNS, label: string][] = [
   ["sent", "connectionRequestDate"], ["accepted", "connectedAt"], ["replied", "lastReplyDetectedDate"],
 ];
 
-// Turns a raw Waalaxy contact export (one row per lead currently in the
+// Turns a raw the automation tool contact export (one row per lead currently in the
 // campaign, unrelated in shape to our own lead-upload CSV) into both the
 // aggregate counts campaign metrics are built from, and the per-lead rows
 // behind the campaign's individual lead-status and replies view: a lead counts as sent
@@ -216,11 +216,11 @@ const WAALAXY_REQUIRED_COLUMNS: [key: keyof typeof WAALAXY_COLUMNS, label: strin
 // both admins and clients can see and act on replies directly.
 // Admin re-uploads this export whenever they want a campaign refreshed,
 // rather than counting -- or copying per-lead status -- by hand.
-export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetricsSummary; leads: WaalaxyContactRow[] } {
+export function parseContactExportCsv(text: string): { summary: ContactExportSummary; leads: ContactExportRow[] } {
   const { headers, rows } = parseCsvHeaderAndRows(text);
   const lowerHeaders = headers.map((column) => column.trim().toLowerCase());
-  const indexOf = (key: keyof typeof WAALAXY_COLUMNS) => lowerHeaders.indexOf(WAALAXY_COLUMNS[key]);
-  const missing = WAALAXY_REQUIRED_COLUMNS.filter(([key]) => indexOf(key) === -1).map(([, label]) => label);
+  const indexOf = (key: keyof typeof EXPORT_COLUMNS) => lowerHeaders.indexOf(EXPORT_COLUMNS[key]);
+  const missing = EXPORT_REQUIRED_COLUMNS.filter(([key]) => indexOf(key) === -1).map(([, label]) => label);
   if (missing.length) throw new Error(`This doesn't look like a campaign contact export -- missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
   if (rows.length === 0) throw new Error("This export has no leads in it.");
   const sentIndex = indexOf("sent"), acceptedIndex = indexOf("accepted"), repliedIndex = indexOf("replied");
@@ -231,7 +231,7 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
   const phoneIndex = indexOf("phone"), locationIndex = indexOf("location");
   const cell = (row: string[], index: number) => (index === -1 ? "" : (row[index] || "").trim());
   let sent = 0, accepted = 0, replied = 0;
-  const leads: WaalaxyContactRow[] = [];
+  const leads: ContactExportRow[] = [];
   for (const row of rows) {
     const connectionRequestDate = cell(row, sentIndex), connectedAt = cell(row, acceptedIndex), repliedAt = cell(row, repliedIndex);
     if (connectionRequestDate) sent += 1;
@@ -269,13 +269,13 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
   // than returned as-is: this feeds a single multi-row upsert keyed on
   // linkedin_url (see chooseMetricsCsv), and Postgres rejects a multi-row
   // upsert that touches the same conflict key twice in one statement. The
-  // same profile can legitimately appear more than once in a Waalaxy
+  // same profile can legitimately appear more than once in an automation tool
   // export (e.g. touched by more than one sequence); keeping the last
   // occurrence means the most recently listed state for that lead wins.
   const dedupedLeads = [...new Map(leads.map((lead) => [lead.linkedinUrl.trim().toLowerCase(), lead])).values()];
   return { summary: { total: rows.length, sent, accepted, replied }, leads: dedupedLeads };
 }
 
-export function summarizeWaalaxyMetricsCsv(text: string): WaalaxyMetricsSummary {
-  return parseWaalaxyContactsCsv(text).summary;
+export function summarizeContactExportCsv(text: string): ContactExportSummary {
+  return parseContactExportCsv(text).summary;
 }

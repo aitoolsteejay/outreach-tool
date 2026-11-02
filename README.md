@@ -1,8 +1,8 @@
 # Myntmore Outreach Tool
 
-A LinkedIn outreach service, run **for** clients rather than sold **to** them as self-serve software. A client submits a lead list and a message sequence through this app; a person on the Myntmore team reviews it, configures the actual send in [Waalaxy](https://www.waalaxy.com/) by hand, and runs the campaign. This repo is the portal that connects the two sides of that relationship: a client dashboard for submitting and tracking campaigns, and an admin toolkit for running them — plus everything in between (lead-list handling, LinkedIn credential capture and 2FA relay, performance reporting, alerts).
+A LinkedIn outreach service, run **for** clients rather than sold **to** them as self-serve software. A client submits a lead list and a message sequence through this app; a person on the Myntmore team reviews it, configures the actual send in [the automation tool](https://www.automation.com/) by hand, and runs the campaign. This repo is the portal that connects the two sides of that relationship: a client dashboard for submitting and tracking campaigns, and an admin toolkit for running them — plus everything in between (lead-list handling, LinkedIn credential capture and 2FA relay, performance reporting, alerts).
 
-It is **not** a self-serve LinkedIn automation tool. There is no button anywhere in this app that sends a LinkedIn connection request. See [Why Waalaxy is configured by hand](#why-waalaxy-is-configured-by-hand) for exactly where the automation boundary sits and why.
+It is **not** a self-serve LinkedIn automation tool. There is no button anywhere in this app that sends a LinkedIn connection request. See [Why the automation tool is configured by hand](#why-the-automation-tool-is-configured-by-hand) for exactly where the automation boundary sits and why.
 
 ---
 
@@ -16,7 +16,7 @@ It is **not** a self-serve LinkedIn automation tool. There is no button anywhere
 - [Data model](#data-model)
 - [API routes reference](#api-routes-reference)
 - [Security model](#security-model)
-- [Why Waalaxy is configured by hand](#why-waalaxy-is-configured-by-hand)
+- [Why the automation tool is configured by hand](#why-the-automation-tool-is-configured-by-hand)
 - [The standalone marketing page](#the-standalone-marketing-page)
 - [Stack](#stack)
 - [Getting started](#getting-started)
@@ -35,7 +35,7 @@ The Next.js app itself has two routes:
 - **`/login`** (`app/login/page.tsx`) — email/password sign-in, plus a one-time, public, unauthenticated admin-bootstrap form that disappears forever once the first admin account exists. `/` (`app/page.tsx`) is a plain server-side redirect here — there is no public marketing page inside the app, since it's only ever reached by an existing client or admin. (There *is* a separate marketing page — see [The standalone marketing page](#the-standalone-marketing-page) — it just doesn't live inside this Next.js app.)
 - **`/dashboard`** (`app/dashboard/page.tsx`) — the actual tool. This is deliberately **one component**, not a client-side vs. admin-side pair of routes: it fetches the signed-in user's `profiles.role` on mount and renders one of two entirely different UIs from that single branch. See [Architecture](#architecture) for why.
 
-Everything else — encryption, CSV parsing, the Waalaxy API client, Supabase client factories — lives in `lib/`, and every server-side authorization/business-logic endpoint lives under `app/api/`.
+Everything else — encryption, CSV parsing, the automation tool API client, Supabase client factories — lives in `lib/`, and every server-side authorization/business-logic endpoint lives under `app/api/`.
 
 ## Client-side features, in detail
 
@@ -47,7 +47,7 @@ Everything else — encryption, CSV parsing, the Waalaxy API client, Supabase cl
 Submitting uploads the lead CSV to private Storage, inserts the `campaigns` row, and inserts the matching `lead_files` row — if any later step fails, the earlier ones are rolled back (the campaign row and the uploaded file are both deleted) rather than left in a half-created state.
 
 **Tracking a campaign** — the campaign list opens a full-page detail view (not a small modal — it shares the viewport with the sidebar so navigating away doesn't require closing it first) showing:
-- The brief (goal/offer/tone, connection note, each follow-up and its wait time), editable at any point before the campaign is completed. Editing posts an alert (see below) so the admin team knows to review the change before continuing outreach with the new messaging — since a campaign already configured in Waalaxy won't itself notice the brief changed.
+- The brief (goal/offer/tone, connection note, each follow-up and its wait time), editable at any point before the campaign is completed. Editing posts an alert (see below) so the admin team knows to review the change before continuing outreach with the new messaging — since a campaign already configured in the automation tool won't itself notice the brief changed.
 - Performance: raw counts (leads, requests sent, accepted, replied) alongside the computed acceptance rate and positive-reply rate.
 - The per-lead list: every lead's derived status (**Not yet sent** → **Sent** → **Accepted** → **Replied**, derived from three date columns, never stored as its own redundant status string) and a label picker (see "Lead labels" below). Expandable past 5 rows.
 - **Add leads**: upload another CSV batch into an already-running campaign. Duplicates (matched by `linkedin_url`, case/whitespace-insensitive) are skipped automatically rather than re-queued, and a concurrent double-submit (two tabs, a double-click) is guarded against server-side so the second request doesn't silently clobber the first's newly-added leads.
@@ -67,9 +67,9 @@ Submitting uploads the lead CSV to private Storage, inserts the `campaigns` row,
 **Work queue** — every client's campaigns in one filterable list (by status), each showing an unresolved-alert indicator. Clicking one opens "Manage campaign":
 - The full brief (read-only from the admin's side — a client edits their own).
 - Status and progress, editable (`Submitted → In review → In setup → Live → Completed`).
-- **Performance metrics entry**, two ways: type the four numbers by hand, or upload Waalaxy's own contact-export CSV for the campaign and let it be parsed automatically — connections sent/accepted/replied are counted from each lead's own date columns (`connectionRequestDate`/`connectedAt`/`lastReplyDetectedDate`) rather than trusted as a pre-aggregated total, and every individual lead's status is refreshed from the same file (upserted, keyed on `(campaign_id, linkedin_url)`, so re-uploading a later export updates existing rows instead of duplicating them). Positive replies stay a manual number, since the export doesn't cleanly encode "positive" vs. any reply.
-- **Download this campaign's lead list** as the exact CSV the client uploaded, to import into Waalaxy by hand.
-- **Link + push to Waalaxy**: attach the campaign to an existing Waalaxy campaign and prospect list (both picked from live dropdowns, fetched from Waalaxy's own API), then push the lead list into it in one action. The per-prospect import result codes are always shown in full (not just a computed pass/fail count) since Waalaxy's set of possible codes isn't fully documented — this route deliberately doesn't hide a code it doesn't recognize behind a false "success."
+- **Performance metrics entry**, two ways: type the four numbers by hand, or upload the automation tool's own contact-export CSV for the campaign and let it be parsed automatically — connections sent/accepted/replied are counted from each lead's own date columns (`connectionRequestDate`/`connectedAt`/`lastReplyDetectedDate`) rather than trusted as a pre-aggregated total, and every individual lead's status is refreshed from the same file (upserted, keyed on `(campaign_id, linkedin_url)`, so re-uploading a later export updates existing rows instead of duplicating them). Positive replies stay a manual number, since the export doesn't cleanly encode "positive" vs. any reply.
+- **Download this campaign's lead list** as the exact CSV the client uploaded, to import into the automation tool by hand.
+- **Link + push to the automation tool**: attach the campaign to an existing automation tool campaign and prospect list (both picked from live dropdowns, fetched from the automation tool's own API), then push the lead list into it in one action. The per-prospect import result codes are always shown in full (not just a computed pass/fail count) since the automation tool's set of possible codes isn't fully documented — this route deliberately doesn't hide a code it doesn't recognize behind a false "success."
 - Post or resolve alerts against this campaign.
 
 **Account management** — create a client or admin account (or grant Outreach access to an email that already has a Myntmore login for another tool, verified by asking for that account's existing password rather than trusting the email alone); change anyone's role; revoke access (a soft-delete — their historical campaigns are preserved, not deleted, and their account stays visible with a "Revoked" badge so it can be found again); restore a revoked account's access with one click. The very last active admin can never be demoted or revoked (enforced with a database-level advisory lock, so two concurrent requests can't both slip through).
@@ -104,12 +104,12 @@ app/
     admin/
       users/                  -- POST create, PATCH change role ([id]), DELETE revoke ([id])
       campaigns/[id]/
-        automation/            -- GET/POST: read or set the Waalaxy campaign+list link
-        push-to-automation/       -- POST: import the lead CSV into the linked Waalaxy campaign
+        automation/            -- GET/POST: read or set the automation tool campaign+list link
+        push-to-automation/       -- POST: import the lead CSV into the linked automation tool campaign
         leads-csv/              -- GET: download the client's uploaded lead CSV
       automation/
-        campaigns/             -- GET: list Waalaxy campaigns (for the link picker)
-        lists/                  -- GET: list Waalaxy prospect lists
+        campaigns/             -- GET: list the automation tool campaigns (for the link picker)
+        lists/                  -- GET: list the automation tool prospect lists
       linkedin-credentials/[clientId]/
         route.ts               -- GET status, PATCH transition (request_code/mark_failed/...)
         reveal/                -- POST: decrypt and return the password (audited)
@@ -124,8 +124,8 @@ app/
         code/                   -- POST: submit a 2FA code / confirm phone approval
 lib/
   csv.ts                       -- CSV parsing/generation: lead-list upload, column mapping,
-                                  Waalaxy contact-export parsing, CSV downloads
-  waalaxy.ts                   -- thin server-only Waalaxy REST API client
+                                  the automation tool contact-export parsing, CSV downloads
+  automation.ts                   -- thin server-only the automation tool REST API client
   crypto.ts                    -- AES-256-GCM encrypt/decrypt for secrets at rest
   roles.ts                     -- the two valid roles, kept in sync with a DB check constraint
   supabase/
@@ -139,7 +139,7 @@ supabase/
   seed-*.sql (untracked)       -- real-client seed scripts generated ad hoc from actual CSV
                                   exports; deliberately never committed (see Security model)
 tests/
-  csv.test.ts                  -- lib/csv.ts: parsing edge cases, column mapping, Waalaxy
+  csv.test.ts                  -- lib/csv.ts: parsing edge cases, column mapping, the automation tool
                                   contact-export summarization
   crypto.test.ts               -- lib/crypto.ts: round-trip, random IV, tamper detection,
                                   missing/malformed key handling
@@ -160,11 +160,11 @@ Tables, roughly in the order they were introduced:
 | Table | Purpose | Key columns |
 | --- | --- | --- |
 | `outreach.profiles` | Outreach membership for a shared Auth identity. No row here = no access to this app, regardless of the Auth account's status elsewhere. | `id` (= `auth.users.id`), `role` (`admin`/`client`), `access_revoked_at` (soft-delete) |
-| `outreach.campaigns` | One row per submitted campaign: brief, messaging, follow-ups + their delays, Waalaxy link/sync state, performance metrics. | `client_id`, `goal/offer/tone/messaging_strategy/connection_note`, `follow_up_count/follow_up_messages/follow_up_delay_days` (jsonb arrays), `status`, `progress`, `waalaxy_*`, `connections_sent/accepted`, `replies_received`, `positive_replies` |
+| `outreach.campaigns` | One row per submitted campaign: brief, messaging, follow-ups + their delays, the automation tool link/sync state, performance metrics. | `client_id`, `goal/offer/tone/messaging_strategy/connection_note`, `follow_up_count/follow_up_messages/follow_up_delay_days` (jsonb arrays), `status`, `progress`, `automation_*`, `connections_sent/accepted`, `replies_received`, `positive_replies` |
 | `outreach.lead_files` | One row per uploaded CSV batch for a campaign (private Storage pointer, not the leads themselves). | `campaign_id`, `client_id`, `storage_path` |
 | `outreach.campaign_alerts` | Admin → client notices: account-wide (`campaign_id is null`), campaign-wide, or lead-specific (`lead_reference`, plain text). | `client_id`, `campaign_id` (nullable), `severity`, `message`, `resolved`, `created_by` |
 | `outreach.linkedin_credentials` | One row per client. Password is AES-256-GCM encrypted at the app layer before it ever reaches this table. **No RLS grants at all** — every access goes through a server API route using the service-role client. | `encrypted_password/password_iv/password_auth_tag`, `status`, `verification_code` (plaintext — see [Known limitations](#known-limitations--non-goals)), audit columns (`revealed_at/by`, `code_revealed_at/by`, `last_attempt_at/by`) |
-| `outreach.lead_statuses` | Per-lead derived status, populated by an admin re-uploading a Waalaxy contact export. Deliberately **no status text column** — `connection_request_date/connected_at/replied_at` are the single source of truth everywhere this is read, so a redundant stored status string can never silently disagree with them. | `campaign_id`, `client_id`, `linkedin_url` (unique with `campaign_id`), three date columns, `category_id` |
+| `outreach.lead_statuses` | Per-lead derived status, populated by an admin re-uploading an automation tool contact export. Deliberately **no status text column** — `connection_request_date/connected_at/replied_at` are the single source of truth everywhere this is read, so a redundant stored status string can never silently disagree with them. | `campaign_id`, `client_id`, `linkedin_url` (unique with `campaign_id`), three date columns, `category_id` |
 | `outreach.lead_categories` | A client's own lead labels (Hot/Cold/etc.), fully client-owned. | `client_id`, `name` (unique per client), `color`, `position` |
 
 Key Postgres functions (all `security definer`, `set search_path = ''`):
@@ -186,12 +186,12 @@ Every route below requires a bearer token (the signed-in user's Supabase access 
 | `POST /api/admin/users` | admin | Creates a client or admin account, or grants Outreach access to an existing Myntmore login (same email-lookup + upsert pattern as bootstrap, minus the password-proof step — an admin is trusted to do this deliberately). |
 | `PATCH /api/admin/users/[id]` | admin | Changes a member's role. Refuses to act on the caller's own account. |
 | `DELETE /api/admin/users/[id]` | admin | Revokes access (soft-delete). Refuses to act on the caller's own account. |
-| `GET /api/admin/campaigns/[id]/automation` | admin | Reads the campaign's Waalaxy link + sync status. |
-| `POST /api/admin/campaigns/[id]/automation` | admin | Links the campaign to a Waalaxy campaign ID + prospect list ID. |
-| `POST /api/admin/campaigns/[id]/push-to-automation` | admin | Downloads the campaign's uploaded lead CSV, parses it, and imports every row into the linked Waalaxy campaign/list. Records the per-prospect result codes and an overall `synced`/`partial`/`failed` status back onto the campaign. |
-| `GET /api/admin/campaigns/[id]/leads-csv` | admin | Streams back the exact CSV the client uploaded, for manual import into Waalaxy. |
-| `GET /api/admin/automation/campaigns` | admin | Lists Waalaxy campaigns (id + name only — Waalaxy's API doesn't expose stats). |
-| `GET /api/admin/automation/lists` | admin | Lists Waalaxy prospect lists. |
+| `GET /api/admin/campaigns/[id]/automation` | admin | Reads the campaign's the automation tool link + sync status. |
+| `POST /api/admin/campaigns/[id]/automation` | admin | Links the campaign to an automation tool campaign ID + prospect list ID. |
+| `POST /api/admin/campaigns/[id]/push-to-automation` | admin | Downloads the campaign's uploaded lead CSV, parses it, and imports every row into the linked automation tool campaign/list. Records the per-prospect result codes and an overall `synced`/`partial`/`failed` status back onto the campaign. |
+| `GET /api/admin/campaigns/[id]/leads-csv` | admin | Streams back the exact CSV the client uploaded, for manual import into the automation tool. |
+| `GET /api/admin/automation/campaigns` | admin | Lists the automation tool campaigns (id + name only — the automation tool's API doesn't expose stats). |
+| `GET /api/admin/automation/lists` | admin | Lists the automation tool prospect lists. |
 | `GET /api/admin/linkedin-credentials/[clientId]` | admin | Status fields only — email, status, audit timestamps, and a `has_code` boolean. Never the password or the code itself. |
 | `PATCH /api/admin/linkedin-credentials/[clientId]` | admin | Transitions status: `request_code`, `request_approval`, `mark_logged_in`, `mark_failed` (with a reason), `reset`. |
 | `POST /api/admin/linkedin-credentials/[clientId]/reveal` | admin | Decrypts and returns the password. A distinct, audited action (`revealed_at/by`), not a side effect of the GET above. |
@@ -218,11 +218,11 @@ Secrets at rest:
 
 Real client PII never reaches version control: seed SQL scripts generated ad hoc from a client's actual CSV export (real names, companies, LinkedIn URLs) are deliberately left untracked (`supabase/seed-*.sql` outside of `seed-dummy-client-data.sql`) — generated, handed to whoever needs them, never committed.
 
-## Why Waalaxy is configured by hand
+## Why the automation tool is configured by hand
 
-Waalaxy's public API is intentionally narrow: it can list campaigns (id + name only, no stats), list prospect lists, and import prospects into a list while enrolling them into an *already-existing* campaign. It cannot create a campaign, set or edit the connection-note/follow-up message text, launch or pause a campaign, handle LinkedIn's 2FA prompts, or return performance analytics. A person on the Myntmore team still has to create the campaign and paste the actual message sequence into Waalaxy's own UI by hand, and log into the client's LinkedIn account through a real browser to get past whatever 2FA challenge comes up.
+The automation tool's public API is intentionally narrow: it can list campaigns (id + name only, no stats), list prospect lists, and import prospects into a list while enrolling them into an *already-existing* campaign. It cannot create a campaign, set or edit the connection-note/follow-up message text, launch or pause a campaign, handle LinkedIn's 2FA prompts, or return performance analytics. A person on the Myntmore team still has to create the campaign and paste the actual message sequence into the automation tool's own UI by hand, and log into the client's LinkedIn account through a real browser to get past whatever 2FA challenge comes up.
 
-This app's job is everything *around* that manual step: intake (the brief + lead list), lead-list handling (validation, column mapping, de-duped batch additions), LinkedIn credential capture and the 2FA back-and-forth, linking a campaign to its Waalaxy counterpart and pushing the lead list into it, pulling performance back out (by re-uploading Waalaxy's own contact export), and surfacing all of that to both sides through status tracking and alerts. It is not, and isn't trying to be, a replacement for Waalaxy's own sending engine.
+This app's job is everything *around* that manual step: intake (the brief + lead list), lead-list handling (validation, column mapping, de-duped batch additions), LinkedIn credential capture and the 2FA back-and-forth, linking a campaign to its the automation tool counterpart and pushing the lead list into it, pulling performance back out (by re-uploading the automation tool's own contact export), and surfacing all of that to both sides through status tracking and alerts. It is not, and isn't trying to be, a replacement for the automation tool's own sending engine.
 
 ## The standalone marketing page
 
@@ -256,10 +256,10 @@ You'll need a Supabase project with the migrations in `supabase/migrations/` app
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key (browser + server, RLS-scoped) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only. Bypasses RLS — used by API routes that need to write across a client/admin boundary the caller's own session can't. Never expose this to the browser. |
-| `WAALAXY_API_KEY` | Waalaxy's API (limited use — see [Why Waalaxy is configured by hand](#why-waalaxy-is-configured-by-hand)) |
+| `AUTOMATION_API_KEY` | the automation tool's API (limited use — see [Why the automation tool is configured by hand](#why-the-automation-tool-is-configured-by-hand)) |
 | `CREDENTIALS_ENCRYPTION_KEY` | AES-256-GCM key for encrypting LinkedIn credentials at rest. Generate with `openssl rand -base64 32`. Must decode to exactly 32 bytes. |
 
-Missing `WAALAXY_API_KEY` doesn't crash the app — every Waalaxy-dependent route returns a `501` with a clear "not configured" message instead, so the rest of the tool stays usable without it. Missing `CREDENTIALS_ENCRYPTION_KEY` (or one that isn't a valid 32-byte key) fails loudly the first time anything tries to encrypt/decrypt a LinkedIn credential, rather than silently storing something unsafe.
+Missing `AUTOMATION_API_KEY` doesn't crash the app — every automation-dependent route returns a `501` with a clear "not configured" message instead, so the rest of the tool stays usable without it. Missing `CREDENTIALS_ENCRYPTION_KEY` (or one that isn't a valid 32-byte key) fails loudly the first time anything tries to encrypt/decrypt a LinkedIn credential, rather than silently storing something unsafe.
 
 ## Testing
 
@@ -269,7 +269,7 @@ npm test
 
 Runs Node's built-in test runner over `tests/*.test.ts` (no separate test framework). Two files:
 
-- `tests/csv.test.ts` — `lib/csv.ts`: CSV parsing edge cases (quoted fields containing commas/quotes, a stray quote mid-field deliberately *not* opening quote mode, CRLF vs. LF line endings, blank-line skipping), the 10 MB upload-size limit, column-mapping guesses and conflict detection, and the Waalaxy contact-export summarizer (counts sent/accepted/replied from date columns, matches columns case-insensitively regardless of order, rejects a file that isn't actually a Waalaxy export, de-dupes leads by `linkedin_url` keeping the last occurrence).
+- `tests/csv.test.ts` — `lib/csv.ts`: CSV parsing edge cases (quoted fields containing commas/quotes, a stray quote mid-field deliberately *not* opening quote mode, CRLF vs. LF line endings, blank-line skipping), the 10 MB upload-size limit, column-mapping guesses and conflict detection, and the automation tool contact-export summarizer (counts sent/accepted/replied from date columns, matches columns case-insensitively regardless of order, rejects a file that isn't actually an automation tool export, de-dupes leads by `linkedin_url` keeping the last occurrence).
 - `tests/crypto.test.ts` — `lib/crypto.ts`: encrypt/decrypt round-trips, confirms a random IV means the same plaintext never produces the same ciphertext twice, confirms a tampered ciphertext throws rather than returning garbage, and confirms both a missing and a malformed encryption key fail loudly.
 
 There's no test coverage for `app/dashboard/page.tsx` or the API routes — verification there is `tsc` + `lint` + manual/visual checking (see [Architecture](#architecture)).
@@ -292,17 +292,17 @@ Whenever a change adds a new migration file, it needs to be run against the live
 
 ## Known limitations / non-goals
 
-- **No self-serve sending.** Repeating this because it's the single most important thing to understand about this codebase: nothing in this app sends a LinkedIn connection request or message. See [Why Waalaxy is configured by hand](#why-waalaxy-is-configured-by-hand).
+- **No self-serve sending.** Repeating this because it's the single most important thing to understand about this codebase: nothing in this app sends a LinkedIn connection request or message. See [Why the automation tool is configured by hand](#why-the-automation-tool-is-configured-by-hand).
 - **The LinkedIn verification code is stored in plaintext**, unlike the password (which is AES-256-GCM encrypted). Likely an acceptable trade-off since a code is only ever valid for a few minutes, but it's an inconsistency worth a deliberate decision rather than an oversight.
 - **No automated tests for the dashboard UI or API routes** — only the two pure-logic library files (`lib/csv.ts`, `lib/crypto.ts`) have test coverage.
 - **`outreach.campaigns` and `outreach.lead_files` predate their own migrations.** See the callout in [Data model](#data-model) — a described column default isn't guaranteed to actually be live on an old production database.
-- **Waalaxy's import-result codes aren't fully documented.** `push-to-automation` treats `"success"` as the only known-good code and always shows the raw per-code breakdown rather than hiding an unrecognized code behind a computed pass/fail count, specifically because this assumption could be wrong for a code Myntmore hasn't seen yet.
+- **The automation tool's import-result codes aren't fully documented.** `push-to-automation` treats `"success"` as the only known-good code and always shows the raw per-code breakdown rather than hiding an unrecognized code behind a computed pass/fail count, specifically because this assumption could be wrong for a code Myntmore hasn't seen yet.
 
 ## Glossary
 
 - **RLS** — Postgres Row-Level Security. Policies that restrict which rows a given database role/user can see or modify, enforced by Postgres itself regardless of what the calling application code does or doesn't check.
 - **Service-role client** — a Supabase client authenticated with the project's service-role key, which bypasses RLS entirely. Used only in server-side API routes, never sent to the browser.
 - **`outreach` schema** — this app's own Postgres schema, separate from `public`, since the underlying Supabase project's `auth.users` table is shared with other Myntmore tools and this app's own tables shouldn't collide with theirs.
-- **Waalaxy** — the third-party LinkedIn automation tool that actually sends connection requests and follow-up messages, configured by hand by the Myntmore team using the brief/lead-list this app produces.
-- **Brief** — a campaign's goal, offer, tone, connection note, and follow-up messages (+ delays) — the input a client provides that an admin turns into an actual Waalaxy campaign.
-- **Lead status** vs. **lead category/label** — two independent, easily-confused concepts. *Status* (Sent/Accepted/Replied) is admin-authoritative, derived purely from date columns sourced from Waalaxy's own export. *Category/label* (Hot/Cold/etc.) is entirely client-owned and has nothing to do with outreach progress — it's the client's own way of tagging leads.
+- **Automation tool** — the third-party LinkedIn automation tool that actually sends connection requests and follow-up messages, configured by hand by the Myntmore team using the brief/lead-list this app produces.
+- **Brief** — a campaign's goal, offer, tone, connection note, and follow-up messages (+ delays) — the input a client provides that an admin turns into an actual automation tool campaign.
+- **Lead status** vs. **lead category/label** — two independent, easily-confused concepts. *Status* (Sent/Accepted/Replied) is admin-authoritative, derived purely from date columns sourced from the automation tool's own export. *Category/label* (Hot/Cold/etc.) is entirely client-owned and has nothing to do with outreach progress — it's the client's own way of tagging leads.

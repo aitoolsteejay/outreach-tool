@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, parseWaalaxyContactsCsv, rowsToCsv, summarizeWaalaxyMetricsCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
+import { MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseCsvHeaderAndRows, parseContactExportCsv, rowsToCsv, summarizeContactExportCsv, validateAndParseLeadsCsv } from "../lib/csv.ts";
 
 const header = "first_name,last_name,job_title,company,linkedin_url,email,notes";
 
@@ -110,34 +110,34 @@ test("does not open quote mode for a stray quote in the middle of a field", () =
   assert.equal(rows[1].firstName, "John");
 });
 
-test("summarizeWaalaxyMetricsCsv counts sent/accepted/replied from their respective date columns, ignoring blanks", () => {
+test("summarizeContactExportCsv counts sent/accepted/replied from their respective date columns, ignoring blanks", () => {
   const csv = "firstName,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
     + "Amara,2025-11-20,2025-11-22,2025-11-24\n" // sent, accepted, replied
     + "Devon,2025-11-20,2025-11-23,\n" // sent, accepted, not replied
     + "Priya,2025-11-20,,\n" // sent only
     + "Noor,,,\n"; // never sent (blank throughout)
-  const summary = summarizeWaalaxyMetricsCsv(csv);
+  const summary = summarizeContactExportCsv(csv);
   assert.deepEqual(summary, { total: 4, sent: 3, accepted: 2, replied: 1 });
 });
 
-test("summarizeWaalaxyMetricsCsv matches the expected columns case-insensitively and ignores column order", () => {
-  const summary = summarizeWaalaxyMetricsCsv("LASTREPLYDETECTEDDATE,firstName,CONNECTEDAT,connectionrequestdate\n2025-12-01,Amara,2025-11-22,2025-11-20\n");
+test("summarizeContactExportCsv matches the expected columns case-insensitively and ignores column order", () => {
+  const summary = summarizeContactExportCsv("LASTREPLYDETECTEDDATE,firstName,CONNECTEDAT,connectionrequestdate\n2025-12-01,Amara,2025-11-22,2025-11-20\n");
   assert.deepEqual(summary, { total: 1, sent: 1, accepted: 1, replied: 1 });
 });
 
-test("summarizeWaalaxyMetricsCsv rejects a CSV that isn't a Waalaxy contact export", () => {
-  assert.throws(() => summarizeWaalaxyMetricsCsv("first_name,last_name,linkedin_url\nJane,Doe,https://linkedin.com/in/jane\n"), /missing columns?/);
+test("summarizeContactExportCsv rejects a CSV that isn't an automation tool contact export", () => {
+  assert.throws(() => summarizeContactExportCsv("first_name,last_name,linkedin_url\nJane,Doe,https://linkedin.com/in/jane\n"), /missing columns?/);
 });
 
-test("summarizeWaalaxyMetricsCsv rejects a Waalaxy export with the right columns but no leads", () => {
-  assert.throws(() => summarizeWaalaxyMetricsCsv("connectionRequestDate,connectedAt,lastReplyDetectedDate\n"), /no leads/);
+test("summarizeContactExportCsv rejects an automation tool export with the right columns but no leads", () => {
+  assert.throws(() => summarizeContactExportCsv("connectionRequestDate,connectedAt,lastReplyDetectedDate\n"), /no leads/);
 });
 
-test("parseWaalaxyContactsCsv returns per-lead rows alongside the same summary, skipping rows with no LinkedIn URL", () => {
+test("parseContactExportCsv returns per-lead rows alongside the same summary, skipping rows with no LinkedIn URL", () => {
   const csv = "firstName,lastName,company_name,linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
     + "Amara,Okafor,Blume Analytics,https://linkedin.com/in/amara-o,2025-11-20,2025-11-22,2025-11-24\n"
     + "Devon,Reyes,Northfield Labs,,2025-11-20,2025-11-23,\n"; // no linkedin url -- counted, but not listed
-  const { summary, leads } = parseWaalaxyContactsCsv(csv);
+  const { summary, leads } = parseContactExportCsv(csv);
   assert.deepEqual(summary, { total: 2, sent: 2, accepted: 2, replied: 1 });
   assert.equal(leads.length, 1);
   assert.deepEqual(leads[0], {
@@ -146,17 +146,17 @@ test("parseWaalaxyContactsCsv returns per-lead rows alongside the same summary, 
   });
 });
 
-test("parseWaalaxyContactsCsv leaves name/company blank rather than failing when those columns are missing", () => {
-  const { leads } = parseWaalaxyContactsCsv("linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\nhttps://linkedin.com/in/amara-o,2025-11-20,,\n");
+test("parseContactExportCsv leaves name/company blank rather than failing when those columns are missing", () => {
+  const { leads } = parseContactExportCsv("linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\nhttps://linkedin.com/in/amara-o,2025-11-20,,\n");
   assert.deepEqual(leads[0], { linkedinUrl: "https://linkedin.com/in/amara-o", firstName: "", lastName: "", company: "", connectionRequestDate: "2025-11-20", connectedAt: "", repliedAt: "" });
 });
 
-test("parseWaalaxyContactsCsv de-dupes leads by linkedin_url (case/whitespace-insensitively), keeping the last occurrence", () => {
+test("parseContactExportCsv de-dupes leads by linkedin_url (case/whitespace-insensitively), keeping the last occurrence", () => {
   const csv = "firstName,linkedinUrl,connectionRequestDate,connectedAt,lastReplyDetectedDate\n"
     + "Amara,https://linkedin.com/in/Amara-O,2025-11-20,,\n" // first sighting, not yet accepted
     + "Devon,https://linkedin.com/in/devon-r,2025-11-20,2025-11-22,\n"
     + "Amara,  https://linkedin.com/in/amara-o  ,2025-11-20,2025-11-22,2025-11-24\n"; // same lead as row 1, later state
-  const { leads } = parseWaalaxyContactsCsv(csv);
+  const { leads } = parseContactExportCsv(csv);
   // A naive pass-through here would hand a multi-row upsert two rows with
   // the same (campaign_id, linkedin_url) conflict key, which Postgres
   // rejects outright -- this is the exact shape that bug takes.
@@ -166,13 +166,13 @@ test("parseWaalaxyContactsCsv de-dupes leads by linkedin_url (case/whitespace-in
   assert.equal(amara?.repliedAt, "2025-11-24");
 });
 
-test("parseWaalaxyContactsCsv extracts reply text, conversation link, job title, and contact details", () => {
+test("parseContactExportCsv extracts reply text, conversation link, job title, and contact details", () => {
   const csv = "firstName,lastName,company_name,linkedinUrl,occupation,location,linkedinEmail,phoneNumbers,connectedAt,connectionRequestDate,lastReplyDetectedDate,lastReplyDetected,linkedInConversationLink\n"
-    + "Udaya Kumar,V.,Mac-N-Hom,https://linkedin.com/in/udaya,CMD,Kochi India,udaya@example.com,+919846121973,2026-10-23,2026-10-22,2026-10-23,\"Glad to connect, here is our catalog\",https://app.waalaxy.com/inbox/conversations/123\n";
-  const { summary, leads } = parseWaalaxyContactsCsv(csv);
+    + "Udaya Kumar,V.,Mac-N-Hom,https://linkedin.com/in/udaya,CMD,Kochi India,udaya@example.com,+919846121973,2026-10-23,2026-10-22,2026-10-23,\"Glad to connect, here is our catalog\",https://app.example.com/inbox/conversations/123\n";
+  const { summary, leads } = parseContactExportCsv(csv);
   assert.deepEqual(summary, { total: 1, sent: 1, accepted: 1, replied: 1 });
   assert.equal(leads[0].replyText, "Glad to connect, here is our catalog");
-  assert.equal(leads[0].conversationUrl, "https://app.waalaxy.com/inbox/conversations/123");
+  assert.equal(leads[0].conversationUrl, "https://app.example.com/inbox/conversations/123");
   assert.equal(leads[0].jobTitle, "CMD");
   assert.equal(leads[0].email, "udaya@example.com");
   assert.equal(leads[0].phone, "+919846121973");

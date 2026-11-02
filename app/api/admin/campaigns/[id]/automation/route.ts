@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/require-admin";
 
-const SELECT_FIELDS = "waalaxy_campaign_id,waalaxy_list_id,waalaxy_sync_status,waalaxy_sync_error,waalaxy_prospects_imported,waalaxy_synced_at";
+const SELECT_FIELDS = "automation_campaign_id,automation_list_id,automation_sync_status,automation_sync_error,automation_prospects_imported,automation_synced_at";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin(request);
@@ -16,12 +16,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  const { waalaxyCampaignId, waalaxyListId } = await request.json();
-  if (!waalaxyCampaignId || !waalaxyListId) {
-    return NextResponse.json({ error: "A Waalaxy campaign and prospect list are both required." }, { status: 400 });
+  const { automationCampaignId, automationListId } = await request.json();
+  if (!automationCampaignId || !automationListId) {
+    return NextResponse.json({ error: "An automation tool campaign and prospect list are both required." }, { status: 400 });
   }
   const { data, error } = await auth.admin.schema("outreach").from("campaigns")
-    .update({ waalaxy_campaign_id: waalaxyCampaignId, waalaxy_list_id: waalaxyListId, waalaxy_sync_status: "linked", waalaxy_sync_error: null })
+    .update({ automation_campaign_id: automationCampaignId, automation_list_id: automationListId, automation_sync_status: "linked", automation_sync_error: null })
     .eq("id", id)
     .select(SELECT_FIELDS)
     .single();

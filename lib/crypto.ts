@@ -1,6 +1,6 @@
 // Server-only AES-256-GCM encryption for secrets that must be stored (not
 // hashed, since we need the plaintext back) -- currently just LinkedIn
-// passwords a client submits so an admin can manually log into Waalaxy on
+// passwords a client submits so an admin can manually log into the automation tool on
 // their behalf. Never import this from a client component.
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 

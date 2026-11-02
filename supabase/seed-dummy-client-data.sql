@@ -35,7 +35,7 @@ begin
   insert into outreach.campaigns (
     client_id, name, goal, offer, tone, messaging_strategy, connection_note, follow_up_count, follow_up_messages,
     lead_count, status, progress, submitted_at, created_at,
-    waalaxy_sync_status, waalaxy_prospects_imported, waalaxy_synced_at,
+    automation_sync_status, automation_prospects_imported, automation_synced_at,
     connections_sent, connections_accepted, replies_received, positive_replies, metrics_updated_at
   ) values
   (

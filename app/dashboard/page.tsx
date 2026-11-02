@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseWaalaxyContactsCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
+import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseContactExportCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string; connectionsSent: number; connectionsAccepted: number; repliesReceived: number };
 type Account = { id: string; fullName: string; email: string; role: string; createdAt: string; accessRevokedAt: string | null };
@@ -126,7 +126,7 @@ export default function Home() {
   const [userCreated, setUserCreated] = useState("");
   const [userLoading, setUserLoading] = useState(false);
   const [form, setForm] = useState(defaultCampaignForm());
-  const [waalaxyModal, setWaalaxyModal] = useState<{ id: string; name: string } | null>(null);
+  const [manageModal, setManageModal] = useState<{ id: string; name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [heroTimeFilter, setHeroTimeFilter] = useState("all");
   const [heroCampaignFilter, setHeroCampaignFilter] = useState("all");
@@ -145,7 +145,7 @@ export default function Home() {
   const [accountError, setAccountError] = useState("");
   const [accountConfirmRemove, setAccountConfirmRemove] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [waalaxyLoading, setWaalaxyLoading] = useState(false);
+  const [manageLoading, setManageLoading] = useState(false);
   type CampaignBrief = { goal: string; offer: string; tone: string; messagingStrategy: string; connectionNote: string; followUps: string[]; followUpDelays: number[] };
   const [campaignBrief, setCampaignBrief] = useState<CampaignBrief | null>(null);
   const [campaignMetrics, setCampaignMetrics] = useState({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
@@ -252,7 +252,7 @@ export default function Home() {
   // opens client A, then quickly switches to client B before A's fetch
   // resolves) -- every setState below checks this still matches before firing.
   const activeLinkedinClientIdRef = useRef<string | null>(null);
-  const activeWaalaxyCampaignIdRef = useRef<string | null>(null);
+  const activeManageCampaignIdRef = useRef<string | null>(null);
   // Every connection-note/follow-up textarea registers itself here (keyed
   // by field name, or "followUp-<index>") so a placeholder button can find
   // the right box's current cursor position rather than always appending
@@ -628,15 +628,15 @@ export default function Home() {
     const intervalId = window.setInterval(() => { void fetchLinkedinStatus(false); }, 60000);
     return () => { cancelled = true; window.clearInterval(intervalId); };
   }, [userId, profile.role]);
-  async function openWaalaxyModal(campaign: Campaign) {
-    activeWaalaxyCampaignIdRef.current = campaign.id;
-    setWaalaxyModal({ id: campaign.id, name: campaign.name });
+  async function openManageModal(campaign: Campaign) {
+    activeManageCampaignIdRef.current = campaign.id;
+    setManageModal({ id: campaign.id, name: campaign.name });
     setCampaignStatus(campaign.status);
     setCampaignProgress(campaign.progress);
     setStatusError("");
     setAlertForm({ severity: "error", leadReference: "", message: "" });
     setAlertError("");
-    setWaalaxyLoading(true);
+    setManageLoading(true);
     setCampaignBrief(null);
     setCampaignMetrics({ connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0, positiveReplies: 0 });
     setMetricsError("");
@@ -666,7 +666,7 @@ export default function Home() {
           .order("connected_at", { ascending: false, nullsFirst: false }),
         clientId ? supabase.schema("outreach").from("lead_categories").select("id,name,color,position").eq("client_id", clientId).order("position") : Promise.resolve({ data: [], error: null }),
       ]);
-      if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+      if (activeManageCampaignIdRef.current !== campaign.id) return;
       if (!briefResult.error && briefResult.data) {
         const row = briefResult.data;
         setCampaignBrief({
@@ -693,30 +693,30 @@ export default function Home() {
           const { data: seeded } = await supabase.schema("outreach").from("lead_categories")
             .insert([{ client_id: clientId, name: "Hot", color: "#C2410C", position: 0 }, { client_id: clientId, name: "Cold", color: "#3B5BDB", position: 1 }])
             .select("id,name,color,position");
-          if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+          if (activeManageCampaignIdRef.current !== campaign.id) return;
           if (seeded) setAdminLeadCategories(seeded.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
         }
       }
     } catch (error) {
-      if (activeWaalaxyCampaignIdRef.current !== campaign.id) return;
+      if (activeManageCampaignIdRef.current !== campaign.id) return;
       setStatusError(error instanceof Error ? error.message : "Unable to load campaign details.");
-    } finally { if (activeWaalaxyCampaignIdRef.current === campaign.id) setWaalaxyLoading(false); }
+    } finally { if (activeManageCampaignIdRef.current === campaign.id) setManageLoading(false); }
   }
   // Lets the admin refresh a campaign's sent/accepted/replied counts by
-  // uploading Waalaxy's own contact export instead of counting by hand --
+  // uploading the automation tool's own contact export instead of counting by hand --
   // this only fills the number fields below, it doesn't save on its own, so
   // the admin still reviews (and sets positive replies, which the export
   // doesn't cleanly encode) before clicking "Save metrics".
   async function chooseMetricsCsv(file: File | null) {
-    if (!file || !waalaxyModal) return;
-    const campaignId = waalaxyModal.id;
+    if (!file || !manageModal) return;
+    const campaignId = manageModal.id;
     const clientId = campaigns.find((campaign) => campaign.id === campaignId)?.clientId;
     setMetricsCsvName(file.name);
     setMetricsCsvError("");
     setMetricsCsvSummary(null);
     try {
-      const { summary, leads } = parseWaalaxyContactsCsv(await file.text());
-      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+      const { summary, leads } = parseContactExportCsv(await file.text());
+      if (activeManageCampaignIdRef.current !== campaignId) return;
       setCampaignMetrics((current) => ({ ...current, connectionsSent: summary.sent, connectionsAccepted: summary.accepted, repliesReceived: summary.replied }));
       // Also refreshes each lead's own status (see outreach.lead_statuses),
       // which is what the client's per-lead view is built from -- keyed on
@@ -738,7 +738,7 @@ export default function Home() {
           updated_at: new Date().toISOString(),
         }));
         const { error: leadStatusError } = await createClient().schema("outreach").from("lead_statuses").upsert(rows, { onConflict: "campaign_id,linkedin_url" });
-        if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+        if (activeManageCampaignIdRef.current !== campaignId) return;
         if (leadStatusError) throw new Error(leadStatusError.message);
 
         // Immediately refresh the admin's lead list view so they can see the replies and contacts right away
@@ -747,7 +747,7 @@ export default function Home() {
           .eq("campaign_id", campaignId)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false });
-        if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+        if (activeManageCampaignIdRef.current !== campaignId) return;
         if (!refreshError && refreshedLeads) {
           setAdminLeadStatuses(refreshedLeads.map((row) => ({
             id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
@@ -758,7 +758,7 @@ export default function Home() {
       }
       setMetricsCsvSummary(summary);
     } catch (error) {
-      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+      if (activeManageCampaignIdRef.current !== campaignId) return;
       setMetricsCsvError(error instanceof Error ? error.message : "Unable to read this file.");
     }
   }
@@ -776,8 +776,8 @@ export default function Home() {
     } finally { setAdminLeadCategorySavingId(null); }
   }
   async function saveCampaignMetrics() {
-    if (!waalaxyModal) return;
-    const campaignId = waalaxyModal.id;
+    if (!manageModal) return;
+    const campaignId = manageModal.id;
     if (campaignMetrics.connectionsAccepted > campaignMetrics.connectionsSent) { setMetricsError("Connections accepted can't be more than connections sent."); return; }
     if (campaignMetrics.positiveReplies > campaignMetrics.repliesReceived) { setMetricsError("Positive replies can't be more than replies received."); return; }
     setMetricsSaving(true);
@@ -789,7 +789,7 @@ export default function Home() {
       positive_replies: campaignMetrics.positiveReplies,
       metrics_updated_at: new Date().toISOString(),
     }).eq("id", campaignId);
-    if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+    if (activeManageCampaignIdRef.current !== campaignId) return;
     if (error) { setMetricsError(error.message); setMetricsSaving(false); return; }
     setMetricsSaving(false);
   }
@@ -810,9 +810,9 @@ export default function Home() {
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (error) {
-      if (activeWaalaxyCampaignIdRef.current !== campaignId) return;
+      if (activeManageCampaignIdRef.current !== campaignId) return;
       setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
-    } finally { if (activeWaalaxyCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
+    } finally { if (activeManageCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
   }
   async function downloadAllCampaigns() {
     setCampaignsExportLoading(true);
@@ -1097,12 +1097,12 @@ export default function Home() {
     closeClientCampaignModal();
   }
   async function saveCampaignStatus() {
-    if (!waalaxyModal) return;
+    if (!manageModal) return;
     setStatusSaving(true);
     setStatusError("");
-    const { error } = await createClient().schema("outreach").from("campaigns").update({ status: campaignStatus.toLowerCase(), progress: campaignProgress }).eq("id", waalaxyModal.id);
+    const { error } = await createClient().schema("outreach").from("campaigns").update({ status: campaignStatus.toLowerCase(), progress: campaignProgress }).eq("id", manageModal.id);
     if (error) { setStatusError(error.message); setStatusSaving(false); return; }
-    setCampaigns((current) => current.map((campaign) => campaign.id === waalaxyModal.id ? { ...campaign, status: campaignStatus, progress: campaignProgress } : campaign));
+    setCampaigns((current) => current.map((campaign) => campaign.id === manageModal.id ? { ...campaign, status: campaignStatus, progress: campaignProgress } : campaign));
     setStatusSaving(false);
   }
   async function postAlert(clientId: string, campaignId: string | null) {
@@ -1145,9 +1145,9 @@ export default function Home() {
     activeLinkedinClientIdRef.current = null;
     setAccountModal(null);
   }
-  function closeWaalaxyModal() {
-    activeWaalaxyCampaignIdRef.current = null;
-    setWaalaxyModal(null);
+  function closeManageModal() {
+    activeManageCampaignIdRef.current = null;
+    setManageModal(null);
   }
   // Also the mechanism behind "Restore access" (see the button below) --
   // the server always clears access_revoked_at on any successful role
@@ -1229,7 +1229,7 @@ export default function Home() {
   const heroRepliesReceived = heroCampaigns.reduce((sum, campaign) => sum + campaign.repliesReceived, 0);
   const heroAcceptanceRate = heroConnectionsSent ? Math.round((heroConnectionsAccepted / heroConnectionsSent) * 100) : 0;
   const heroReplyRate = heroConnectionsSent ? Math.round((heroRepliesReceived / heroConnectionsSent) * 100) : 0;
-  const campaignAlerts = waalaxyModal ? alerts.filter((alert) => alert.campaignId === waalaxyModal.id) : [];
+  const campaignAlerts = manageModal ? alerts.filter((alert) => alert.campaignId === manageModal.id) : [];
   const accountAlerts = accountModal ? alerts.filter((alert) => alert.campaignId === null && alert.clientId === accountModal.id) : [];
   // Alerts a client authored about their own action (e.g. the automatic
   // "client updated this campaign's brief" note posted alongside every
@@ -1271,7 +1271,7 @@ export default function Home() {
           <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <div className="accountRow" key={account.id} role="button" tabIndex={0} aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountModal(account); } }}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><div className="accountRoleGroup"><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span>{account.accessRevokedAt && <span className="accountRole revoked">Revoked</span>}</div><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
           <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
-          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select><button type="button" className="secondary" disabled={campaignsExportLoading} onClick={downloadAllCampaigns}>{campaignsExportLoading ? "Preparing…" : "Download all campaigns"}</button></div></div>{campaignsExportError && <p className="formError" role="alert" style={{ margin: "0 25px 14px" }}>{campaignsExportError}</p>}<div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Manage ${campaign.name}`} onClick={() => openWaalaxyModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWaalaxyModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+          <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select><button type="button" className="secondary" disabled={campaignsExportLoading} onClick={downloadAllCampaigns}>{campaignsExportLoading ? "Preparing…" : "Download all campaigns"}</button></div></div>{campaignsExportError && <p className="formError" role="alert" style={{ margin: "0 25px 14px" }}>{campaignsExportError}</p>}<div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Manage ${campaign.name}`} onClick={() => openManageModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openManageModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
           {activeAlerts.length > 0 && <div className="alertBanner">{activeAlerts.map((alert) => <div className={`alertBannerItem ${alert.severity}`} key={alert.id}><Icon name="alertTriangle" size={16} /><div><strong>{alert.message}</strong><span>{alert.campaignId ? `${campaigns.find((campaign) => campaign.id === alert.campaignId)?.name || "Campaign"}${alert.leadReference ? ` · ${alert.leadReference}` : ""}` : "Account-wide"}</span></div></div>)}</div>}
@@ -1376,13 +1376,13 @@ export default function Home() {
         </section>
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
-      {waalaxyModal && <div className="modalBackdrop campaignPageBackdrop">
-        <button className="modalDismiss" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign" />
+      {manageModal && <div className="modalBackdrop campaignPageBackdrop">
+        <button className="modalDismiss" onClick={() => closeManageModal()} aria-label="Close manage campaign" />
         <section className="modal campaignPageModal" role="dialog" aria-modal="true" aria-labelledby="manage-campaign-title">
-          <button className="close" onClick={() => closeWaalaxyModal()} aria-label="Close manage campaign">×</button>
+          <button className="close" onClick={() => closeManageModal()} aria-label="Close manage campaign">×</button>
           <div className="modalBody">
             <p className="eyebrow">MANAGE CAMPAIGN</p>
-            <h2 id="manage-campaign-title">{waalaxyModal.name}</h2>
+            <h2 id="manage-campaign-title">{manageModal.name}</h2>
             <h3 className="modalSectionTitle">Delivery status</h3>
             <label>Status<select value={campaignStatus} onChange={(e) => setCampaignStatus(e.target.value)}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
             <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} style={{ "--range-progress": `${campaignProgress}%` } as React.CSSProperties} /></label>
@@ -1395,12 +1395,12 @@ export default function Home() {
             <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn URL incorrect, please check and resubmit." rows={2} /></label>
             <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
             {alertError && <p className="formError" role="alert">{alertError}</p>}
-            <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === waalaxyModal.id)?.clientId || "", waalaxyModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
+            <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === manageModal.id)?.clientId || "", manageModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
             {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
             <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Brief, messages &amp; leads</h3>
             <p className="modalIntro">Everything needed to configure this campaign sequence.</p>
-            {waalaxyLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
+            {manageLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
               <p className="formError" role="alert">Unable to load this campaign&apos;s brief.</p>
             ) : <>
               <div className="reviewStrip">
@@ -1412,7 +1412,7 @@ export default function Home() {
               <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "-"}</p></div>
               {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1} <em className="briefDelay">· {campaignBrief.followUpDelays[index] ?? 3} day{(campaignBrief.followUpDelays[index] ?? 3) === 1 ? "" : "s"} after {index === 0 ? "connecting" : `follow-up ${index}`}</em></span><p>{message || "-"}</p></div>)}
               {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
-              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(waalaxyModal.id, waalaxyModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
+              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(manageModal.id, manageModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
             </>}
             <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>

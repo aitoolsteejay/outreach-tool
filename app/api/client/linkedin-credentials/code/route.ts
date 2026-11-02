@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/supabase/require-user";
 const SELECT_FIELDS = "linkedin_email,status,code_requested_at,code_submitted_at,failure_reason,updated_at";
 
 // A client submits the verification code LinkedIn sent them (or confirms
-// they tapped Yes on their phone) so the admin can copy it into Waalaxy's
+// they tapped Yes on their phone) so the admin can copy it into the automation tool's
 // real sign-in screen. Only accepted while we're actually waiting on one --
 // otherwise there's nothing for an admin to act on yet.
 export async function POST(request: Request) {

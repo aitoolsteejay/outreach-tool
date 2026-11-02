@@ -10,9 +10,9 @@ function sanitizeFilenameForHeader(name: string): string {
   return name.replace(/[\x00-\x1f\x7f"]/g, "").trim() || "leads.csv";
 }
 
-// Lets an admin pull the exact CSV a client uploaded, to import into Waalaxy
-// by hand -- Waalaxy's API can't set message content or handle 2FA, so
-// admins run the actual send manually (see lib/waalaxy.ts).
+// Lets an admin pull the exact CSV a client uploaded, to import into the automation tool
+// by hand -- the automation tool's API can't set message content or handle 2FA, so
+// admins run the actual send manually (see lib/automation.ts).
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;

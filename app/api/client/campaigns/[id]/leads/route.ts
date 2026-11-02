@@ -10,7 +10,7 @@ import { leadRowsToCsv, parseLeadsCsv } from "@/lib/csv";
 // (skipping anything whose linkedin_url is already present, so re-exporting
 // an overlapping CRM view doesn't queue the same lead twice), and replaces
 // the campaign's lead_files entry with the merged result so every other
-// consumer (admin's "Download leads" button, push-to-waalaxy) keeps seeing
+// consumer (admin's "Download leads" button, push-to-automation) keeps seeing
 // one authoritative, up-to-date file per campaign.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUser(request);

@@ -11,8 +11,8 @@ import { requireUser } from "@/lib/supabase/require-user";
 // an explicit ownership check here, the same pattern as the sibling
 // leads/route.ts.
 //
-// Editing after a campaign has already been configured in Waalaxy (which
-// happens by hand, outside this app -- see lib/waalaxy.ts) won't itself
+// Editing after a campaign has already been configured in the automation tool (which
+// happens by hand, outside this app -- see lib/automation.ts) won't itself
 // update anything there, so every successful edit also posts a
 // campaign-wide alert. That reuses the exact alert machinery admins already
 // see for everything else (the dashboard's top alert banner, the
