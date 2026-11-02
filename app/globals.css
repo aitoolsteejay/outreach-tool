@@ -424,3 +424,10 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .loginAside .loginButton,.loginAside .loginButton:hover{background:linear-gradient(135deg,#2DB5A5,#0B7A70)}
 .loginAside .loginButton:hover{background:linear-gradient(135deg,#E8920F,#B45309);box-shadow:0 12px 28px #D9770633}
 .loginAside .loginForm input:focus{border-color:#0D9488}
+/* Account-creation dialogs (the one-time admin setup on the login page and
+   the admin's "Create a user account"), matched to the login page: teal top
+   edge, gradient primary button (amber on hover), teal eyebrow. */
+.accountModal{border-top:4px solid #0D9488}
+.accountModal .modalBody>.eyebrow{color:#0D9488}
+.accountModal .loginButton,.accountModal .loginButton:hover{background:linear-gradient(135deg,#2DB5A5,#0B7A70)}
+.accountModal .loginButton:hover{background:linear-gradient(135deg,#E8920F,#B45309);box-shadow:0 12px 28px #D9770633}
