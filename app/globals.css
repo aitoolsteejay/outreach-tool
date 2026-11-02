@@ -126,7 +126,7 @@ h1,.welcome h2,.modalBody h2,.success h2,.loginBrand h1,.loginCard h2{font-famil
 .adminWelcome>div:first-child{display:flex;flex-direction:column;justify-content:center}
 .adminWelcome h2{font-size:40px;line-height:1;letter-spacing:-2px;margin-bottom:15px}
 .adminWelcome p:not(.eyebrow){margin-bottom:0;max-width:590px}
-.adminHeroAside{align-self:stretch;padding:22px 24px;background:#fff;border:1px solid #DDE3FC;border-radius:14px;display:flex;flex-direction:column;justify-content:center}
+.adminHeroAside{align-self:stretch;padding:22px 24px;background:#fff;border:1px solid #D3E9E4;border-radius:14px;display:flex;flex-direction:column;justify-content:center}
 .adminHeroAside>p{margin:0 0 11px;color:var(--taupe);font-size:9px;font-weight:850;letter-spacing:.13em}
 .adminHeroAside>div{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
 .adminHeroAside span{color:var(--body);font-size:11px}
@@ -269,7 +269,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
    win the cascade outright rather than tweak a still-competing earlier one. */
 .adminShell .content,.sidebar .navItem:hover{background:var(--cream)}
 .campaignIcon{background:#E6F6F3!important;color:#0D9488!important;border-radius:50%!important}
-.campaign:hover .campaignIcon{background:#E2E8FF!important}
+.campaign:hover .campaignIcon{background:#E3EFEC!important}
 .sidebar .navItem.active{background:#E6F6F3;box-shadow:none}
 .sidebar .navItem.active span{color:#0D9488}
 .clientHero,.clientSummary,.adminSummary{border-color:#ECE7DC}
@@ -315,7 +315,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .alertBannerItem span{display:block;margin-top:3px;font-size:11px;opacity:.8}
 .alertBannerItem.error{background:#FEF2F2;border-color:#FCA5A5;color:#B42318}
 .alertBannerItem.warning{background:#FFFBEB;border-color:#FDE68A;color:#92400E}
-.alertBannerItem.info{background:#ECFDF9;border-color:#BFDBFE;color:#0F766E}
+.alertBannerItem.info{background:#ECFDF9;border-color:#B6E3DB;color:#0F766E}
 .severityChoice{display:flex;gap:8px;margin:19px 0 4px;padding:0;border:0}
 .severityChoice legend{display:none}
 .severityChoice button{flex:1;text-transform:capitalize;padding:9px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--body);font-size:11px;font-weight:700}
@@ -361,10 +361,10 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .leadMetaChip{display:inline-flex;align-items:center;gap:4px}
 .leadMetaChip strong{color:var(--body);font-weight:600}
 .leadMetaChip.contactInfo{color:var(--ink);background:#f2ede4;padding:2px 7px;border-radius:6px;font-size:10px}
-.leadReplyBox{margin-top:6px;padding:11px 14px;background:#FFFBEB;border:1px solid #E5DBFD;border-radius:10px;font-size:11.5px;line-height:1.55;color:#1F5C55}
+.leadReplyBox{margin-top:6px;padding:11px 14px;background:#FFFBEB;border:1px solid #F2E3C4;border-radius:10px;font-size:11.5px;line-height:1.55;color:#1F5C55}
 .leadReplyHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:10.5px;font-weight:750;color:#B45309}
 .leadReplyText{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11.5px;color:#143B37}
-.leadConversationLink{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:750;color:#B45309;text-decoration:none;border:1px solid #D8C7FD;padding:3px 8px;border-radius:6px;background:#fff}
+.leadConversationLink{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:750;color:#B45309;text-decoration:none;border:1px solid #F5D9A6;padding:3px 8px;border-radius:6px;background:#fff}
 .leadConversationLink:hover{background:#FEF3C7}
 .leadFilterBar{margin-top:14px;display:flex;flex-direction:column;gap:10px}
 .leadFilterRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -431,3 +431,24 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .accountModal .modalBody>.eyebrow{color:#0D9488}
 .accountModal .loginButton,.accountModal .loginButton:hover{background:linear-gradient(135deg,#2DB5A5,#0B7A70)}
 .accountModal .loginButton:hover{background:linear-gradient(135deg,#E8920F,#B45309);box-shadow:0 12px 28px #D9770633}
+/* App-wide pass so every surface matches the login page and client
+   dashboard: gradient primary buttons, a teal top edge on every dialog, the
+   admin summary metrics as tinted tiles, and the admin side panel as a deep
+   teal card (the counterpart to the client hero cards). */
+.primary{background:linear-gradient(135deg,#2DB5A5,#0B7A70);box-shadow:0 8px 18px #0D948826}
+.primary:hover{background:linear-gradient(135deg,#E8920F,#B45309);box-shadow:0 10px 22px #D9770633}
+.modal{border-top:4px solid #0D9488}
+.adminMetrics{gap:12px;border:0;border-radius:0;background:transparent;overflow:visible}
+.adminMetrics>div,.adminMetrics>div+div{border:1px solid var(--border);border-radius:16px;background:#fff}
+.adminMetrics>div:nth-child(1) strong{color:#0D9488}
+.adminMetrics>div:nth-child(2) strong{color:#D97706}
+.adminMetrics>div:nth-child(3) strong{color:#0F766E}
+.adminMetrics>div:nth-child(4) strong{color:#B45309}
+.adminPanel{background:linear-gradient(135deg,#0F766E,#0B4F49)}
+.adminPanelHead span,.adminPanel>p{color:#BFE6DF}
+.adminPanelHead strong{background:#E8920F}
+.adminChecklist>p{color:#8CCFC4}
+.adminChecklist>div{color:#E3F4F0}
+.adminChecklist b{color:#FCD34D;border-color:#ffffff40}
+.adminPanel>.primary{background:#fff;color:#0F766E;box-shadow:none}
+.adminPanel>.primary:hover{background:linear-gradient(135deg,#E8920F,#B45309);color:#fff}
