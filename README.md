@@ -104,10 +104,10 @@ app/
     admin/
       users/                  -- POST create, PATCH change role ([id]), DELETE revoke ([id])
       campaigns/[id]/
-        waalaxy/               -- GET/POST: read or set the Waalaxy campaign+list link
-        push-to-waalaxy/       -- POST: import the lead CSV into the linked Waalaxy campaign
+        automation/            -- GET/POST: read or set the Waalaxy campaign+list link
+        push-to-automation/       -- POST: import the lead CSV into the linked Waalaxy campaign
         leads-csv/              -- GET: download the client's uploaded lead CSV
-      waalaxy/
+      automation/
         campaigns/             -- GET: list Waalaxy campaigns (for the link picker)
         lists/                  -- GET: list Waalaxy prospect lists
       linkedin-credentials/[clientId]/
@@ -186,12 +186,12 @@ Every route below requires a bearer token (the signed-in user's Supabase access 
 | `POST /api/admin/users` | admin | Creates a client or admin account, or grants Outreach access to an existing Myntmore login (same email-lookup + upsert pattern as bootstrap, minus the password-proof step — an admin is trusted to do this deliberately). |
 | `PATCH /api/admin/users/[id]` | admin | Changes a member's role. Refuses to act on the caller's own account. |
 | `DELETE /api/admin/users/[id]` | admin | Revokes access (soft-delete). Refuses to act on the caller's own account. |
-| `GET /api/admin/campaigns/[id]/waalaxy` | admin | Reads the campaign's Waalaxy link + sync status. |
-| `POST /api/admin/campaigns/[id]/waalaxy` | admin | Links the campaign to a Waalaxy campaign ID + prospect list ID. |
-| `POST /api/admin/campaigns/[id]/push-to-waalaxy` | admin | Downloads the campaign's uploaded lead CSV, parses it, and imports every row into the linked Waalaxy campaign/list. Records the per-prospect result codes and an overall `synced`/`partial`/`failed` status back onto the campaign. |
+| `GET /api/admin/campaigns/[id]/automation` | admin | Reads the campaign's Waalaxy link + sync status. |
+| `POST /api/admin/campaigns/[id]/automation` | admin | Links the campaign to a Waalaxy campaign ID + prospect list ID. |
+| `POST /api/admin/campaigns/[id]/push-to-automation` | admin | Downloads the campaign's uploaded lead CSV, parses it, and imports every row into the linked Waalaxy campaign/list. Records the per-prospect result codes and an overall `synced`/`partial`/`failed` status back onto the campaign. |
 | `GET /api/admin/campaigns/[id]/leads-csv` | admin | Streams back the exact CSV the client uploaded, for manual import into Waalaxy. |
-| `GET /api/admin/waalaxy/campaigns` | admin | Lists Waalaxy campaigns (id + name only — Waalaxy's API doesn't expose stats). |
-| `GET /api/admin/waalaxy/lists` | admin | Lists Waalaxy prospect lists. |
+| `GET /api/admin/automation/campaigns` | admin | Lists Waalaxy campaigns (id + name only — Waalaxy's API doesn't expose stats). |
+| `GET /api/admin/automation/lists` | admin | Lists Waalaxy prospect lists. |
 | `GET /api/admin/linkedin-credentials/[clientId]` | admin | Status fields only — email, status, audit timestamps, and a `has_code` boolean. Never the password or the code itself. |
 | `PATCH /api/admin/linkedin-credentials/[clientId]` | admin | Transitions status: `request_code`, `request_approval`, `mark_logged_in`, `mark_failed` (with a reason), `reset`. |
 | `POST /api/admin/linkedin-credentials/[clientId]/reveal` | admin | Decrypts and returns the password. A distinct, audited action (`revealed_at/by`), not a side effect of the GET above. |
@@ -296,7 +296,7 @@ Whenever a change adds a new migration file, it needs to be run against the live
 - **The LinkedIn verification code is stored in plaintext**, unlike the password (which is AES-256-GCM encrypted). Likely an acceptable trade-off since a code is only ever valid for a few minutes, but it's an inconsistency worth a deliberate decision rather than an oversight.
 - **No automated tests for the dashboard UI or API routes** — only the two pure-logic library files (`lib/csv.ts`, `lib/crypto.ts`) have test coverage.
 - **`outreach.campaigns` and `outreach.lead_files` predate their own migrations.** See the callout in [Data model](#data-model) — a described column default isn't guaranteed to actually be live on an old production database.
-- **Waalaxy's import-result codes aren't fully documented.** `push-to-waalaxy` treats `"success"` as the only known-good code and always shows the raw per-code breakdown rather than hiding an unrecognized code behind a computed pass/fail count, specifically because this assumption could be wrong for a code Myntmore hasn't seen yet.
+- **Waalaxy's import-result codes aren't fully documented.** `push-to-automation` treats `"success"` as the only known-good code and always shows the raw per-code breakdown rather than hiding an unrecognized code behind a computed pass/fail count, specifically because this assumption could be wrong for a code Myntmore hasn't seen yet.
 
 ## Glossary
 
