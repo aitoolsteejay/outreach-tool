@@ -1355,7 +1355,7 @@ export default function Home() {
                   </label>
                 ))}
                 {mappingError && <p className="formError" role="alert">{mappingError}</p>}
-                <div className="waalaxyActions">
+                <div className="actionRow">
                   <button type="button" className="secondary" onClick={cancelColumnMapping}>Choose a different file</button>
                   <button type="button" className="primary" disabled={columnMapping.mapping.linkedin_url === undefined} onClick={applyColumnMapping}>Use these columns</button>
                 </div>
@@ -1388,7 +1388,7 @@ export default function Home() {
             <label>Progress <span className="fieldHint">{campaignProgress}%</span><input type="range" min={0} max={100} step={5} value={campaignProgress} onChange={(e) => setCampaignProgress(Number(e.target.value))} style={{ "--range-progress": `${campaignProgress}%` } as React.CSSProperties} /></label>
             {statusError && <p className="formError" role="alert">{statusError}</p>}
             <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
-            <div className="waalaxyDivider" />
+            <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Alerts</h3>
             <p className="modalIntro">Post an issue for the client to see on their dashboard. Leave the lead field blank for a campaign-wide alert, or name a specific lead (e.g. their LinkedIn URL) to flag just that row.</p>
             <label>Lead <span className="fieldHint">Optional</span><input value={alertForm.leadReference} onChange={(e) => setAlertForm({ ...alertForm, leadReference: e.target.value })} placeholder="e.g. linkedin.com/in/jane-doe" /></label>
@@ -1397,7 +1397,7 @@ export default function Home() {
             {alertError && <p className="formError" role="alert">{alertError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === waalaxyModal.id)?.clientId || "", waalaxyModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
             {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
-            <div className="waalaxyDivider" />
+            <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Brief, messages &amp; leads</h3>
             <p className="modalIntro">Everything needed to configure this campaign sequence.</p>
             {waalaxyLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
@@ -1414,7 +1414,7 @@ export default function Home() {
               {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
               <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(waalaxyModal.id, waalaxyModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
             </>}
-            <div className="waalaxyDivider" />
+            <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
             <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each lead&apos;s own dates, and update every lead&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
             <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
@@ -1437,7 +1437,7 @@ export default function Home() {
             </div>
             {metricsError && <p className="formError" role="alert">{metricsError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
-            <div className="waalaxyDivider" />
+            <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Leads &amp; Conversations</h3>
             {adminLeadStatuses.length === 0 ? (
               <p className="modalIntro">Upload a contact export above to view lead replies, contact details, and conversation links here.</p>
@@ -1623,13 +1623,13 @@ export default function Home() {
                 {editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).map((followUp, index) => <div className="followUpField" key={index}><label>Follow-up {index + 1}<textarea ref={(el) => { noteRefs.current[`editFollowUp-${index}`] = el; }} value={followUp} onChange={(e) => updateEditFollowUp(index, e.target.value)} rows={3} /></label><label className="followUpDelayLabel">Wait <input type="number" className="followUpDelayInput" min={1} max={60} value={editCampaignForm.followUpDelays[index]} onChange={(e) => updateEditFollowUpDelay(index, e.target.value)} /> day{editCampaignForm.followUpDelays[index] === 1 ? "" : "s"} after {index === 0 ? "the connection request" : `follow-up ${index}`}</label><div className="placeholderRow"><span>Personalize</span>{[["First name", "{{first_name}}"], ["Last name", "{{last_name}}"], ["Company", "{{company}}"]].map(([label, token]) => <button type="button" key={token} onClick={() => addEditPlaceholder("followUp", token, index)}>{label}</button>)}</div></div>)}
                 <label>Supporting context <span className="fieldHint">Optional</span><textarea value={editCampaignForm.messagingStrategy} onChange={(e) => updateEditField("messagingStrategy", e.target.value)} placeholder="Proof points, phrases to avoid, preferred CTA, or other constraints." rows={3} /></label>
                 {editCampaignError && <p className="formError" role="alert">{editCampaignError}</p>}
-                <div className="waalaxyActions">
+                <div className="actionRow">
                   <button type="button" className="secondary" onClick={() => setEditingCampaign(false)} disabled={editCampaignSaving}>Cancel</button>
                   <button type="button" className="primary" disabled={editCampaignSaving || !editCampaignForm.connectionNote.trim() || editCampaignForm.followUps.slice(0, editCampaignForm.followUpCount).some((message) => !message.trim())} onClick={saveCampaignEdits}>{editCampaignSaving ? "Saving…" : "Save changes"}</button>
                 </div>
               </div>}
               {(clientCampaignDetail.connectionsSent > 0 || clientCampaignDetail.repliesReceived > 0) && <>
-                <div className="waalaxyDivider" />
+                <div className="sectionDivider" />
                 <h3 className="modalSectionTitle">Performance</h3>
                 <div className="metricRates">
                   <div className="metricRate"><strong>{clientLeadStatuses.length}</strong><span>Leads</span></div>
@@ -1667,7 +1667,7 @@ export default function Home() {
 
                 return (
                   <>
-                    <div className="waalaxyDivider" />
+                    <div className="sectionDivider" />
                     <div className="sectionHeadRow">
                       <h3 className="modalSectionTitle">Leads ({filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""})</h3>
                       {filtered.length > 5 && (
@@ -1785,12 +1785,12 @@ export default function Home() {
                 );
               })()}
               {clientCampaignAlerts.length > 0 && <>
-                <div className="waalaxyDivider" />
+                <div className="sectionDivider" />
                 <h3 className="modalSectionTitle">Alerts</h3>
                 <div className="alertList">{clientCampaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div></div>)}</div>
               </>}
               {clientCampaignModal.status !== "Completed" && <>
-                <div className="waalaxyDivider" />
+                <div className="sectionDivider" />
                 <h3 className="modalSectionTitle">Add leads</h3>
                 <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new leads, and we&apos;ll add them to this campaign. Anyone already on the list is skipped automatically.</p>
                 {!addLeadsMapping ? <>
@@ -1814,14 +1814,14 @@ export default function Home() {
                     </label>
                   ))}
                   {addLeadsMappingError && <p className="formError" role="alert">{addLeadsMappingError}</p>}
-                  <div className="waalaxyActions">
+                  <div className="actionRow">
                     <button type="button" className="secondary" onClick={cancelAddLeadsMapping}>Choose a different file</button>
                     <button type="button" className="primary" disabled={addLeadsMapping.mapping.linkedin_url === undefined} onClick={applyAddLeadsMapping}>Use these columns</button>
                   </div>
                 </div>}
               </>}
               {clientCampaignModal.status === "Submitted" && !clientCampaignAlerts.some((alert) => !alert.resolved) && <>
-                <div className="waalaxyDivider" />
+                <div className="sectionDivider" />
                 {clientCampaignDeleteError && <p className="formError" role="alert">{clientCampaignDeleteError}</p>}
                 <button className="dangerButton" disabled={clientCampaignDeleting} onClick={deleteClientCampaign}>{clientCampaignDeleting ? "Removing…" : clientCampaignConfirmDelete ? "Click again to confirm removal" : "Remove this campaign"}</button>
               </>}
@@ -1845,7 +1845,7 @@ export default function Home() {
             </fieldset>
             {accountError && <p className="formError" role="alert">{accountError}</p>}
             {accountModal.role === "client" && <>
-              <div className="waalaxyDivider" />
+              <div className="sectionDivider" />
               <h3 className="modalSectionTitle">LinkedIn access</h3>
               {adminLinkedinLoading ? <p className="modalIntro">Loading…</p> : !adminLinkedinStatus ? (
                 <p className="modalIntro">This client hasn&apos;t submitted LinkedIn credentials yet.</p>
@@ -1856,11 +1856,11 @@ export default function Home() {
                 {adminLinkedinStatus.failure_reason && <p className="formError" role="alert">Last failure: {adminLinkedinStatus.failure_reason}</p>}
                 {adminLinkedinReveal && <div className="alertItem info"><Icon name="eye" size={15} /><div><strong>Password</strong><span>{adminLinkedinReveal.password}</span></div></div>}
                 {adminLinkedinError && <p className="formError" role="alert">{adminLinkedinError}</p>}
-                <div className="waalaxyActions">
+                <div className="actionRow">
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => revealLinkedinPassword(accountModal.id)}>Reveal password</button>
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "request_code")}>Request code</button>
                 </div>
-                <div className="waalaxyActions" style={{ marginTop: 8 }}>
+                <div className="actionRow" style={{ marginTop: 8 }}>
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "request_approval")}>Request phone approval</button>
                   <button className="secondary" disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_logged_in")}>Mark logged in</button>
                 </div>
@@ -1868,7 +1868,7 @@ export default function Home() {
                 <label>Failure reason <span className="fieldHint">Optional</span><input value={adminLinkedinFailReason} onChange={(e) => setAdminLinkedinFailReason(e.target.value)} placeholder="e.g. Incorrect password" /></label>
                 <button className="dangerButton" style={{ marginTop: 8 }} disabled={adminLinkedinActing} onClick={() => performLinkedinAction(accountModal.id, "mark_failed", adminLinkedinFailReason)}>Mark failed</button>
               </>}
-              <div className="waalaxyDivider" />
+              <div className="sectionDivider" />
               <h3 className="modalSectionTitle">Alerts</h3>
               <p className="modalIntro">Post an account-wide issue, for something affecting all of this client&apos;s outreach, not one campaign (e.g. a LinkedIn login problem).</p>
               <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn login failed, please log in again." rows={2} /></label>
@@ -1878,7 +1878,7 @@ export default function Home() {
               {accountAlerts.length > 0 && <div className="alertList">{accountAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>Account-wide</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
             </>}
             {!accountModal.accessRevokedAt && <>
-              <div className="waalaxyDivider" />
+              <div className="sectionDivider" />
               <h3 className="modalSectionTitle">Remove access</h3>
               <p className="modalIntro">Revokes this person&apos;s access to Outreach only. Their Myntmore login for other tools is unaffected.</p>
               <button className="dangerButton" disabled={accountSaving} onClick={removeAccountAccess}>{accountSaving ? "Removing…" : accountConfirmRemove ? "Click again to confirm" : "Remove access"}</button>
@@ -1927,7 +1927,7 @@ export default function Home() {
               ))}
               {leadCategories.length === 0 && <p className="modalIntro">No labels yet -- add your first one below.</p>}
             </div>
-            <div className="waalaxyDivider" />
+            <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Add a label</h3>
             <div className="categorySwatches" style={{ marginTop: 12 }}>
               {LEAD_CATEGORY_COLORS.map((color) => (

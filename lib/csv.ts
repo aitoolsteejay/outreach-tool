@@ -221,7 +221,7 @@ export function parseWaalaxyContactsCsv(text: string): { summary: WaalaxyMetrics
   const lowerHeaders = headers.map((column) => column.trim().toLowerCase());
   const indexOf = (key: keyof typeof WAALAXY_COLUMNS) => lowerHeaders.indexOf(WAALAXY_COLUMNS[key]);
   const missing = WAALAXY_REQUIRED_COLUMNS.filter(([key]) => indexOf(key) === -1).map(([, label]) => label);
-  if (missing.length) throw new Error(`This doesn't look like a Waalaxy contact export -- missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
+  if (missing.length) throw new Error(`This doesn't look like a campaign contact export -- missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
   if (rows.length === 0) throw new Error("This export has no leads in it.");
   const sentIndex = indexOf("sent"), acceptedIndex = indexOf("accepted"), repliedIndex = indexOf("replied");
   const linkedinIndex = indexOf("linkedinUrl"), firstNameIndex = indexOf("firstName"), lastNameIndex = indexOf("lastName"), companyIndex = indexOf("company");
