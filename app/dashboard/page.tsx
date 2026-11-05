@@ -60,6 +60,13 @@ async function readLeadFile(file: File) {
   return validateAndParseLeadsCsv(await file.text());
 }
 
+// Lead URLs come from uploaded CSVs / exports, so never put one into an href
+// unless it's a plain http(s) link -- a "javascript:" URL in a lead row would
+// otherwise run script when someone clicks it.
+function safeHref(url: string | null | undefined): string | undefined {
+  return url && /^https?:\/\//i.test(url.trim()) ? url.trim() : undefined;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) throw new Error("The server returned an unexpected response. Please try again.");
@@ -723,18 +730,25 @@ export default function Home() {
       // (campaign_id, linkedin_url) so re-uploading the same export later
       // updates these rows instead of duplicating them.
       if (clientId && leads.length) {
+        // The reply/contact fields are only written when this export actually
+        // carries that data for at least one lead -- otherwise re-uploading a
+        // slimmer export (e.g. one without the reply or phone columns) would
+        // blank out values stored from an earlier, richer one. Omitting a key
+        // from every row leaves that column untouched by the upsert.
+        const optionalFields = ["replyText", "conversationUrl", "jobTitle", "email", "phone", "location"] as const;
+        const present = new Set(optionalFields.filter((field) => leads.some((lead) => lead[field])));
         const rows = leads.map((lead) => ({
           campaign_id: campaignId, client_id: clientId, linkedin_url: lead.linkedinUrl,
           first_name: lead.firstName, last_name: lead.lastName, company: lead.company,
           connection_request_date: lead.connectionRequestDate || null,
           connected_at: lead.connectedAt || null,
           replied_at: lead.repliedAt || null,
-          reply_text: lead.replyText || null,
-          conversation_url: lead.conversationUrl || null,
-          job_title: lead.jobTitle || null,
-          email: lead.email || null,
-          phone: lead.phone || null,
-          location: lead.location || null,
+          ...(present.has("replyText") ? { reply_text: lead.replyText || null } : {}),
+          ...(present.has("conversationUrl") ? { conversation_url: lead.conversationUrl || null } : {}),
+          ...(present.has("jobTitle") ? { job_title: lead.jobTitle || null } : {}),
+          ...(present.has("email") ? { email: lead.email || null } : {}),
+          ...(present.has("phone") ? { phone: lead.phone || null } : {}),
+          ...(present.has("location") ? { location: lead.location || null } : {}),
           updated_at: new Date().toISOString(),
         }));
         const { error: leadStatusError } = await createClient().schema("outreach").from("lead_statuses").upsert(rows, { onConflict: "campaign_id,linkedin_url" });
@@ -1524,7 +1538,7 @@ export default function Home() {
                             <div className="leadStatusHeader">
                               <div className="leadStatusName">
                                 {lead.linkedinUrl ? (
-                                  <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadNameLink">
+                                  <a href={safeHref(lead.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="leadNameLink">
                                     <strong>{name}</strong>
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                   </a>
@@ -1565,11 +1579,11 @@ export default function Home() {
                                 <div className="leadReplyHeader">
                                   <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
                                   {lead.conversationUrl ? (
-                                    <a href={lead.conversationUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                    <a href={safeHref(lead.conversationUrl)} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
                                       Open conversation ↗
                                     </a>
                                   ) : lead.linkedinUrl ? (
-                                    <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                    <a href={safeHref(lead.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
                                       View on LinkedIn ↗
                                     </a>
                                   ) : null}
@@ -1727,7 +1741,7 @@ export default function Home() {
                               <div className="leadStatusHeader">
                                 <div className="leadStatusName">
                                   {lead.linkedinUrl ? (
-                                    <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadNameLink">
+                                    <a href={safeHref(lead.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="leadNameLink">
                                       <strong>{name}</strong>
                                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                     </a>
@@ -1768,7 +1782,7 @@ export default function Home() {
                                   <div className="leadReplyHeader">
                                     <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
                                     {lead.linkedinUrl && (
-                                      <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
+                                      <a href={safeHref(lead.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
                                         View on LinkedIn ↗
                                       </a>
                                     )}
