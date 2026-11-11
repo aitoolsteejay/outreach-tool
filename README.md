@@ -1,6 +1,6 @@
 # Myntmore Outreach Tool
 
-A LinkedIn outreach service, run **for** clients rather than sold **to** them as self-serve software. A client submits a lead list and a message sequence through this app; a person on the Myntmore team reviews it, configures the actual send in [the automation tool](https://www.automation.com/) by hand, and runs the campaign. This repo is the portal that connects the two sides of that relationship: a client dashboard for submitting and tracking campaigns, and an admin toolkit for running them — plus everything in between (lead-list handling, LinkedIn credential capture and 2FA relay, performance reporting, alerts).
+A LinkedIn outreach service, run **for** clients rather than sold **to** them as self-serve software. A client submits a lead list and a message sequence through this app; a person on the Myntmore team reviews it, configures the actual send in the automation tool by hand, and runs the campaign. This repo is the portal that connects the two sides of that relationship: a client dashboard for submitting and tracking campaigns, and an admin toolkit for running them — plus everything in between (lead-list handling, LinkedIn credential capture and 2FA relay, performance reporting, alerts).
 
 It is **not** a self-serve LinkedIn automation tool. There is no button anywhere in this app that sends a LinkedIn connection request. See [Why the automation tool is configured by hand](#why-the-automation-tool-is-configured-by-hand) for exactly where the automation boundary sits and why.
 
