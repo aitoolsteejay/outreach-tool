@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let existingRows: ReturnType<typeof parseLeadsCsv> = [];
     if (existingFile) {
       const { data: existingBlob, error: existingDownloadError } = await auth.admin.storage.from("outreach-leads").download(existingFile.storage_path);
-      if (existingDownloadError || !existingBlob) throw new Error(existingDownloadError?.message || "Unable to read this campaign's existing lead list.");
+      if (existingDownloadError || !existingBlob) throw new Error(existingDownloadError?.message || "Unable to read this campaign's existing prospect list.");
       existingRows = parseLeadsCsv(await existingBlob.text());
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // reporting success to its own caller.
     const { data: raceCheck } = await auth.admin.schema("outreach").from("lead_files").select("id").eq("campaign_id", campaignId).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if ((raceCheck?.id ?? null) !== baseFileId) {
-      return NextResponse.json({ error: "Someone just added leads to this campaign. Please try again." }, { status: 409 });
+      return NextResponse.json({ error: "Someone just added prospects to this campaign. Please try again." }, { status: 409 });
     }
 
     const csvText = leadRowsToCsv(existingRows);
@@ -102,6 +102,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ added: addedCount, duplicates: duplicateCount, total: existingRows.length });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to add these leads." }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to add these prospects." }, { status: 500 });
   }
 }

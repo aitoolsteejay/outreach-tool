@@ -18,8 +18,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (categoryId !== null && typeof categoryId !== "string") return NextResponse.json({ error: "Invalid category." }, { status: 400 });
 
   const { data: lead, error: leadError } = await auth.admin.schema("outreach").from("lead_statuses").select("id,client_id").eq("id", leadStatusId).single();
-  if (leadError || !lead) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
-  if (auth.role !== "admin" && lead.client_id !== auth.userId) return NextResponse.json({ error: "This lead doesn't belong to you." }, { status: 403 });
+  if (leadError || !lead) return NextResponse.json({ error: "Prospect not found." }, { status: 404 });
+  if (auth.role !== "admin" && lead.client_id !== auth.userId) return NextResponse.json({ error: "This prospect doesn't belong to you." }, { status: 403 });
 
   if (categoryId !== null) {
     const { data: category, error: categoryError } = await auth.admin.schema("outreach").from("lead_categories").select("id,client_id").eq("id", categoryId).single();

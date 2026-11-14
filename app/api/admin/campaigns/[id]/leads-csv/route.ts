@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/supabase/require-admin";
 // printable text, not just quotes, before it ever reaches a header value.
 function sanitizeFilenameForHeader(name: string): string {
   // eslint-disable-next-line no-control-regex -- deliberately stripping control chars from a header value
-  return name.replace(/[\x00-\x1f\x7f"]/g, "").trim() || "leads.csv";
+  return name.replace(/[\x00-\x1f\x7f"]/g, "").trim() || "prospects.csv";
 }
 
 // Lets an admin pull the exact CSV a client uploaded, to import into the automation tool
@@ -24,14 +24,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: leadFile, error: leadFileError } = await admin.schema("outreach").from("lead_files").select("storage_path,original_name,content_type").eq("campaign_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (leadFileError) return NextResponse.json({ error: leadFileError.message }, { status: 500 });
-  if (!leadFile) return NextResponse.json({ error: "No lead list has been uploaded for this campaign yet." }, { status: 404 });
+  if (!leadFile) return NextResponse.json({ error: "No prospect list has been uploaded for this campaign yet." }, { status: 404 });
 
   const { data: fileBlob, error: downloadError } = await admin.storage.from("outreach-leads").download(leadFile.storage_path);
-  if (downloadError || !fileBlob) return NextResponse.json({ error: downloadError?.message || "Unable to download the uploaded lead file." }, { status: 500 });
+  if (downloadError || !fileBlob) return NextResponse.json({ error: downloadError?.message || "Unable to download the uploaded prospect file." }, { status: 500 });
 
   try {
     const safeName = (campaign.name || "campaign").replace(/[^a-zA-Z0-9._-]/g, "_") || "campaign";
-    const fileName = sanitizeFilenameForHeader(leadFile.original_name || `${safeName}-leads.csv`);
+    const fileName = sanitizeFilenameForHeader(leadFile.original_name || `${safeName}-prospects.csv`);
     return new NextResponse(fileBlob, {
       headers: {
         "Content-Type": leadFile.content_type || "text/csv",

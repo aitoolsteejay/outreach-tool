@@ -12,16 +12,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: campaign, error: campaignError } = await admin.schema("outreach").from("campaigns").select("id,automation_campaign_id,automation_list_id").eq("id", id).single();
   if (campaignError || !campaign) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
   if (!campaign.automation_campaign_id || !campaign.automation_list_id) {
-    return NextResponse.json({ error: "Link this campaign to an automation tool campaign and prospect list before pushing leads." }, { status: 400 });
+    return NextResponse.json({ error: "Link this campaign to an automation tool campaign and prospect list before pushing prospects." }, { status: 400 });
   }
 
   const { data: leadFile, error: leadFileError } = await admin.schema("outreach").from("lead_files").select("storage_path").eq("campaign_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (leadFileError) return NextResponse.json({ error: leadFileError.message }, { status: 500 });
-  if (!leadFile) return NextResponse.json({ error: "No lead list has been uploaded for this campaign yet." }, { status: 400 });
+  if (!leadFile) return NextResponse.json({ error: "No prospect list has been uploaded for this campaign yet." }, { status: 400 });
 
   try {
     const { data: fileBlob, error: downloadError } = await admin.storage.from("outreach-leads").download(leadFile.storage_path);
-    if (downloadError || !fileBlob) throw new Error(downloadError?.message || "Unable to download the uploaded lead file.");
+    if (downloadError || !fileBlob) throw new Error(downloadError?.message || "Unable to download the uploaded prospect file.");
     const csvText = await fileBlob.text();
     const rows = parseLeadsCsv(csvText);
     if (rows.length === 0) throw new Error("The uploaded CSV has no rows with a LinkedIn URL.");
@@ -54,18 +54,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const codeSummary = Object.entries(codeCounts).map(([code, count]) => `${code}×${count}`).join(", ");
 
     const fullySynced = importedCount === prospects.length;
-    const syncMessage = fullySynced ? `Import codes: ${codeSummary}.` : `${prospects.length - importedCount} of ${prospects.length} leads were rejected by the automation tool. Import codes: ${codeSummary}.`;
+    const syncMessage = fullySynced ? `Import codes: ${codeSummary}.` : `${prospects.length - importedCount} of ${prospects.length} prospects were rejected by the automation tool. Import codes: ${codeSummary}.`;
     const { error: updateError } = await admin.schema("outreach").from("campaigns").update({
       automation_sync_status: fullySynced ? "synced" : "partial",
       automation_sync_error: syncMessage,
       automation_prospects_imported: importedCount,
       automation_synced_at: new Date().toISOString(),
     }).eq("id", id);
-    if (updateError) throw new Error(`Leads were pushed to the automation tool, but saving the sync status failed: ${updateError.message}`);
+    if (updateError) throw new Error(`Prospects were pushed to the automation tool, but saving the sync status failed: ${updateError.message}`);
 
     return NextResponse.json({ total: prospects.length, imported: importedCount, status: fullySynced ? "synced" : "partial", error: syncMessage, results });
   } catch (error) {
-    const message = error instanceof AutomationNotConfiguredError || error instanceof AutomationApiError || error instanceof Error ? error.message : "Unable to push leads to the automation tool.";
+    const message = error instanceof AutomationNotConfiguredError || error instanceof AutomationApiError || error instanceof Error ? error.message : "Unable to push prospects to the automation tool.";
     await admin.schema("outreach").from("campaigns").update({ automation_sync_status: "failed", automation_sync_error: message }).eq("id", id);
     const status = error instanceof AutomationNotConfiguredError ? 501 : error instanceof AutomationApiError ? error.status : 500;
     return NextResponse.json({ error: message }, { status });

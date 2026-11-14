@@ -29,29 +29,29 @@ function defaultCampaignForm() {
 }
 
 const CLIENT_FAQS = [
-  { q: "What happens after I submit a campaign?", a: "Your brief, lead list, and message sequence go straight to the Myntmore team. We review it and configure your sequence, moving your campaign from “Submitted” to “In review” and then “In setup.” You'll see the status update on your dashboard, and outreach typically goes live within one business day." },
-  { q: "What columns does my lead list CSV need?", a: "first_name, last_name, job_title, company, linkedin_url, email, notes, exactly matching the template you can download in step 2 of the campaign wizard. Every row needs a linkedin_url; rows without one won't be imported." },
+  { q: "What happens after I submit a campaign?", a: "Your brief, prospect list, and message sequence go straight to the Myntmore team. We review it and configure your sequence, moving your campaign from “Submitted” to “In review” and then “In setup.” You'll see the status update on your dashboard, and outreach typically goes live within one business day." },
+  { q: "What columns does my prospect list CSV need?", a: "first_name, last_name, job_title, company, linkedin_url, email, notes, exactly matching the template you can download in step 2 of the campaign wizard. Every row needs a linkedin_url; rows without one won't be imported." },
   { q: "How many follow-up messages can I include?", a: "Up to three, plus your connection request note. Pick 1–3 follow-ups when you build your sequence in step 3." },
-  { q: "Can I personalize my messages?", a: "Yes. Insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each lead's real details when the sequence sends." },
-  { q: "What do the campaign statuses mean?", a: "Submitted → In review → In setup → Live → Completed. “In review” means we're checking your brief and leads, “In setup” means we're configuring your sequence, and “Live” means outreach is actively sending." },
+  { q: "Can I personalize my messages?", a: "Yes. Insert {{first_name}}, {{last_name}}, or {{company}} anywhere in your connection note or follow-ups, and we'll swap in each prospect's real details when the sequence sends." },
+  { q: "What do the campaign statuses mean?", a: "Submitted → In review → In setup → Live → Completed. “In review” means we're checking your brief and prospects, “In setup” means we're configuring your sequence, and “Live” means outreach is actively sending." },
   { q: "Can I edit a campaign after I submit it?", a: "Not directly from your dashboard yet. Reach out to your Myntmore contact and we'll make the change before it goes live." },
   { q: "My CSV upload failed. What do I do?", a: "Nothing is submitted until both your brief and CSV are saved successfully. Correct the message shown in the campaign wizard and submit again, or contact your Myntmore representative if the issue continues." },
-  { q: "Is my data kept private?", a: "Yes. Your lead lists and campaign details are only visible to your team and Myntmore, never shared with other clients." },
-  { q: "How do I download the lead list template?", a: "In step 2 of the campaign wizard, click “Download CSV” on the template card. It includes the exact columns we need, with an example row." },
-  { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file. That's plenty for most lead lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
+  { q: "Is my data kept private?", a: "Yes. Your prospect lists and campaign details are only visible to your team and Myntmore, never shared with other clients." },
+  { q: "How do I download the prospect list template?", a: "In step 2 of the campaign wizard, click “Download CSV” on the template card. It includes the exact columns we need, with an example row." },
+  { q: "Is there a file size limit for my CSV?", a: "Yes, up to 10 MB per file. That's plenty for most prospect lists. If yours is larger, split it across two campaigns or check in with your Myntmore contact." },
   { q: "Is there a character limit on my connection note?", a: "300 characters, matching LinkedIn's own connection note limit. You'll see a live counter while you type in step 3." },
   { q: "Can I submit more than one campaign?", a: "Yes. Use “+ New campaign” any time. Each one is tracked separately under “Your campaigns” with its own status and progress." },
   { q: "What does “Active rate” mean on my dashboard?", a: "The share of your campaigns that are still moving: anything not yet marked Completed, divided by your total campaign count." },
   { q: "What does “Avg. progress” mean?", a: "The average progress percentage across all your campaigns, updated by the Myntmore team as each one moves through setup and delivery." },
   { q: "What's the difference between the connection note and follow-ups?", a: "The connection note is the first message sent with your LinkedIn invite. Follow-ups are the messages sent afterward, once someone accepts. You can configure up to three." },
   { q: "Can multiple people from my company have logins?", a: "Yes, but each person needs their own account. Ask your Myntmore contact to set one up. Everyone only sees the campaigns submitted from their own login." },
-  { q: "Can I download the CSV I already uploaded?", a: "Not yet from the dashboard directly. Reach out to your Myntmore contact if you need a copy of a lead list you've submitted." },
-  { q: "What happens to my lead list file after I upload it?", a: "It's stored privately and is only ever accessible to your account and the Myntmore team. It's never bundled with or visible to other clients." },
+  { q: "Can I download the CSV I already uploaded?", a: "Not yet from the dashboard directly. Reach out to your Myntmore contact if you need a copy of a prospect list you've submitted." },
+  { q: "What happens to my prospect list file after I upload it?", a: "It's stored privately and is only ever accessible to your account and the Myntmore team. It's never bundled with or visible to other clients." },
 ];
 
 const ADMIN_FAQS = [
   { q: "How do I move a campaign through statuses?", a: "Open the “⋯” menu on any campaign row in the work queue. The Manage campaign panel has a status dropdown and a progress slider." },
-  { q: "How do I update campaign metrics?", a: "Open any campaign row in the work queue. Under Performance metrics, drop in the contact export CSV to automatically refresh sent, accepted, and replied metrics and per-lead status." },
+  { q: "How do I update campaign metrics?", a: "Open any campaign row in the work queue. Under Performance metrics, drop in the contact export CSV to automatically refresh sent, accepted, and replied metrics and per-prospect status." },
   { q: "How do I manage client accounts?", a: "Use “User accounts” in the sidebar to see every account, change roles, or revoke Outreach access." },
 ];
 
@@ -374,17 +374,17 @@ export default function Home() {
       const headers = await authHeader();
       const response = await fetch(`/api/client/campaigns/${campaignId}/leads`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ storagePath, originalName: addLeadsFile.name }) });
       const data = await readJson<{ error?: string; added?: number; duplicates?: number; total?: number }>(response);
-      if (!response.ok || data.total === undefined) throw new Error(data.error || "Unable to add these leads.");
+      if (!response.ok || data.total === undefined) throw new Error(data.error || "Unable to add these prospects.");
       if (activeClientCampaignIdRef.current !== campaignId) return;
       setAddLeadsResult({ added: data.added || 0, duplicates: data.duplicates || 0, total: data.total });
       setAddLeadsFile(null);
       setAddLeadsFileName("");
-      setCampaigns((current) => current.map((campaign) => campaign.id === campaignId ? { ...campaign, audience: `${data.total} leads` } : campaign));
-      setClientCampaignModal((current) => current && current.id === campaignId ? { ...current, audience: `${data.total} leads` } : current);
+      setCampaigns((current) => current.map((campaign) => campaign.id === campaignId ? { ...campaign, audience: `${data.total} prospects` } : campaign));
+      setClientCampaignModal((current) => current && current.id === campaignId ? { ...current, audience: `${data.total} prospects` } : current);
     } catch (error) {
       if (storagePath) await supabase.storage.from("outreach-leads").remove([storagePath]).catch(() => {});
       if (activeClientCampaignIdRef.current !== campaignId) return;
-      setAddLeadsError(error instanceof Error ? error.message : "Unable to add these leads.");
+      setAddLeadsError(error instanceof Error ? error.message : "Unable to add these prospects.");
     } finally { if (activeClientCampaignIdRef.current === campaignId) setAddLeadsUploading(false); }
   }
   useEffect(() => {
@@ -411,7 +411,7 @@ export default function Home() {
         setAccounts(allProfiles.map((account) => ({ id: account.id, fullName: account.full_name || account.email, email: account.email, role: account.role, createdAt: account.created_at, accessRevokedAt: account.access_revoked_at })));
         setClientCount(allProfiles.filter((account) => account.role === "client" && !account.access_revoked_at).length);
         const clientNames = new Map(allProfiles.filter((account) => account.role === "client").map((account) => [account.id, `${account.full_name || account.email}${account.access_revoked_at ? " (access revoked)" : ""}`]));
-        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} leads`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at, connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0, repliesReceived: row.replies_received || 0 })));
+        setCampaigns((campaignsResult.data || []).map((row) => ({ id: row.id, name: row.name, audience: `${row.lead_count} prospects`, status: row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), progress: row.progress, client: clientNames.get(row.client_id), clientId: row.client_id, submittedAt: row.submitted_at, connectionsSent: row.connections_sent || 0, connectionsAccepted: row.connections_accepted || 0, repliesReceived: row.replies_received || 0 })));
         setAlerts((alertsResult.data || []).map((alert) => ({ id: alert.id, clientId: alert.client_id, campaignId: alert.campaign_id, leadReference: alert.lead_reference, severity: alert.severity, message: alert.message, resolved: alert.resolved, createdAt: alert.created_at, createdBy: alert.created_by })));
         if (profileRow.role === "client") {
           if (categoriesResult.data && categoriesResult.data.length > 0) {
@@ -432,10 +432,10 @@ export default function Home() {
   }, []);
   function openWizard() { setStep(1); setSubmitted(false); setSubmitError(""); setForm(defaultCampaignForm()); setLeadFile(null); setFileName(""); setColumnMapping(null); setMappingError(""); setShowWizard(true); }
   function downloadTemplate() {
-    const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority lead\n";
+    const csv = "first_name,last_name,job_title,company,linkedin_url,email,notes\nAarav,Mehta,Founder,Acme,https://linkedin.com/in/example,aarav@example.com,Priority prospect\n";
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = "myntmore-leads-template.csv";
+    link.download = "myntmore-prospects-template.csv";
     link.click();
     URL.revokeObjectURL(link.href);
   }
@@ -460,7 +460,7 @@ export default function Home() {
         const { error } = await supabase.schema("outreach").from("lead_files").insert({ campaign_id: campaignId, client_id: userId, storage_path: storagePath, original_name: leadFile.name, content_type: leadFile.type || "text/csv", size_bytes: leadFile.size });
         if (error) throw error;
       }
-      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} leads`, status: "Submitted", progress: 15, submittedAt: new Date().toISOString(), connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0 }, ...current]);
+      setCampaigns((current) => [{ id: campaignId, name: form.name || "Untitled campaign", audience: `${leads.length} prospects`, status: "Submitted", progress: 15, submittedAt: new Date().toISOString(), connectionsSent: 0, connectionsAccepted: 0, repliesReceived: 0 }, ...current]);
       setSubmitted(true);
     } catch (error) {
       if (campaignId) await supabase.schema("outreach").from("campaigns").delete().eq("id", campaignId);
@@ -815,17 +815,17 @@ export default function Home() {
       const response = await fetch(`/api/admin/campaigns/${campaignId}/leads-csv`, { headers });
       if (!response.ok) {
         const data = await readJson<{ error?: string }>(response).catch(() => ({ error: undefined }));
-        throw new Error(data.error || "Unable to download this campaign's leads.");
+        throw new Error(data.error || "Unable to download this campaign's prospects.");
       }
       const blob = await response.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `${campaignName.replace(/[^a-zA-Z0-9._-]/g, "_") || "campaign"}-leads.csv`;
+      link.download = `${campaignName.replace(/[^a-zA-Z0-9._-]/g, "_") || "campaign"}-prospects.csv`;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch (error) {
       if (activeManageCampaignIdRef.current !== campaignId) return;
-      setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's leads.");
+      setLeadsDownloadError(error instanceof Error ? error.message : "Unable to download this campaign's prospects.");
     } finally { if (activeManageCampaignIdRef.current === campaignId) setLeadsDownloading(false); }
   }
   async function downloadAllCampaigns() {
@@ -863,7 +863,7 @@ export default function Home() {
         ];
       });
       const csv = rowsToCsv(
-        ["Client", "Campaign", "Status", "Progress %", "Leads", "Connections sent", "Connections accepted", "Acceptance rate %", "Replies received", "Positive replies", "Submitted"],
+        ["Client", "Campaign", "Status", "Progress %", "Prospects", "Connections sent", "Connections accepted", "Acceptance rate %", "Replies received", "Positive replies", "Submitted"],
         rows,
       );
       const blob = new Blob([csv], { type: "text/csv" });
@@ -1257,7 +1257,7 @@ export default function Home() {
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload leads</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button><button className="navItem navButton" onClick={openLeadCategorySettings}><span><Icon name="tag" /></span> Lead labels</button></>}</nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload prospects</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button><button className="navItem navButton" onClick={openLeadCategorySettings}><span><Icon name="tag" /></span> Prospect labels</button></>}</nav>
         <div className="sidebarInsight">
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
@@ -1266,7 +1266,7 @@ export default function Home() {
               <div><b>{workspaceLoading ? "-" : clientCount}</b><span>Clients</span></div>
             </> : <>
               <div><b>{workspaceLoading ? "-" : activeCampaigns}</b><span>Active</span></div>
-              <div><b>{workspaceLoading ? "-" : totalLeads}</b><span>Leads reached</span></div>
+              <div><b>{workspaceLoading ? "-" : totalLeads}</b><span>Prospects reached</span></div>
             </>}
           </div>
           <button className="sidebarInsightCta" onClick={isAdmin ? () => setShowUserSetup(true) : openWizard}>{isAdmin ? "Add client" : "New campaign"} <Icon name="arrowUpRight" size={13} /></button>
@@ -1284,7 +1284,7 @@ export default function Home() {
         {isAdmin ? adminView === "users" ? <div className="adminDashboard">
           <section className="campaignSection adminQueue accountsSection"><div className="sectionHeading"><div><p className="eyebrow">CLIENT ACCESS</p><h3>All accounts</h3><p>{accounts.length} total · {clientCount} client{clientCount === 1 ? "" : "s"}</p></div></div><div className="campaignList">{accounts.map((account) => { const campaignCount = campaigns.filter((campaign) => campaign.clientId === account.id).length; return <div className="accountRow" key={account.id} role="button" tabIndex={0} aria-label={`Manage ${account.fullName}`} onClick={() => openAccountModal(account)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountModal(account); } }}><div className="accountAvatar">{account.fullName.slice(0, 2).toUpperCase()}</div><div className="accountInfo"><strong>{account.fullName}</strong><span>{account.email}</span></div><div className="accountRoleGroup"><span className={`accountRole ${account.role}`}>{account.role === "admin" ? "Admin" : "Client"}</span>{account.accessRevokedAt && <span className="accountRole revoked">Revoked</span>}</div><div className="accountMeta">{account.role === "client" ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"} · ` : ""}Joined {new Date(account.createdAt).toLocaleDateString()}</div><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>; })}{accounts.length === 0 && <div className="adminEmpty"><span>·</span><strong>No accounts yet.</strong><p>Create the first client or admin account.</p></div>}</div></section>
         </div> : <div className="adminDashboard">
-          <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total leads</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
+          <section className="adminSummary"><div><p className="eyebrow">TODAY’S OVERVIEW</p><h2>Keep every client<br/>moving forward.</h2><p>Review what needs attention, manage access, and keep campaign delivery on track.</p></div><div className="adminMetrics"><div><span>Needs review</span><strong>{campaigns.filter((campaign) => ["Submitted", "In review"].includes(campaign.status)).length}</strong></div><div><span>Active</span><strong>{activeCampaigns}</strong></div><div><span>Total prospects</span><strong>{totalLeads}</strong></div><div><span>Clients</span><strong>{clientCount}</strong></div></div></section>
           <div className="adminGrid"><section className="campaignSection adminQueue"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN DELIVERY</p><h3>Work queue</h3><p>Submissions requiring action appear first.</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select><button type="button" className="secondary" disabled={campaignsExportLoading} onClick={downloadAllCampaigns}>{campaignsExportLoading ? "Preparing…" : "Download all campaigns"}</button></div></div>{campaignsExportError && <p className="formError" role="alert" style={{ margin: "0 25px 14px" }}>{campaignsExportError}</p>}<div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Manage ${campaign.name}`} onClick={() => openManageModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openManageModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.client ? `${campaign.client} · ` : ""}{campaign.audience}</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="adminEmpty"><span>✓</span><strong>Nothing needs attention.</strong><p>Client submissions will appear here as soon as they arrive.</p></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="adminEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
           <aside className="adminPanel"><div className="adminPanelHead"><span>CLIENT ACCESS</span><strong>{clientCount}</strong></div><h3>Manage your clients</h3><p>Create portal access for a new client or connect an existing Myntmore login.</p><button className="primary" onClick={() => setShowUserSetup(true)}>＋ Add client account</button><div className="adminChecklist"><p>HOW IT WORKS</p><div><b>1</b><span>Create the client login</span></div><div><b>2</b><span>Client submits their brief</span></div><div><b>3</b><span>Campaign enters your queue</span></div></div></aside></div>
         </div> : <div className="clientDashboard">
@@ -1295,21 +1295,21 @@ export default function Home() {
           </div></section>
           <div className="ringCards">
             <div className="ringCard ringCardGold"><div className="ringCardHead"><span><Icon name="grid" size={14} /></span> Campaigns</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "-" : heroCampaigns.length}</strong><span>Total campaigns</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroActiveRate} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroActiveRate}%</b></div></div><span className="ringCaption">Active rate</span></div></div></div>
-            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Leads</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><span>Total leads reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
+            <div className="ringCard ringCardInk"><div className="ringCardHead"><span><Icon name="users" size={14} /></span> Prospects</div><div className="ringCardBody"><div className="ringCardCount"><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><span>Total prospects reached</span></div><div className="ringSide"><div className="ringWrap"><Ring percent={heroAvgProgress} track="#ffffff35" indicator="#ffffff" /><div className="ringCenter"><b>{heroAvgProgress}%</b></div></div><span className="ringCaption">Avg. progress</span></div></div></div>
           </div>
           <div className="actionTiles">
             <div className="tileInk"><span><Icon name="send" size={15} /></span><strong>{workspaceLoading ? "-" : heroSubmittedCount}</strong><small>Submitted</small></div>
             <div className="tileGreen"><span><Icon name="trendUp" size={15} /></span><strong>{workspaceLoading ? "-" : heroLiveCount}</strong><small>Live</small></div>
             <div className="tilePurple"><span><Icon name="eye" size={15} /></span><strong>{workspaceLoading ? "-" : heroInReviewCount}</strong><small>In review</small></div>
-            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><small>Leads reached</small></div>
+            <div className="tileGold"><span><Icon name="users" size={15} /></span><strong>{workspaceLoading ? "-" : heroTotalLeads}</strong><small>Prospects reached</small></div>
             <div className="tileAmber"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroAvgProgress}%`}</strong><small>Avg. progress</small></div>
             <div className="tileTeal"><span><Icon name="checkCircle" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroAcceptanceRate}%`}</strong><small>Acceptance rate</small></div>
             <div className="tileViolet"><span><Icon name="percent" size={15} /></span><strong>{workspaceLoading ? "-" : `${heroReplyRate}%`}</strong><small>Reply rate</small></div>
           </div>
           <div className="clientGrid">
-            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place. All campaigns are auto-launched every Tuesday for maximum results.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Open ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openClientCampaignModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved && alert.createdBy !== userId) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your lead list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
+            <section className="campaignSection clientCampaigns"><div className="sectionHeading"><div><p className="eyebrow">CAMPAIGN TRACKER</p><h3>Your campaigns</h3><p>Every brief, status update, and result in one place. All campaigns are auto-launched every Tuesday for maximum results.</p></div><select className="filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div><div className="campaignList">{visibleCampaigns.map((campaign) => <div className="campaign" key={campaign.id} role="button" tabIndex={0} aria-label={`Open ${campaign.name}`} onClick={() => openClientCampaignModal(campaign)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openClientCampaignModal(campaign); } }}><div className="campaignIcon"><Icon name="arrowUpRight" size={15} /></div><div className="campaignInfo"><strong>{campaign.name}{alerts.some((alert) => alert.campaignId === campaign.id && !alert.resolved && alert.createdBy !== userId) && <Icon name="alertTriangle" size={12} />}</strong><span>{campaign.audience} · LinkedIn outreach</span></div><div className="progress"><div><span>Progress</span><b>{campaign.progress}%</b></div><div className="track"><i style={{width:`${campaign.progress}%`}}/></div></div><span className={`status ${campaign.status.replaceAll(" ", "-").toLowerCase()}`}>{campaign.status}</span><span className="more" aria-hidden="true"><Icon name="dots" /></span></div>)}{!workspaceLoading && campaigns.length === 0 && <div className="clientEmpty"><span>01</span><strong>Your first campaign starts here.</strong><p>Share your prospect list and messaging direction. We’ll take it from there.</p><button className="primary" onClick={openWizard}>Start a campaign</button></div>}{!workspaceLoading && campaigns.length > 0 && visibleCampaigns.length === 0 && <div className="clientEmpty"><span>·</span><strong>No campaigns match this filter.</strong><p>Try a different status.</p></div>}</div></section>
             <aside className="clientSidebar">
-              <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "-" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "-" : totalLeads}</b><small>Leads</small></div><div><b>{workspaceLoading ? "-" : campaigns.length}</b><small>Total</small></div></div></div>
+              <div className="sidebarProfileCard"><div className="sidebarProfileTop"><div className="avatar">{(profile.fullName || profile.email || "U").slice(0,2).toUpperCase()}</div><span className="roleChip">Client</span></div><strong>{profile.fullName || profile.email || "Workspace user"}</strong><span>{profile.email || "Client workspace"}</span><div className="sidebarProfileStats"><div><b>{workspaceLoading ? "-" : activeCampaigns}</b><small>Active</small></div><div><b>{workspaceLoading ? "-" : totalLeads}</b><small>Prospects</small></div><div><b>{workspaceLoading ? "-" : campaigns.length}</b><small>Total</small></div></div></div>
               {linkedinStatus?.status !== "logged_in" && <div className="sidebarProfileCard linkedinCard">
                 <div className="sidebarInsightHead"><span><Icon name="logout" size={15} /></span><div><strong>LinkedIn access</strong><small>For your outreach campaigns</small></div></div>
                 {linkedinLoading ? <p className="modalIntro">Loading…</p> : <>
@@ -1337,7 +1337,7 @@ export default function Home() {
                   {linkedinStatus?.status === "code_submitted" && <p className="modalIntro">Thanks. We&apos;re finishing your login now.</p>}
                 </>}
               </div>}
-              <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Lead list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
+              <div className="clientAction"><p className="eyebrow">NEW CAMPAIGN</p><h3>Ready to reach<br/>the right people?</h3><p>Send us the audience and your point of view. We handle the sequence, launch, and reporting.</p><button className="lightButton" onClick={openWizard}>Create campaign <span><Icon name="arrowUpRight" size={14} /></span></button><div className="clientSteps"><div><b>1</b><span>Campaign brief</span></div><div><b>2</b><span>Prospect list upload</span></div><div><b>3</b><span>Messaging direction</span></div></div></div>
             </aside>
           </div>
         </div>}
@@ -1353,8 +1353,8 @@ export default function Home() {
               <label>Primary goal<select value={form.goal} onChange={(e) => update("goal", e.target.value)}><option>Book qualified discovery calls</option><option>Build strategic partnerships</option><option>Recruit candidates</option><option>Start investor conversations</option></select></label>
               <label>Your offer or value proposition<textarea value={form.offer} onChange={(e) => update("offer", e.target.value)} placeholder="What makes this conversation valuable for the recipient?" rows={3}/></label>
             </div>}
-            {step === 2 && <div className="modalBody"><p className="eyebrow">STEP 2 OF 3 · LEAD LIST</p><h2 id="wizard-title">Add the right people.</h2><p className="modalIntro">Use our template so your campaign can move into setup without delays.</p>
-              <div className="templateCard"><div><strong>Myntmore lead template</strong><small>Includes the exact columns our team needs.</small></div><button onClick={downloadTemplate}>↓ Download CSV</button></div>
+            {step === 2 && <div className="modalBody"><p className="eyebrow">STEP 2 OF 3 · PROSPECT LIST</p><h2 id="wizard-title">Add the right people.</h2><p className="modalIntro">Use our template so your campaign can move into setup without delays.</p>
+              <div className="templateCard"><div><strong>Myntmore prospect template</strong><small>Includes the exact columns our team needs.</small></div><button onClick={downloadTemplate}>↓ Download CSV</button></div>
               {!columnMapping ? <>
                 <label className={`dropzone ${fileName ? "hasFile" : ""}`}><input type="file" accept=".csv,text/csv" onChange={(e) => void chooseLeadFile(e.target.files?.[0] || null)}/><span>{fileName ? "✓" : "↑"}</span><strong>{fileName || "Drop your completed CSV here"}</strong><small>{fileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small></label>
                 {submitError && <p className="formError" role="alert">{submitError}</p>}
@@ -1386,7 +1386,7 @@ export default function Home() {
               {step === 3 && submitError && <p className="formError" role="alert">{submitError}</p>}
             </div>}
             <footer className="modalFooter"><button className="secondary" onClick={() => step === 1 ? setShowWizard(false) : setStep(step - 1)} disabled={submitting}>{step === 1 ? "Cancel" : "Back"}</button><button className="primary" disabled={submitting || (step === 1 && !form.name.trim()) || (step === 2 && !leadFile) || (step === 3 && (!form.connectionNote.trim() || form.followUps.slice(0,form.followUpCount).some((message) => !message.trim())))} onClick={() => step < 3 ? setStep(step + 1) : submitCampaign()}>{step < 3 ? "Continue →" : submitting ? "Submitting…" : "Submit campaign →"}</button></footer>
-          </> : <div className="success"><div className="successIcon">✓</div><p className="eyebrow">CAMPAIGN RECEIVED</p><h2 id="wizard-title">It’s with the Myntmore team.</h2><p>We’ll review your leads and messaging, configure your sequence, and update the status here. You’ll see progress within one business day.</p><button className="primary" onClick={() => setShowWizard(false)}>Back to campaigns</button></div>}
+          </> : <div className="success"><div className="successIcon">✓</div><p className="eyebrow">CAMPAIGN RECEIVED</p><h2 id="wizard-title">It’s with the Myntmore team.</h2><p>We’ll review your prospects and messaging, configure your sequence, and update the status here. You’ll see progress within one business day.</p><button className="primary" onClick={() => setShowWizard(false)}>Back to campaigns</button></div>}
         </section>
       </div>}
       {showUserSetup && profile.role === "admin" && <div className="modalBackdrop"><button className="modalDismiss" onClick={() => setShowUserSetup(false)} aria-label="Close user setup"/><section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="user-setup-title"><button className="close" onClick={() => setShowUserSetup(false)} aria-label="Close user setup">×</button><div className="modalBody"><p className="eyebrow">ADMIN · USER ACCOUNTS</p><h2 id="user-setup-title">Create a user account.</h2><p className="modalIntro">Choose the access level, then share the credentials securely with the user.</p><form className="loginForm" onSubmit={createUser}><fieldset className="accountType"><legend>Account type</legend><button type="button" className={userForm.role === "client" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"client"})}><b>Client</b><span>Submit and track campaigns</span></button><button type="button" className={userForm.role === "admin" ? "selected" : ""} onClick={() => setUserForm({...userForm,role:"admin"})}><b>Admin</b><span>Manage clients and operations</span></button></fieldset><label>Full name<input value={userForm.fullName} onChange={(event) => setUserForm({...userForm, fullName:event.target.value})} placeholder="Full name or company" required/></label><label>Email address<input type="email" value={userForm.email} onChange={(event) => setUserForm({...userForm, email:event.target.value})} placeholder={userForm.role === "admin" ? "admin@myntmore.com" : "client@company.com"} required/></label><label>Temporary password<input type="password" minLength={8} value={userForm.password} onChange={(event) => setUserForm({...userForm, password:event.target.value})} placeholder="At least 8 characters" required/></label>{userError && <p className="formError" role="alert">{userError}</p>}{userCreated && <p className="formSuccess" role="status">{userCreated}</p>}<button className="loginButton" disabled={userLoading}>{userLoading ? "Creating user…" : `Create ${userForm.role} account`}<span>→</span></button></form></div></section></div>}
@@ -1404,15 +1404,15 @@ export default function Home() {
             <button className="secondary" onClick={saveCampaignStatus} disabled={statusSaving} style={{ width: "100%", marginTop: 14 }}>{statusSaving ? "Saving…" : "Save status"}</button>
             <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Alerts</h3>
-            <p className="modalIntro">Post an issue for the client to see on their dashboard. Leave the lead field blank for a campaign-wide alert, or name a specific lead (e.g. their LinkedIn URL) to flag just that row.</p>
-            <label>Lead <span className="fieldHint">Optional</span><input value={alertForm.leadReference} onChange={(e) => setAlertForm({ ...alertForm, leadReference: e.target.value })} placeholder="e.g. linkedin.com/in/jane-doe" /></label>
+            <p className="modalIntro">Post an issue for the client to see on their dashboard. Leave the prospect field blank for a campaign-wide alert, or name a specific prospect (e.g. their LinkedIn URL) to flag just that row.</p>
+            <label>Prospect <span className="fieldHint">Optional</span><input value={alertForm.leadReference} onChange={(e) => setAlertForm({ ...alertForm, leadReference: e.target.value })} placeholder="e.g. linkedin.com/in/jane-doe" /></label>
             <label>Message<textarea value={alertForm.message} onChange={(e) => setAlertForm({ ...alertForm, message: e.target.value })} placeholder="e.g. LinkedIn URL incorrect, please check and resubmit." rows={2} /></label>
             <fieldset className="severityChoice"><legend className="srOnly">Severity</legend>{["info", "warning", "error"].map((level) => <button type="button" key={level} className={alertForm.severity === level ? `selected ${level}` : level} onClick={() => setAlertForm({ ...alertForm, severity: level })}>{level}</button>)}</fieldset>
             {alertError && <p className="formError" role="alert">{alertError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={alertPosting} onClick={() => postAlert(campaigns.find((campaign) => campaign.id === manageModal.id)?.clientId || "", manageModal.id)}>{alertPosting ? "Posting…" : "Post alert"}</button>
             {campaignAlerts.length > 0 && <div className="alertList">{campaignAlerts.map((alert) => <div className={`alertItem ${alert.severity} ${alert.resolved ? "resolved" : ""}`} key={alert.id}><Icon name={alert.resolved ? "checkCircle" : "alertTriangle"} size={15} /><div><strong>{alert.leadReference || "Campaign-wide"}</strong><span>{alert.message}</span></div>{!alert.resolved && <button onClick={() => resolveAlert(alert.id)}>Resolve</button>}</div>)}</div>}
             <div className="sectionDivider" />
-            <h3 className="modalSectionTitle">Brief, messages &amp; leads</h3>
+            <h3 className="modalSectionTitle">Brief, messages &amp; prospects</h3>
             <p className="modalIntro">Everything needed to configure this campaign sequence.</p>
             {manageLoading ? <p className="modalIntro">Loading…</p> : !campaignBrief ? (
               <p className="formError" role="alert">Unable to load this campaign&apos;s brief.</p>
@@ -1426,11 +1426,11 @@ export default function Home() {
               <div className="briefField"><span className="briefLabel">Connection request note</span><p>{campaignBrief.connectionNote || "-"}</p></div>
               {campaignBrief.followUps.map((message, index) => <div className="briefField" key={index}><span className="briefLabel">Follow-up {index + 1} <em className="briefDelay">· {campaignBrief.followUpDelays[index] ?? 3} day{(campaignBrief.followUpDelays[index] ?? 3) === 1 ? "" : "s"} after {index === 0 ? "connecting" : `follow-up ${index}`}</em></span><p>{message || "-"}</p></div>)}
               {leadsDownloadError && <p className="formError" role="alert">{leadsDownloadError}</p>}
-              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(manageModal.id, manageModal.name)}>{leadsDownloading ? "Downloading…" : "Download leads (CSV)"}</button>
+              <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={leadsDownloading} onClick={() => downloadCampaignLeads(manageModal.id, manageModal.name)}>{leadsDownloading ? "Downloading…" : "Download prospects (CSV)"}</button>
             </>}
             <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each lead&apos;s own dates, and update every lead&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
+            <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each prospect&apos;s own dates, and update every prospect&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
             <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
               <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseMetricsCsv(e.target.files?.[0] || null)} />
               <span>{metricsCsvName ? "✓" : "↑"}</span>
@@ -1438,7 +1438,7 @@ export default function Home() {
               <small>{metricsCsvName ? "Parsed -- review the numbers below" : "or click to choose a file"}</small>
             </label>
             {metricsCsvError && <p className="formError" role="alert">{metricsCsvError}</p>}
-            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} lead{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Each lead&apos;s status is already updated for the client -- set positive replies below, then save these totals.</p>}
+            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} prospect{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Each prospect&apos;s status is already updated for the client -- set positive replies below, then save these totals.</p>}
             <div className="metricsGrid">
               <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
               <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
@@ -1452,9 +1452,9 @@ export default function Home() {
             {metricsError && <p className="formError" role="alert">{metricsError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
             <div className="sectionDivider" />
-            <h3 className="modalSectionTitle">Leads &amp; Conversations</h3>
+            <h3 className="modalSectionTitle">Prospects &amp; Conversations</h3>
             {adminLeadStatuses.length === 0 ? (
-              <p className="modalIntro">Upload a contact export above to view lead replies, contact details, and conversation links here.</p>
+              <p className="modalIntro">Upload a contact export above to view prospect replies, contact details, and conversation links here.</p>
             ) : (() => {
               const query = adminLeadSearch.trim().toLowerCase();
               const filtered = adminLeadStatuses.filter((lead) => {
@@ -1482,7 +1482,7 @@ export default function Home() {
                 <>
                   <div className="sectionHeadRow" style={{ marginTop: 0 }}>
                     <p className="modalIntro" style={{ margin: 0 }}>
-                      Showing {filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""} leads. Categorize leads or inspect their replies below.
+                      Showing {filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""} prospects. Categorize prospects or inspect their replies below.
                     </p>
                     {filtered.length > 5 && (
                       <button type="button" className="expandToggle" onClick={() => setAdminLeadStatusExpanded((c) => !c)}>
@@ -1525,11 +1525,11 @@ export default function Home() {
                   </div>
 
                   {filtered.length === 0 ? (
-                    <p className="modalIntro" style={{ marginTop: 16 }}>No leads match the selected filters or search.</p>
+                    <p className="modalIntro" style={{ marginTop: 16 }}>No prospects match the selected filters or search.</p>
                   ) : (
                     <div className={`leadStatusList ${adminLeadStatusExpanded ? "expanded" : ""}`}>
                       {filtered.map((lead) => {
-                        const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
+                        const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed prospect";
                         const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
                         const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
                         const category = adminLeadCategories.find((current) => current.id === lead.categoryId);
@@ -1646,7 +1646,7 @@ export default function Home() {
                 <div className="sectionDivider" />
                 <h3 className="modalSectionTitle">Performance</h3>
                 <div className="metricRates">
-                  <div className="metricRate"><strong>{clientLeadStatuses.length}</strong><span>Leads</span></div>
+                  <div className="metricRate"><strong>{clientLeadStatuses.length}</strong><span>Prospects</span></div>
                   <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent}</strong><span>Requests sent</span></div>
                   <div className="metricRate"><strong>{clientCampaignDetail.connectionsAccepted}</strong><span>Accepted</span></div>
                   <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived}</strong><span>Replied</span></div>
@@ -1683,7 +1683,7 @@ export default function Home() {
                   <>
                     <div className="sectionDivider" />
                     <div className="sectionHeadRow">
-                      <h3 className="modalSectionTitle">Leads ({filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""})</h3>
+                      <h3 className="modalSectionTitle">Prospects ({filtered.length}{filtered.length !== allCount ? ` of ${allCount}` : ""})</h3>
                       {filtered.length > 5 && (
                         <button type="button" className="expandToggle" onClick={() => setLeadStatusExpanded((current) => !current)}>
                           {leadStatusExpanded ? "Show less" : "Expand all"}
@@ -1691,7 +1691,7 @@ export default function Home() {
                       )}
                     </div>
                     <p className="modalIntro">
-                      Status for each lead in this campaign, current as of your last metrics update. Tag a lead with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Lead labels</button> in the sidebar.
+                      Status for each prospect in this campaign, current as of your last metrics update. Tag a prospect with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Prospect labels</button> in the sidebar.
                     </p>
                     {leadCategoryError && <p className="formError" role="alert">{leadCategoryError}</p>}
 
@@ -1728,11 +1728,11 @@ export default function Home() {
                     </div>
 
                     {filtered.length === 0 ? (
-                      <p className="modalIntro" style={{ marginTop: 16 }}>No leads match the selected filters or search.</p>
+                      <p className="modalIntro" style={{ marginTop: 16 }}>No prospects match the selected filters or search.</p>
                     ) : (
                       <div className={`leadStatusList ${leadStatusExpanded ? "expanded" : ""}`}>
                         {filtered.map((lead) => {
-                          const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed lead";
+                          const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed prospect";
                           const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
                           const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
                           const category = leadCategories.find((current) => current.id === lead.categoryId);
@@ -1805,18 +1805,18 @@ export default function Home() {
               </>}
               {clientCampaignModal.status !== "Completed" && <>
                 <div className="sectionDivider" />
-                <h3 className="modalSectionTitle">Add leads</h3>
-                <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new leads, and we&apos;ll add them to this campaign. Anyone already on the list is skipped automatically.</p>
+                <h3 className="modalSectionTitle">Add prospects</h3>
+                <p className="modalIntro">Currently {clientCampaignModal.audience}. Upload another batch, e.g. this week&apos;s new prospects, and we&apos;ll add them to this campaign. Anyone already on the list is skipped automatically.</p>
                 {!addLeadsMapping ? <>
                   <label className={`dropzone ${addLeadsFileName ? "hasFile" : ""}`}>
                     <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseAddLeadsFile(e.target.files?.[0] || null)} />
                     <span>{addLeadsFileName ? "✓" : "↑"}</span>
-                    <strong>{addLeadsFileName || "Drop a CSV of new leads here"}</strong>
+                    <strong>{addLeadsFileName || "Drop a CSV of new prospects here"}</strong>
                     <small>{addLeadsFileName ? "Validated and ready" : "or click to choose a file · CSV up to 10 MB"}</small>
                   </label>
                   {addLeadsError && <p className="formError" role="alert">{addLeadsError}</p>}
-                  {addLeadsResult && <p className="formSuccess" role="status">Added {addLeadsResult.added} new lead{addLeadsResult.added === 1 ? "" : "s"}{addLeadsResult.duplicates ? ` (skipped ${addLeadsResult.duplicates} already in this campaign)` : ""}. This campaign now has {addLeadsResult.total} leads.</p>}
-                  <button type="button" className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={!addLeadsFile || addLeadsUploading} onClick={uploadMoreLeads}>{addLeadsUploading ? "Adding leads…" : "Add leads"}</button>
+                  {addLeadsResult && <p className="formSuccess" role="status">Added {addLeadsResult.added} new prospect{addLeadsResult.added === 1 ? "" : "s"}{addLeadsResult.duplicates ? ` (skipped ${addLeadsResult.duplicates} already in this campaign)` : ""}. This campaign now has {addLeadsResult.total} prospects.</p>}
+                  <button type="button" className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={!addLeadsFile || addLeadsUploading} onClick={uploadMoreLeads}>{addLeadsUploading ? "Adding prospects…" : "Add prospects"}</button>
                 </> : <div className="columnMapper">
                   <p className="modalIntro"><strong>{addLeadsMapping.sourceFileName}</strong> doesn&apos;t use our exact column names. Match your columns to the fields below. LinkedIn URL is required, the rest are optional.</p>
                   {LEAD_CSV_HEADERS.map((field) => (
@@ -1920,13 +1920,13 @@ export default function Home() {
         </section>
       </div>}
       {showLeadCategorySettings && <div className="modalBackdrop">
-        <button className="modalDismiss" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close lead labels" />
+        <button className="modalDismiss" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close prospect labels" />
         <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="lead-categories-title">
-          <button className="close" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close lead labels">×</button>
+          <button className="close" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close prospect labels">×</button>
           <div className="modalBody">
             <p className="eyebrow">YOUR SETTINGS</p>
-            <h2 id="lead-categories-title">Lead labels.</h2>
-            <p className="modalIntro">Tag leads across every campaign as Hot, Cold, or however you want to track them. Rename, recolor, or remove a label any time -- leads using it just go back to unlabeled.</p>
+            <h2 id="lead-categories-title">Prospect labels.</h2>
+            <p className="modalIntro">Tag prospects across every campaign as Hot, Cold, or however you want to track them. Rename, recolor, or remove a label any time -- prospects using it just go back to unlabeled.</p>
             <div className="categoryList">
               {leadCategories.map((category) => (
                 <div className="categoryRow" key={category.id}>

@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
   const image = `${protocol}://${host}/og.png`;
   const title = "Myntmore Outreach";
-  const description = "Turn lead lists into real conversations.";
+  const description = "Turn prospect lists into real conversations.";
   return { title, description, icons: { icon: { url: "/myntmore-logo.png", type: "image/png" }, shortcut: "/myntmore-logo.png" }, openGraph: { title, description, images: [image] }, twitter: { card: "summary_large_image", title, description, images: [image] } };
 }
 
