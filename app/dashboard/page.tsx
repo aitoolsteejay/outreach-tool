@@ -710,10 +710,9 @@ export default function Home() {
     } finally { if (activeManageCampaignIdRef.current === campaign.id) setManageLoading(false); }
   }
   // Lets the admin refresh a campaign's sent/accepted/replied counts by
-  // uploading the automation tool's own contact export instead of counting by hand --
-  // this only fills the number fields below, it doesn't save on its own, so
-  // the admin still reviews (and sets positive replies, which the export
-  // doesn't cleanly encode) before clicking "Save metrics".
+  // uploading the contact export instead of counting by hand --
+  // this fills the number fields below, allowing the admin to review
+  // before clicking "Save metrics".
   async function chooseMetricsCsv(file: File | null) {
     if (!file || !manageModal) return;
     const campaignId = manageModal.id;
@@ -793,7 +792,6 @@ export default function Home() {
     if (!manageModal) return;
     const campaignId = manageModal.id;
     if (campaignMetrics.connectionsAccepted > campaignMetrics.connectionsSent) { setMetricsError("Connections accepted can't be more than connections sent."); return; }
-    if (campaignMetrics.positiveReplies > campaignMetrics.repliesReceived) { setMetricsError("Positive replies can't be more than replies received."); return; }
     setMetricsSaving(true);
     setMetricsError("");
     const { error } = await createClient().schema("outreach").from("campaigns").update({
@@ -855,15 +853,17 @@ export default function Home() {
       const rows = campaignsResult.data.map((row) => {
         const sent = row.connections_sent || 0;
         const accepted = row.connections_accepted || 0;
+        const replies = row.replies_received || 0;
+        const replyRate = sent ? Math.round((replies / sent) * 100) : (accepted ? Math.round((replies / accepted) * 100) : 0);
         return [
           clientNames.get(row.client_id) || "", row.name, row.status.replaceAll("_", " ").replace(/^./, (letter: string) => letter.toUpperCase()), row.progress, row.lead_count || 0,
           sent, accepted, sent ? Math.round((accepted / sent) * 100) : 0,
-          row.replies_received || 0, row.positive_replies || 0,
+          replies, replyRate,
           row.submitted_at ? new Date(row.submitted_at).toLocaleDateString() : "",
         ];
       });
       const csv = rowsToCsv(
-        ["Client", "Campaign", "Status", "Progress %", "Prospects", "Connections sent", "Connections accepted", "Acceptance rate %", "Replies received", "Positive replies", "Submitted"],
+        ["Client", "Campaign", "Status", "Progress %", "Prospects", "Connections sent", "Connections accepted", "Acceptance rate %", "Replies received", "Reply rate %", "Submitted"],
         rows,
       );
       const blob = new Blob([csv], { type: "text/csv" });
@@ -1430,7 +1430,7 @@ export default function Home() {
             </>}
             <div className="sectionDivider" />
             <h3 className="modalSectionTitle">Performance metrics</h3>
-            <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each prospect&apos;s own dates, and update every prospect&apos;s individual status on the client&apos;s dashboard. Positive replies is still your call, the export doesn&apos;t say which replies were positive.</p>
+            <p className="modalIntro">Upload the contact export for this campaign and we will count connections sent, accepted, and replied to from each prospect&apos;s own dates, and update every prospect&apos;s individual status on the client&apos;s dashboard.</p>
             <label className={`dropzone ${metricsCsvName ? "hasFile" : ""}`}>
               <input type="file" accept=".csv,text/csv" onChange={(e) => void chooseMetricsCsv(e.target.files?.[0] || null)} />
               <span>{metricsCsvName ? "✓" : "↑"}</span>
@@ -1438,16 +1438,15 @@ export default function Home() {
               <small>{metricsCsvName ? "Parsed -- review the numbers below" : "or click to choose a file"}</small>
             </label>
             {metricsCsvError && <p className="formError" role="alert">{metricsCsvError}</p>}
-            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} prospect{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Each prospect&apos;s status is already updated for the client -- set positive replies below, then save these totals.</p>}
+            {metricsCsvSummary && !metricsCsvError && <p className="formSuccess" role="status">{metricsCsvSummary.total} prospect{metricsCsvSummary.total === 1 ? "" : "s"} in this export: {metricsCsvSummary.sent} sent, {metricsCsvSummary.accepted} accepted, {metricsCsvSummary.replied} replied. Each prospect&apos;s status is already updated for the client -- review the totals below, then save.</p>}
             <div className="metricsGrid">
               <label>Connections sent<input type="number" min={0} value={campaignMetrics.connectionsSent} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsSent: Math.max(0, Number(e.target.value) || 0) })} /></label>
               <label>Connections accepted<input type="number" min={0} value={campaignMetrics.connectionsAccepted} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, connectionsAccepted: Math.max(0, Number(e.target.value) || 0) })} /></label>
-              <label>Replies received<input type="number" min={0} value={campaignMetrics.repliesReceived} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, repliesReceived: Math.max(0, Number(e.target.value) || 0) })} /></label>
-              <label>Positive replies<input type="number" min={0} value={campaignMetrics.positiveReplies} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, positiveReplies: Math.max(0, Number(e.target.value) || 0) })} /></label>
+              <label style={{ gridColumn: "span 2" }}>Replies received<input type="number" min={0} value={campaignMetrics.repliesReceived} onChange={(e) => setCampaignMetrics({ ...campaignMetrics, repliesReceived: Math.max(0, Number(e.target.value) || 0) })} /></label>
             </div>
             <div className="metricRates">
               <div className="metricRate"><strong>{campaignMetrics.connectionsSent ? Math.round((campaignMetrics.connectionsAccepted / campaignMetrics.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
-              <div className="metricRate"><strong>{campaignMetrics.repliesReceived ? Math.round((campaignMetrics.positiveReplies / campaignMetrics.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
+              <div className="metricRate"><strong>{campaignMetrics.connectionsSent ? Math.round((campaignMetrics.repliesReceived / campaignMetrics.connectionsSent) * 100) : (campaignMetrics.connectionsAccepted ? Math.round((campaignMetrics.repliesReceived / campaignMetrics.connectionsAccepted) * 100) : 0)}%</strong><span>Reply rate</span></div>
             </div>
             {metricsError && <p className="formError" role="alert">{metricsError}</p>}
             <button className="secondary" style={{ width: "100%", marginTop: 14 }} disabled={metricsSaving} onClick={saveCampaignMetrics}>{metricsSaving ? "Saving…" : "Save metrics"}</button>
@@ -1653,7 +1652,7 @@ export default function Home() {
                 </div>
                 <div className="metricRates">
                   <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent ? Math.round((clientCampaignDetail.connectionsAccepted / clientCampaignDetail.connectionsSent) * 100) : 0}%</strong><span>Acceptance rate</span></div>
-                  <div className="metricRate"><strong>{clientCampaignDetail.repliesReceived ? Math.round((clientCampaignDetail.positiveReplies / clientCampaignDetail.repliesReceived) * 100) : 0}%</strong><span>Positive reply rate</span></div>
+                  <div className="metricRate"><strong>{clientCampaignDetail.connectionsSent ? Math.round((clientCampaignDetail.repliesReceived / clientCampaignDetail.connectionsSent) * 100) : (clientCampaignDetail.connectionsAccepted ? Math.round((clientCampaignDetail.repliesReceived / clientCampaignDetail.connectionsAccepted) * 100) : 0)}%</strong><span>Reply rate</span></div>
                 </div>
               </>}
               {clientLeadStatuses.length > 0 && (() => {

@@ -48,7 +48,7 @@ Submitting uploads the lead CSV to private Storage, inserts the `campaigns` row,
 
 **Tracking a campaign** — the campaign list opens a full-page detail view (not a small modal — it shares the viewport with the sidebar so navigating away doesn't require closing it first) showing:
 - The brief (goal/offer/tone, connection note, each follow-up and its wait time), editable at any point before the campaign is completed. Editing posts an alert (see below) so the admin team knows to review the change before continuing outreach with the new messaging — since a campaign already configured in the automation tool won't itself notice the brief changed.
-- Performance: raw counts (leads, requests sent, accepted, replied) alongside the computed acceptance rate and positive-reply rate.
+- Performance: raw counts (prospects, requests sent, accepted, replied) alongside the computed acceptance rate and reply rate.
 - The per-lead list: every lead's derived status (**Not yet sent** → **Sent** → **Accepted** → **Replied**, derived from three date columns, never stored as its own redundant status string) and a label picker (see "Lead labels" below). Expandable past 5 rows.
 - **Add leads**: upload another CSV batch into an already-running campaign. Duplicates (matched by `linkedin_url`, case/whitespace-insensitive) are skipped automatically rather than re-queued, and a concurrent double-submit (two tabs, a double-click) is guarded against server-side so the second request doesn't silently clobber the first's newly-added leads.
 - Any alerts the admin team has posted against this specific campaign (see below) — except the automatic "you just edited this campaign" one, which is meant for the admin team's eyes, not the client's own.
@@ -67,7 +67,7 @@ Submitting uploads the lead CSV to private Storage, inserts the `campaigns` row,
 **Work queue** — every client's campaigns in one filterable list (by status), each showing an unresolved-alert indicator. Clicking one opens "Manage campaign":
 - The full brief (read-only from the admin's side — a client edits their own).
 - Status and progress, editable (`Submitted → In review → In setup → Live → Completed`).
-- **Performance metrics entry**, two ways: type the four numbers by hand, or upload the automation tool's own contact-export CSV for the campaign and let it be parsed automatically — connections sent/accepted/replied are counted from each lead's own date columns (`connectionRequestDate`/`connectedAt`/`lastReplyDetectedDate`) rather than trusted as a pre-aggregated total, and every individual lead's status is refreshed from the same file (upserted, keyed on `(campaign_id, linkedin_url)`, so re-uploading a later export updates existing rows instead of duplicating them). Positive replies stay a manual number, since the export doesn't cleanly encode "positive" vs. any reply.
+- **Performance metrics entry**, two ways: type the numbers by hand, or upload the contact-export CSV for the campaign and let it be parsed automatically — connections sent/accepted/replied are counted from each prospect's own date columns (`connectionRequestDate`/`connectedAt`/`lastReplyDetectedDate`) rather than trusted as a pre-aggregated total, and every individual prospect's status is refreshed from the same file (upserted, keyed on `(campaign_id, linkedin_url)`, so re-uploading a later export updates existing rows instead of duplicating them). Reply rate is calibrated directly from the data.
 - **Download this campaign's lead list** as the exact CSV the client uploaded, to import into the automation tool by hand.
 - **Replies and contact details**: the same contact-export upload also captures each lead's reply text, conversation link, job title, email, phone and location, shown to admin and client in the lead list (with stage filters and search). Re-uploading an export that doesn't carry one of those columns leaves the values stored earlier untouched.
 - **Automation link/push (API only)**: the admin API can still link a campaign to an automation-tool campaign and prospect list and push the lead CSV into it (`/api/admin/automation/*`, `push-to-automation`), but there is currently no UI for it and the integration isn't configured in production (`AUTOMATION_API_KEY` unset).
@@ -77,7 +77,7 @@ Submitting uploads the lead CSV to private Storage, inserts the `campaigns` row,
 
 Per client account, also: LinkedIn credential management (reveal the password or the submitted 2FA code — both a distinct, audited action, not a side effect of just opening the panel — request a fresh code, request phone approval, mark logged in, mark failed with a reason, or ask the client to log in again), and posting/resolving account-wide alerts.
 
-**Export** — every campaign as one CSV (name, client, status, progress, leads, sent/accepted, acceptance rate, replies/positive replies, reply rate), queried fresh at click time rather than reused from whatever the dashboard happened to have cached at page-load.
+**Export** — every campaign as one CSV (name, client, status, progress, prospects, sent/accepted, acceptance rate, replies, reply rate), queried fresh at click time rather than reused from whatever the dashboard happened to have cached at page-load.
 
 ## Architecture
 
