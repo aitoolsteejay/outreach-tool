@@ -521,7 +521,7 @@ ownership checks per id.
 ### 8.4 Export the client's leads
 ```
 Add "Download leads (CSV)" to the client's campaign detail, including: name,
-company, job title, stage, label name, reply text, conversation link, email,
+company, job title, stage, label name, reply text, email,
 phone, location. Use rowsToCsv from lib/csv.ts (it escapes properly). The export
 only contains the client's own campaign. Name the file after the campaign.
 ```

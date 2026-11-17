@@ -185,7 +185,7 @@ export type ContactExportSummary = { total: number; sent: number; accepted: numb
 export type ContactExportRow = {
   linkedinUrl: string; firstName: string; lastName: string; company: string;
   connectionRequestDate: string; connectedAt: string; repliedAt: string;
-  replyText?: string; conversationUrl?: string; jobTitle?: string;
+  replyText?: string; jobTitle?: string;
   email?: string; phone?: string; location?: string;
 };
 
@@ -195,7 +195,7 @@ export type ContactExportRow = {
 const EXPORT_COLUMNS = {
   linkedinUrl: "linkedinurl", firstName: "firstname", lastName: "lastname", company: "company_name",
   sent: "connectionrequestdate", accepted: "connectedat", replied: "lastreplydetecteddate",
-  reply: "lastreplydetected", conversationUrl: "linkedinconversationlink",
+  reply: "lastreplydetected",
   jobTitle: "job_title", occupation: "occupation",
   linkedinEmail: "linkedinemail", proEmail: "proemail",
   phone: "phonenumbers", location: "location",
@@ -212,7 +212,7 @@ const EXPORT_REQUIRED_COLUMNS: [key: keyof typeof EXPORT_COLUMNS, label: string]
 // behind the campaign's individual lead-status and replies view: a lead counts as sent
 // once it has a connection-request date, accepted once it has a
 // connected-at date, and replied once it has a last-reply-detected date.
-// Captures reply messages, direct conversation links, and contact info so
+// Captures reply messages and contact info (deliberately not the export's conversation link) so
 // both admins and clients can see and act on replies directly.
 // Admin re-uploads this export whenever they want a campaign refreshed,
 // rather than counting -- or copying per-lead status -- by hand.
@@ -225,7 +225,7 @@ export function parseContactExportCsv(text: string): { summary: ContactExportSum
   if (rows.length === 0) throw new Error("This export has no leads in it.");
   const sentIndex = indexOf("sent"), acceptedIndex = indexOf("accepted"), repliedIndex = indexOf("replied");
   const linkedinIndex = indexOf("linkedinUrl"), firstNameIndex = indexOf("firstName"), lastNameIndex = indexOf("lastName"), companyIndex = indexOf("company");
-  const replyIndex = indexOf("reply"), conversationIndex = indexOf("conversationUrl");
+  const replyIndex = indexOf("reply");
   const jobTitleIndex = indexOf("jobTitle"), occupationIndex = indexOf("occupation");
   const linkedinEmailIndex = indexOf("linkedinEmail"), proEmailIndex = indexOf("proEmail");
   const phoneIndex = indexOf("phone"), locationIndex = indexOf("location");
@@ -243,7 +243,6 @@ export function parseContactExportCsv(text: string): { summary: ContactExportSum
     // but is left out of the per-lead list rather than stored unreachably.
     if (linkedinUrl) {
       const replyText = cell(row, replyIndex);
-      const conversationUrl = cell(row, conversationIndex);
       const jobTitle = cell(row, jobTitleIndex) || cell(row, occupationIndex);
       const email = cell(row, linkedinEmailIndex) || cell(row, proEmailIndex);
       const phone = cell(row, phoneIndex);
@@ -257,7 +256,6 @@ export function parseContactExportCsv(text: string): { summary: ContactExportSum
         connectedAt,
         repliedAt,
         ...(replyText ? { replyText } : {}),
-        ...(conversationUrl ? { conversationUrl } : {}),
         ...(jobTitle ? { jobTitle } : {}),
         ...(email ? { email } : {}),
         ...(phone ? { phone } : {}),

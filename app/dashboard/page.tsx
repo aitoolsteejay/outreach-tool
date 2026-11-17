@@ -180,7 +180,6 @@ export default function Home() {
     repliedAt: string | null;
     categoryId: string | null;
     replyText?: string | null;
-    conversationUrl?: string | null;
     jobTitle?: string | null;
     email?: string | null;
     phone?: string | null;
@@ -664,7 +663,7 @@ export default function Home() {
       const [briefResult, leadStatusesResult, categoriesResult] = await Promise.all([
         supabase.schema("outreach").from("campaigns").select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies").eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
-          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,job_title,email,phone,location")
           .eq("campaign_id", campaign.id)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false }),
@@ -687,7 +686,7 @@ export default function Home() {
         setAdminLeadStatuses(leadStatusesResult.data.map((row) => ({
           id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
           connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
-          replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
+          replyText: row.reply_text, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
         })));
       }
       if (!categoriesResult.error && categoriesResult.data) {
@@ -731,7 +730,7 @@ export default function Home() {
         // slimmer export (e.g. one without the reply or phone columns) would
         // blank out values stored from an earlier, richer one. Omitting a key
         // from every row leaves that column untouched by the upsert.
-        const optionalFields = ["replyText", "conversationUrl", "jobTitle", "email", "phone", "location"] as const;
+        const optionalFields = ["replyText", "jobTitle", "email", "phone", "location"] as const;
         const present = new Set(optionalFields.filter((field) => leads.some((lead) => lead[field])));
         const rows = leads.map((lead) => ({
           campaign_id: campaignId, client_id: clientId, linkedin_url: lead.linkedinUrl,
@@ -740,7 +739,6 @@ export default function Home() {
           connected_at: lead.connectedAt || null,
           replied_at: lead.repliedAt || null,
           ...(present.has("replyText") ? { reply_text: lead.replyText || null } : {}),
-          ...(present.has("conversationUrl") ? { conversation_url: lead.conversationUrl || null } : {}),
           ...(present.has("jobTitle") ? { job_title: lead.jobTitle || null } : {}),
           ...(present.has("email") ? { email: lead.email || null } : {}),
           ...(present.has("phone") ? { phone: lead.phone || null } : {}),
@@ -753,7 +751,7 @@ export default function Home() {
 
         // Immediately refresh the admin's lead list view so they can see the replies and contacts right away
         const { data: refreshedLeads, error: refreshError } = await createClient().schema("outreach").from("lead_statuses")
-          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,job_title,email,phone,location")
           .eq("campaign_id", campaignId)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false });
@@ -762,7 +760,7 @@ export default function Home() {
           setAdminLeadStatuses(refreshedLeads.map((row) => ({
             id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
             connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
-            replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
+            replyText: row.reply_text, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
           })));
         }
       }
@@ -907,7 +905,7 @@ export default function Home() {
           .select("goal,offer,tone,messaging_strategy,connection_note,follow_up_count,follow_up_messages,follow_up_delay_days,connections_sent,connections_accepted,replies_received,positive_replies,submitted_at")
           .eq("id", campaign.id).single(),
         supabase.schema("outreach").from("lead_statuses")
-          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,conversation_url,job_title,email,phone,location")
+          .select("id,linkedin_url,first_name,last_name,company,connection_request_date,connected_at,replied_at,category_id,reply_text,job_title,email,phone,location")
           .eq("campaign_id", campaign.id)
           .order("replied_at", { ascending: false, nullsFirst: false })
           .order("connected_at", { ascending: false, nullsFirst: false }),
@@ -929,7 +927,7 @@ export default function Home() {
         setClientLeadStatuses((leadStatusesResult.data || []).map((row) => ({
           id: row.id, linkedinUrl: row.linkedin_url, firstName: row.first_name || "", lastName: row.last_name || "", company: row.company || "",
           connectionRequestDate: row.connection_request_date, connectedAt: row.connected_at, repliedAt: row.replied_at, categoryId: row.category_id,
-          replyText: row.reply_text, conversationUrl: row.conversation_url, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
+          replyText: row.reply_text, jobTitle: row.job_title, email: row.email, phone: row.phone, location: row.location,
         })));
       }
     } catch (error) {
@@ -1567,15 +1565,11 @@ export default function Home() {
                               </div>
                             )}
 
-                            {(lead.replyText || lead.conversationUrl) && (
+                            {lead.replyText && (
                               <div className="leadReplyBox">
                                 <div className="leadReplyHeader">
                                   <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>
-                                  {lead.conversationUrl ? (
-                                    <a href={safeHref(lead.conversationUrl)} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
-                                      Open conversation ↗
-                                    </a>
-                                  ) : lead.linkedinUrl ? (
+                                  {lead.linkedinUrl ? (
                                     <a href={safeHref(lead.linkedinUrl)} target="_blank" rel="noopener noreferrer" className="leadConversationLink">
                                       View on LinkedIn ↗
                                     </a>
@@ -1770,7 +1764,7 @@ export default function Home() {
                                 </div>
                               )}
 
-                              {(lead.replyText || lead.conversationUrl) && (
+                              {lead.replyText && (
                                 <div className="leadReplyBox">
                                   <div className="leadReplyHeader">
                                     <span>💬 Reply received {lead.repliedAt ? `· ${new Date(lead.repliedAt).toLocaleDateString()}` : ""}</span>

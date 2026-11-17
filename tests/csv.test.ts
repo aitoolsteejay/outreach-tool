@@ -166,13 +166,13 @@ test("parseContactExportCsv de-dupes leads by linkedin_url (case/whitespace-inse
   assert.equal(amara?.repliedAt, "2025-11-24");
 });
 
-test("parseContactExportCsv extracts reply text, conversation link, job title, and contact details", () => {
+test("parseContactExportCsv extracts reply text, job title, and contact details, and ignores any conversation link", () => {
   const csv = "firstName,lastName,company_name,linkedinUrl,occupation,location,linkedinEmail,phoneNumbers,connectedAt,connectionRequestDate,lastReplyDetectedDate,lastReplyDetected,linkedInConversationLink\n"
     + "Udaya Kumar,V.,Mac-N-Hom,https://linkedin.com/in/udaya,CMD,Kochi India,udaya@example.com,+919846121973,2026-10-23,2026-10-22,2026-10-23,\"Glad to connect, here is our catalog\",https://app.example.com/inbox/conversations/123\n";
   const { summary, leads } = parseContactExportCsv(csv);
   assert.deepEqual(summary, { total: 1, sent: 1, accepted: 1, replied: 1 });
   assert.equal(leads[0].replyText, "Glad to connect, here is our catalog");
-  assert.equal(leads[0].conversationUrl, "https://app.example.com/inbox/conversations/123");
+  assert.equal("conversationUrl" in leads[0], false);
   assert.equal(leads[0].jobTitle, "CMD");
   assert.equal(leads[0].email, "udaya@example.com");
   assert.equal(leads[0].phone, "+919846121973");
