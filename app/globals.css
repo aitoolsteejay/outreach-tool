@@ -468,3 +468,14 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .tagPickerMenu button:hover,.tagPickerMenu button.selected{background:#F5F1E8}
 .tagPickerMenu button span{flex:1}
 .tagPickerMenu button b{color:#0D9488;font-size:15px}
+
+/* Admin work queue: client picker, then that client's campaigns. */
+.adminClientRow{grid-template-columns:auto minmax(160px,1fr) auto auto}
+.adminClientStats{display:flex;gap:16px;align-items:center;color:var(--taupe);font-size:12px;font-weight:650}
+.adminClientStats b{color:var(--ink);font-size:14px;font-weight:900}
+.adminClientStats .needs{padding:4px 10px;border-radius:99px;background:#FEF3C7;color:#B45309}
+.adminClientStats .needs b{color:#B45309}
+.clientRevoked{margin-left:8px;padding:3px 8px;border-radius:99px;background:#FFEDD5;color:#B45309;font-size:9px;font-style:normal;font-weight:800}
+.backLink{display:inline-block;margin:0 0 12px;padding:0;border:0;background:none;color:var(--gold);font-size:12px;font-weight:800;cursor:pointer}
+.backLink:hover{color:var(--amber)}
+.campaignInfo strong svg{display:inline-block;vertical-align:-1px;margin-left:7px}
