@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/require-admin";
 import { VALID_ROLES } from "@/lib/roles";
+import { defaultLeadTagRows } from "@/lib/lead-tags";
 
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
     if (profileError) {
       if (createdNewAuthUser) await admin.auth.admin.deleteUser(userId).catch(() => {});
       throw profileError;
+    }
+    // Best-effort: give a client the standard prospect tags right away (a no-op
+    // for tags they already have). Failing here must not fail account creation.
+    if (role === "client") {
+      await admin.schema("outreach").from("lead_categories").upsert(defaultLeadTagRows(userId), { onConflict: "client_id,name", ignoreDuplicates: true });
     }
     return NextResponse.json({ id: userId, email: normalizedEmail, role, existing: Boolean(existingUserId) });
   } catch (error) {

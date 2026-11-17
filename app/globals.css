@@ -355,7 +355,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .leadStatusPill.sent{color:#0F766E;background:#E6F6F3}
 .leadStatusPill.accepted{color:#1F8F5D;background:#E4F7ED}
 .leadStatusPill.replied{color:#B45309;background:#FEF3C7}
-.leadCategorySelect{display:inline-block!important;width:auto!important;flex:none;max-width:115px;margin-top:0!important;border:1px solid var(--border)!important;border-radius:99px!important;background-color:#fff!important;padding:5px 22px 5px 10px!important;font-size:9px!important;font-weight:800;color:var(--taupe);cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23969d98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+.leadCategorySelect{display:inline-block!important;width:auto!important;flex:none;max-width:210px;margin-top:0!important;border:1px solid var(--border)!important;border-radius:99px!important;background-color:#fff!important;padding:5px 22px 5px 10px!important;font-size:9px!important;font-weight:800;color:var(--taupe);cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23969d98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
 .leadCategorySelect:disabled{opacity:.5;cursor:wait}
 .leadMetaDetails{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:11px;color:var(--taupe);line-height:1.4}
 .leadMetaChip{display:inline-flex;align-items:center;gap:4px}
@@ -452,3 +452,6 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .adminChecklist b{color:#FCD34D;border-color:#ffffff40}
 .adminPanel>.primary{background:#fff;color:#0F766E;box-shadow:none}
 .adminPanel>.primary:hover{background:linear-gradient(135deg,#E8920F,#B45309);color:#fff}
+
+/* Read-only prospect tag shown to clients (only the Myntmore team assigns tags). */
+.leadCategoryBadge{display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:#fff;font-size:10px;font-weight:800;white-space:nowrap}

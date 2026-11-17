@@ -526,14 +526,18 @@ phone, location. Use rowsToCsv from lib/csv.ts (it escapes properly). The export
 only contains the client's own campaign. Name the file after the campaign.
 ```
 
-### 8.5 Lead labels: defaults, colors, limits
+### 8.5 Prospect tags: change the tag list
 ```
-Change the lead label system: <default labels to seed, e.g. Hot / Warm / Cold /
-Not interested>, <palette to offer>, <maximum number of labels, e.g. 10>.
-Remember: defaults are seeded in TWO places (the migration backfill and the
-workspace-load effect in app/dashboard/page.tsx, plus the admin-side seeding when
-opening a campaign). Existing clients keep their old labels; tell me how to
-handle that if I want them migrated.
+Prospect tags are a fixed set of 12, applied only by admins; clients see them
+read-only. The list lives in lib/lead-tags.ts (DEFAULT_LEAD_TAGS) and is mirrored
+in supabase/migrations/20261117000000_standard_lead_tags.sql.
+Change the tag set to: <LIST OF TAGS WITH COLORS>.
+Do: update lib/lead-tags.ts; write a NEW migration (never edit the old one) that
+inserts the new tags for every client (on conflict do nothing), renames tags that
+are only being renamed (so existing assignments survive), and deletes retired
+tags ONLY where no prospect uses them; keep the RLS (clients read, admins manage).
+Remind me to run the migration. New clients get the tags from the admin
+create-user route; existing clients from the migration.
 ```
 
 ### 8.6 Notes on a lead

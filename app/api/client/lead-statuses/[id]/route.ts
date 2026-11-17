@@ -11,6 +11,8 @@ import { requireUser } from "@/lib/supabase/require-user";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUser(request);
   if (!auth.ok) return auth.response;
+  // Tags are applied by the Myntmore team only; clients see them read-only.
+  if (auth.role !== "admin") return NextResponse.json({ error: "Only the Myntmore team can change prospect tags." }, { status: 403 });
   const { id: leadStatusId } = await params;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request." }, { status: 400 });

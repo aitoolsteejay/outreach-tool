@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { defaultLeadTagRows } from "@/lib/lead-tags";
 import { LEAD_CSV_HEADERS, LEAD_FIELD_LABELS, LEAD_FIELD_REQUIRED, MAX_LEAD_FILE_BYTES, MissingHeadersError, buildLeadRowsFromMapping, describeColumnOptions, findMappingConflicts, guessColumnMapping, leadRowsToCsv, parseContactExportCsv, rowsToCsv, validateAndParseLeadsCsv, type ColumnMapping, type LeadField } from "@/lib/csv";
 
 type Campaign = { id: string; name: string; audience: string; status: string; progress: number; client?: string; clientId?: string; submittedAt?: string; connectionsSent: number; connectionsAccepted: number; repliesReceived: number };
@@ -11,12 +12,6 @@ type Account = { id: string; fullName: string; email: string; role: string; crea
 type Alert = { id: string; clientId: string; campaignId: string | null; leadReference: string | null; severity: string; message: string; resolved: boolean; createdAt: string; createdBy: string | null };
 
 const STATUS_OPTIONS = ["Submitted", "In review", "In setup", "Live", "Completed"];
-
-// Preset swatches for lead categories (Hot/Cold/etc) -- a fixed palette
-// rather than a free-form color picker, so every client's labels stay
-// visually consistent with the rest of the app instead of introducing
-// arbitrary colors.
-const LEAD_CATEGORY_COLORS = ["#C2410C", "#3B5BDB", "#1F8F5D", "#6D3FD1", "#B42318", "#0F766E", "#A16207", "#656c68"];
 
 // Default gap (in days) before each follow-up goes out -- a reasonable
 // cold-outreach cadence to start from, not a constraint on what a client
@@ -204,13 +199,6 @@ export default function Home() {
   // stage above (Sent/Accepted/Replied), which stays admin-authoritative.
   type LeadCategory = { id: string; name: string; color: string; position: number };
   const [leadCategories, setLeadCategories] = useState<LeadCategory[]>([]);
-  const [leadCategorySavingId, setLeadCategorySavingId] = useState<string | null>(null);
-  const [leadCategoryError, setLeadCategoryError] = useState("");
-  const [showLeadCategorySettings, setShowLeadCategorySettings] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryColor, setNewCategoryColor] = useState("#C2410C");
-  const [categorySettingsError, setCategorySettingsError] = useState("");
-  const [categorySettingsSaving, setCategorySettingsSaving] = useState(false);
   const [clientCampaignDeleting, setClientCampaignDeleting] = useState(false);
   const [clientCampaignDeleteError, setClientCampaignDeleteError] = useState("");
   const [clientCampaignConfirmDelete, setClientCampaignConfirmDelete] = useState(false);
@@ -413,14 +401,6 @@ export default function Home() {
         if (profileRow.role === "client") {
           if (categoriesResult.data && categoriesResult.data.length > 0) {
             setLeadCategories(categoriesResult.data.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
-          } else {
-            // First time this client has ever loaded the workspace with the
-            // feature live -- the migration backfilled existing clients,
-            // but this covers anyone created after it ran.
-            const { data: seeded } = await supabase.schema("outreach").from("lead_categories")
-              .insert([{ client_id: data.user.id, name: "Hot", color: "#C2410C", position: 0 }, { client_id: data.user.id, name: "Cold", color: "#3B5BDB", position: 1 }])
-              .select("id,name,color,position");
-            if (seeded) setLeadCategories(seeded.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
           }
         }
       } catch (error) { setWorkspaceError(error instanceof Error ? error.message : "Unable to load the workspace."); }
@@ -694,7 +674,7 @@ export default function Home() {
           setAdminLeadCategories((categoriesResult.data as LeadCategory[]).map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
         } else if (clientId) {
           const { data: seeded } = await supabase.schema("outreach").from("lead_categories")
-            .insert([{ client_id: clientId, name: "Hot", color: "#C2410C", position: 0 }, { client_id: clientId, name: "Cold", color: "#3B5BDB", position: 1 }])
+            .insert(defaultLeadTagRows(clientId))
             .select("id,name,color,position");
           if (activeManageCampaignIdRef.current !== campaign.id) return;
           if (seeded) setAdminLeadCategories(seeded.map((row) => ({ id: row.id, name: row.name, color: row.color, position: row.position })));
@@ -889,7 +869,6 @@ export default function Home() {
     setClientLeadStageFilter("all");
     setClientLeadCategoryFilter("all");
     setClientLeadSearch("");
-    setLeadCategoryError("");
     setEditingCampaign(false);
     setEditCampaignError("");
     setEditCampaignSaving(false);
@@ -999,98 +978,6 @@ export default function Home() {
       if (activeClientCampaignIdRef.current !== campaignId) return;
       setEditCampaignError(error instanceof Error ? error.message : "Unable to save these changes.");
     } finally { if (activeClientCampaignIdRef.current === campaignId) setEditCampaignSaving(false); }
-  }
-  // Sets (or clears, via categoryId=null) which category a lead is tagged
-  // with. Applied optimistically -- the dropdown updates immediately -- and
-  // rolled back if the PATCH fails, since this is a small enough change
-  // that waiting on the network before showing it would feel laggy for
-  // something this lightweight.
-  async function chooseLeadCategory(leadStatusId: string, categoryId: string | null) {
-    const previous = clientLeadStatuses.find((lead) => lead.id === leadStatusId)?.categoryId ?? null;
-    setLeadCategorySavingId(leadStatusId);
-    setLeadCategoryError("");
-    setClientLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId } : lead));
-    try {
-      const headers = await authHeader();
-      const response = await fetch(`/api/client/lead-statuses/${leadStatusId}`, { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ categoryId }) });
-      const data = await readJson<{ error?: string }>(response);
-      if (!response.ok) throw new Error(data.error || "Unable to save this category.");
-    } catch (error) {
-      setClientLeadStatuses((current) => current.map((lead) => lead.id === leadStatusId ? { ...lead, categoryId: previous } : lead));
-      setLeadCategoryError(error instanceof Error ? error.message : "Unable to save this category.");
-    } finally { setLeadCategorySavingId(null); }
-  }
-  function openLeadCategorySettings() {
-    setNewCategoryName("");
-    setNewCategoryColor(LEAD_CATEGORY_COLORS[0]);
-    setCategorySettingsError("");
-    setShowLeadCategorySettings(true);
-  }
-  async function addLeadCategory() {
-    const trimmedName = newCategoryName.trim();
-    if (!trimmedName) { setCategorySettingsError("Give this category a name."); return; }
-    if (leadCategories.some((category) => category.name.toLowerCase() === trimmedName.toLowerCase())) {
-      setCategorySettingsError("You already have a category with this name.");
-      return;
-    }
-    setCategorySettingsSaving(true);
-    setCategorySettingsError("");
-    try {
-      const { data, error } = await createClient().schema("outreach").from("lead_categories").insert({
-        client_id: userId, name: trimmedName, color: newCategoryColor, position: leadCategories.length,
-      }).select("id,name,color,position").single();
-      if (error || !data) throw new Error(error?.message || "Unable to add this category.");
-      setLeadCategories((current) => [...current, data]);
-      setNewCategoryName("");
-    } catch (error) {
-      setCategorySettingsError(error instanceof Error ? error.message : "Unable to add this category.");
-    } finally { setCategorySettingsSaving(false); }
-  }
-  function updateLeadCategoryField(id: string, field: "name" | "color", value: string) {
-    setLeadCategories((current) => current.map((category) => category.id === id ? { ...category, [field]: value } : category));
-  }
-  // `overrides` lets a caller that just fired an optimistic
-  // updateLeadCategoryField pass the new value straight through, instead of
-  // this function re-reading `leadCategories` -- React batches that state
-  // update, so a color-swatch click (which calls updateLeadCategoryField and
-  // this function back to back in the same synchronous handler) would
-  // otherwise still see the PREVIOUS color here and commit that to the
-  // database, silently reverting on the next reload despite the UI already
-  // showing the new one.
-  async function commitLeadCategoryUpdate(id: string, overrides?: Partial<Pick<LeadCategory, "name" | "color">>) {
-    const category = leadCategories.find((current) => current.id === id);
-    if (!category) return;
-    const trimmedName = (overrides?.name ?? category.name).trim();
-    const color = overrides?.color ?? category.color;
-    if (!trimmedName) { setCategorySettingsError("A category needs a name."); return; }
-    if (leadCategories.some((other) => other.id !== id && other.name.toLowerCase() === trimmedName.toLowerCase())) {
-      setCategorySettingsError("You already have a category with this name.");
-      return;
-    }
-    setCategorySettingsSaving(true);
-    setCategorySettingsError("");
-    try {
-      const { error } = await createClient().schema("outreach").from("lead_categories").update({ name: trimmedName, color }).eq("id", id);
-      if (error) throw new Error(error.message);
-    } catch (error) {
-      setCategorySettingsError(error instanceof Error ? error.message : "Unable to save this category.");
-    } finally { setCategorySettingsSaving(false); }
-  }
-  async function deleteLeadCategory(id: string) {
-    setCategorySettingsSaving(true);
-    setCategorySettingsError("");
-    try {
-      const { error } = await createClient().schema("outreach").from("lead_categories").delete().eq("id", id);
-      if (error) throw new Error(error.message);
-      setLeadCategories((current) => current.filter((category) => category.id !== id));
-      // The FK's own "on delete set null" already cleared category_id in
-      // the database for any lead that had this category -- mirror that
-      // here too so an open campaign modal's Leads list doesn't keep
-      // showing a category that no longer exists until it's reopened.
-      setClientLeadStatuses((current) => current.map((lead) => lead.categoryId === id ? { ...lead, categoryId: null } : lead));
-    } catch (error) {
-      setCategorySettingsError(error instanceof Error ? error.message : "Unable to delete this category.");
-    } finally { setCategorySettingsSaving(false); }
   }
   async function deleteClientCampaign() {
     if (!clientCampaignModal) return;
@@ -1251,7 +1138,7 @@ export default function Home() {
     <main className={`shell ${isAdmin ? "adminShell" : ""}`}>
       <aside className="sidebar">
         <div className="brand brandAsset"><Image src="/myntmore-logo.png" alt="Myntmore" width={2058} height={1336} priority /></div>
-        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload prospects</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button><button className="navItem navButton" onClick={openLeadCategorySettings}><span><Icon name="tag" /></span> Prospect labels</button></>}</nav>
+        <nav aria-label="Main navigation">{isAdmin ? <><button className={`navItem navButton ${adminView === "campaigns" ? "active" : ""}`} onClick={() => setAdminView("campaigns")}><span><Icon name="grid" /></span> Campaign operations</button><button className={`navItem navButton ${adminView === "users" ? "active" : ""}`} onClick={() => setAdminView("users")}><span><Icon name="users" /></span> User accounts</button></> : <><a className="navItem active" href="#campaigns"><span><Icon name="grid" /></span> Campaigns</a><button className="navItem navButton" onClick={() => { openWizard(); setStep(2); }}><span><Icon name="users" /></span> Upload prospects</button><button className="navItem navButton" onClick={downloadTemplate}><span><Icon name="file" /></span> Download template</button></>}</nav>
         <div className="sidebarInsight">
           <div className="sidebarInsightHead"><span><Icon name={isAdmin ? "eye" : "trendUp"} size={15} /></span><div><strong>{isAdmin ? "Needs attention" : "This month"}</strong><small>Workspace pulse</small></div></div>
           <div className="sidebarInsightStats">
@@ -1678,9 +1565,8 @@ export default function Home() {
                       )}
                     </div>
                     <p className="modalIntro">
-                      Status for each prospect in this campaign, current as of your last metrics update. Tag a prospect with your own label from the dropdown -- manage your labels from <button type="button" className="inlineLink" onClick={openLeadCategorySettings}>Prospect labels</button> in the sidebar.
+                      Status for each prospect in this campaign, current as of your last metrics update. Your Myntmore team tags prospects with labels such as Hot or Cold for you.
                     </p>
-                    {leadCategoryError && <p className="formError" role="alert">{leadCategoryError}</p>}
 
                     <div className="leadFilterBar">
                       <div className="leadFilterRow">
@@ -1738,19 +1624,7 @@ export default function Home() {
                                 </div>
                                 <div className="leadStatusActions">
                                   <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
-                                  <select
-                                    className="leadCategorySelect"
-                                    value={lead.categoryId || ""}
-                                    disabled={leadCategorySavingId === lead.id}
-                                    style={category ? { color: category.color, borderColor: category.color } : undefined}
-                                    aria-label={`Label for ${name}`}
-                                    onChange={(e) => chooseLeadCategory(lead.id, e.target.value || null)}
-                                  >
-                                    <option value="">Unlabeled</option>
-                                    {leadCategories.map((option) => (
-                                      <option key={option.id} value={option.id}>{option.name}</option>
-                                    ))}
-                                  </select>
+                                  {category && <span className="leadCategoryBadge" style={{ color: category.color, borderColor: category.color }}>{category.name}</span>}
                                 </div>
                               </div>
 
@@ -1903,43 +1777,6 @@ export default function Home() {
               ))}
             </div>
             <div className="faqContact"><span>Still stuck?</span><a href="mailto:hello@myntmore.com">Email hello@myntmore.com <Icon name="arrowUpRight" size={13} /></a></div>
-          </div>
-        </section>
-      </div>}
-      {showLeadCategorySettings && <div className="modalBackdrop">
-        <button className="modalDismiss" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close prospect labels" />
-        <section className="modal accountModal" role="dialog" aria-modal="true" aria-labelledby="lead-categories-title">
-          <button className="close" onClick={() => setShowLeadCategorySettings(false)} aria-label="Close prospect labels">×</button>
-          <div className="modalBody">
-            <p className="eyebrow">YOUR SETTINGS</p>
-            <h2 id="lead-categories-title">Prospect labels.</h2>
-            <p className="modalIntro">Tag prospects across every campaign as Hot, Cold, or however you want to track them. Rename, recolor, or remove a label any time -- prospects using it just go back to unlabeled.</p>
-            <div className="categoryList">
-              {leadCategories.map((category) => (
-                <div className="categoryRow" key={category.id}>
-                  <div className="categorySwatches">
-                    {LEAD_CATEGORY_COLORS.map((color) => (
-                      <button type="button" key={color} className={`categorySwatch ${category.color === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Set ${category.name} to this color`} onClick={() => { updateLeadCategoryField(category.id, "color", color); void commitLeadCategoryUpdate(category.id, { color }); }} />
-                    ))}
-                  </div>
-                  <input value={category.name} onChange={(e) => updateLeadCategoryField(category.id, "name", e.target.value)} onBlur={() => commitLeadCategoryUpdate(category.id)} aria-label="Label name" />
-                  <button type="button" className="categoryDelete" aria-label={`Delete ${category.name}`} disabled={categorySettingsSaving} onClick={() => deleteLeadCategory(category.id)}>×</button>
-                </div>
-              ))}
-              {leadCategories.length === 0 && <p className="modalIntro">No labels yet -- add your first one below.</p>}
-            </div>
-            <div className="sectionDivider" />
-            <h3 className="modalSectionTitle">Add a label</h3>
-            <div className="categorySwatches" style={{ marginTop: 12 }}>
-              {LEAD_CATEGORY_COLORS.map((color) => (
-                <button type="button" key={color} className={`categorySwatch ${newCategoryColor === color ? "selected" : ""}`} style={{ background: color }} aria-label={`Choose color ${color}`} onClick={() => setNewCategoryColor(color)} />
-              ))}
-            </div>
-            <div className="categoryAddRow">
-              <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="e.g. Warm, Not now, VIP" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void addLeadCategory(); } }} />
-              <button type="button" className="secondary" disabled={categorySettingsSaving} onClick={addLeadCategory}>{categorySettingsSaving ? "Saving…" : "Add"}</button>
-            </div>
-            {categorySettingsError && <p className="formError" role="alert">{categorySettingsError}</p>}
           </div>
         </section>
       </div>}
