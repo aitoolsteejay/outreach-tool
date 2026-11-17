@@ -67,6 +67,59 @@ async function readJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+// Custom dropdown for assigning a prospect tag. A native <select> can't show
+// per-option colors, and the tags are only useful if you can tell them apart at
+// a glance, so each option (and the closed button) shows its color.
+function TagPicker({ value, options, onChange, disabled, label }: { value: string; options: { id: string; name: string; color: string }[]; onChange: (id: string) => void; disabled?: boolean; label: string }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 360 });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const all = [{ id: "", name: "Unlabeled", color: "#8A8578" }, ...options];
+  const selected = all.find((option) => option.id === value) || all[0];
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); window.removeEventListener("keydown", onKey); };
+  }, [open]);
+  function toggle() {
+    if (disabled) return;
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const wanted = all.length * 44 + 12;
+      const spaceBelow = window.innerHeight - rect.bottom - 12;
+      const below = spaceBelow >= Math.min(wanted, 280);
+      const maxHeight = Math.min(wanted, below ? spaceBelow : rect.top - 12);
+      setPos({ top: below ? rect.bottom + 4 : Math.max(8, rect.top - maxHeight - 4), left: Math.max(8, Math.min(rect.left, window.innerWidth - 298)), maxHeight });
+    }
+    setOpen((current) => !current);
+  }
+  return (
+    <>
+      <button ref={buttonRef} type="button" className="tagPickerButton" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={label} style={{ color: selected.color, borderColor: value ? selected.color : undefined }} onClick={toggle}>
+        <i style={{ background: selected.color }} />
+        <span>{selected.name}</span>
+        <b aria-hidden="true">▾</b>
+      </button>
+      {open && <>
+        <button type="button" className="tagPickerBackdrop" aria-label="Close tag list" onClick={() => setOpen(false)} />
+        <div className="tagPickerMenu" role="listbox" aria-label={label} style={{ top: pos.top, left: pos.left, maxHeight: pos.maxHeight }}>
+          {all.map((option) => (
+            <button key={option.id || "none"} type="button" role="option" aria-selected={option.id === value} className={option.id === value ? "selected" : ""} onClick={() => { setOpen(false); if (option.id !== value) onChange(option.id); }}>
+              <i style={{ background: option.color }} />
+              <span>{option.name}</span>
+              {option.id === value && <b aria-hidden="true">✓</b>}
+            </button>
+          ))}
+        </div>
+      </>}
+    </>
+  );
+}
+
 function Ring({ percent, track, indicator, size = 96 }: { percent: number; track: string; indicator: string; size?: number }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
@@ -1410,7 +1463,6 @@ export default function Home() {
                         const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Unnamed prospect";
                         const stage = lead.repliedAt ? "Replied" : lead.connectedAt ? "Accepted" : lead.connectionRequestDate ? "Sent" : "Not yet sent";
                         const stageClass = lead.repliedAt ? "replied" : lead.connectedAt ? "accepted" : lead.connectionRequestDate ? "sent" : "pending";
-                        const category = adminLeadCategories.find((current) => current.id === lead.categoryId);
                         return (
                           <div className="leadStatusRow" key={lead.id || lead.linkedinUrl}>
                             <div className="leadStatusHeader">
@@ -1426,19 +1478,7 @@ export default function Home() {
                               </div>
                               <div className="leadStatusActions">
                                 <span className={`leadStatusPill ${stageClass}`}>{stage}</span>
-                                <select
-                                  className="leadCategorySelect"
-                                  value={lead.categoryId || ""}
-                                  disabled={adminLeadCategorySavingId === lead.id}
-                                  style={category ? { color: category.color, borderColor: category.color } : undefined}
-                                  aria-label={`Label for ${name}`}
-                                  onChange={(e) => chooseAdminLeadCategory(lead.id, e.target.value || null)}
-                                >
-                                  <option value="">Unlabeled</option>
-                                  {adminLeadCategories.map((option) => (
-                                    <option key={option.id} value={option.id}>{option.name}</option>
-                                  ))}
-                                </select>
+                                <TagPicker value={lead.categoryId || ""} options={adminLeadCategories} disabled={adminLeadCategorySavingId === lead.id} label={`Tag for ${name}`} onChange={(id) => chooseAdminLeadCategory(lead.id, id || null)} />
                               </div>
                             </div>
 
