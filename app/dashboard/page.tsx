@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { defaultLeadTagRows } from "@/lib/lead-tags";
@@ -69,7 +70,10 @@ async function readJson<T>(response: Response): Promise<T> {
 
 // Custom dropdown for assigning a prospect tag. A native <select> can't show
 // per-option colors, and the tags are only useful if you can tell them apart at
-// a glance, so each option (and the closed button) shows its color.
+// a glance, so each option (and the closed button) shows its color. The menu
+// is rendered into document.body: the dashboard's full-page dialog has a
+// backdrop-filter, which makes position:fixed children position relative to
+// the dialog instead of the screen (that pushed the menu off the right edge).
 function TagPicker({ value, options, onChange, disabled, label }: { value: string; options: { id: string; name: string; color: string }[]; onChange: (id: string) => void; disabled?: boolean; label: string }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 360 });
@@ -104,7 +108,7 @@ function TagPicker({ value, options, onChange, disabled, label }: { value: strin
         <span>{selected.name}</span>
         <b aria-hidden="true">▾</b>
       </button>
-      {open && <>
+      {open && createPortal(<>
         <button type="button" className="tagPickerBackdrop" aria-label="Close tag list" onClick={() => setOpen(false)} />
         <div className="tagPickerMenu" role="listbox" aria-label={label} style={{ top: pos.top, left: pos.left, maxHeight: pos.maxHeight }}>
           {all.map((option) => (
@@ -115,7 +119,7 @@ function TagPicker({ value, options, onChange, disabled, label }: { value: strin
             </button>
           ))}
         </div>
-      </>}
+      </>, document.body)}
     </>
   );
 }

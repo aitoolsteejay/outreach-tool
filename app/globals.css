@@ -341,7 +341,7 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;font-family
 .expandToggle:hover{border-color:var(--gold);color:var(--ink)}
 .leadStatusList{margin-top:16px;max-height:440px;overflow-y:auto;border:1px solid var(--border);border-radius:13px;transition:max-height .25s ease}
 .leadStatusList.expanded{max-height:none}
-.leadStatusRow{padding:13px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.leadStatusRow{padding:18px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
 .leadStatusRow:first-child{border-top:0}
 .leadStatusHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .leadStatusName{min-width:0;flex:1}
